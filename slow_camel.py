@@ -22,20 +22,21 @@ PromptLayer = bella.PromptLayer
 DelayedPromptLayer = bella.DelayedPromptLayer
 Models = bella.Models
 
+GetSubjects = PromptLayer(
+  system_prompt="Generate a diverse list of 10 subjects. Keep it high-level (e.g. Math, Science)",
+  response_format=Subjects, model_name=Models.GPT_4O)
+
+GetSubSubjects = PromptLayer(
+  system_prompt="For the given subject, generate 3 diverse sub-subjects.",
+  response_format=Subjects, model_name=Models.GPT_4O)
+
+QAPrompt = PromptLayer(
+  system_prompt="For the given subject, generate 3 diverse questions and answers.",
+  response_format=QAList, model_name=Models.GPT_4O_MINI)
+
 
 def slow_camel():
-  GetSubjects = PromptLayer(
-    system_prompt="Generate a diverse list of 10 subjects. Keep it high-level (e.g. Math, Science)",
-    response_format=Subjects, model_name=Models.GPT_4O)
-
-  GetSubSubjects = PromptLayer(
-    system_prompt="For the given subject, generate 3 diverse sub-subjects.",
-    response_format=Subjects, model_name=Models.GPT_4O)
-
-  QAPrompt = PromptLayer(
-    system_prompt="For the given subject, generate 3 diverse questions and answers.",
-    response_format=QAList, model_name=Models.GPT_4O_MINI)
-
+  """All calls are sequential."""
   subjects = GetSubjects()  
   d = {}
   for subject in subjects.subjects:
