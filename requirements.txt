@@ -1,6 +1,0 @@
-litellm
-openai
-instructor
-cloudpickle>=3.1.0
-dask>=2024.10.0
-pydantic>=2.9.2

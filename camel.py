@@ -15,7 +15,7 @@ class QA(BaseModel):
 
 
 async def camelai(model):
-    # Generate initial subjects
+    # Generate initial subjects.
     subject_dataset = (
         await Dataset.empty().completions(
             model_name=model,
@@ -27,7 +27,7 @@ async def camelai(model):
         )
     ).flatten()
 
-    # Generate subsubjects
+    # Generate subsubjects.
     subsubject_dataset = (
         await subject_dataset.completions(
             model_name=model,
@@ -40,7 +40,7 @@ async def camelai(model):
         )
     ).flatten()
 
-    # Generate QA pairs
+    # Generate QA pairs.
     qa_dataset = (
         await subsubject_dataset.completions(
             model_name=model,
