@@ -1,8 +1,9 @@
+"""Bella: Bespoke Labs Synthetic Data Generation Library."""
+
 import asyncio
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 
 import instructor
-import openai
 import pandas as pd
 from datasets import Dataset as HFDataset
 from IPython.display import HTML, display
@@ -16,11 +17,13 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class ListModel(BaseModel, Generic[T]):
-    model_config = ConfigDict(title="ListResponse")  # This sets a valid schema name
+    """A list of items to be used as a response format."""
+    model_config = ConfigDict(title="ListResponse")  # This sets a valid schema name.
     items: List[T] = Field(description="List of items")
 
 
 class Dataset(HFDataset):
+    """A wrapper around a Hugging Face Dataset with extra functionality for data generation."""
     initialized: bool = True
     _list_columns: List[str] = []
 
@@ -92,6 +95,8 @@ class Dataset(HFDataset):
             response_format: Pydantic model defining the response structure
             output_column: Name of the column to store the response
             keep_columns: Whether to keep original columns in the output dataset
+            verbose: Whether to show a progress bar
+            name: Name of the task
 
         Returns:
             A new Dataset with the completions added
@@ -101,11 +106,10 @@ class Dataset(HFDataset):
             keep_columns = False
             self.initialized = True
 
-        # Initialize clients
+        # Initialize client.
         litellm_client = instructor.from_litellm(litellm_acompletion)
-        openai_client = openai.AsyncOpenAI()
 
-        # Create Jinja2 templates
+        # Create Jinja2 templates.
         system_template = Template(system_prompt)
         user_template = Template(user_prompt)
 
@@ -129,7 +133,7 @@ class Dataset(HFDataset):
 
         rows = [dict(row) for row in self]
 
-        # Gather all API calls with progress bar if verbose
+        # Gather all API calls with progress bar if verbose.
         if verbose:
             responses = await tqdm_async.gather(
                 *[call_api(row) for row in rows],
@@ -144,10 +148,10 @@ class Dataset(HFDataset):
         else:
             responses = await asyncio.gather(*[call_api(row) for row in rows])
 
-        # Process responses into a flat dictionary structure
+        # Process responses into a flat dictionary structure.
         processed_rows = []
 
-        # Use regular tqdm for synchronous processing
+        # Use regular tqdm for synchronous processing.
         response_iterator = (
             tqdm(
                 zip(rows, responses),
