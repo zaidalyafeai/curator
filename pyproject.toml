@@ -9,12 +9,13 @@ readme = "README.md"
 python = "^3.10"
 litellm = "*"
 openai = "*"
-instructor = "*"
-cloudpickle = ">=3.1.0"
-dask = ">=2024.10.0"
 pydantic = ">=2.9.2"
 datasets = "^3.0.2"
 ipython = "^8.29.0"
+instructor = "^1.6.3"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.2.0"
 
 [build-system]
 requires = ["poetry-core"]

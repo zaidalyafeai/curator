@@ -12,18 +12,20 @@ from pydantic import BaseModel, ConfigDict, Field
 from tqdm import tqdm
 from tqdm.asyncio import tqdm as tqdm_async
 
-T = TypeVar('T', bound=BaseModel)
+T = TypeVar("T", bound=BaseModel)
+
 
 class ListModel(BaseModel, Generic[T]):
     model_config = ConfigDict(title="ListResponse")  # This sets a valid schema name
     items: List[T] = Field(description="List of items")
+
 
 class Dataset(HFDataset):
     initialized: bool = True
     _list_columns: List[str] = []
 
     @classmethod
-    def empty(cls) -> 'Dataset':
+    def empty(cls) -> "Dataset":
         dataset = cls.from_list([])
         dataset.initialized = False
         dataset._list_columns = []
@@ -32,7 +34,7 @@ class Dataset(HFDataset):
     def display(self):
         display(HTML(self.to_pandas().to_html()))
 
-    def flatten(self) -> 'Dataset':
+    def flatten(self) -> "Dataset":
         """Flatten any list columns in the dataset"""
         if not self._list_columns:
             return self
@@ -40,13 +42,17 @@ class Dataset(HFDataset):
         flattened_rows = []
         for row in self:
             row_dict = dict(row)
-            list_values = {col: row_dict[col] for col in self._list_columns if col in row_dict}
+            list_values = {
+                col: row_dict[col] for col in self._list_columns if col in row_dict
+            }
 
             if not any(isinstance(v, list) for v in list_values.values()):
                 flattened_rows.append(row_dict)
                 continue
 
-            max_length = max(len(v) for v in list_values.values() if isinstance(v, list))
+            max_length = max(
+                len(v) for v in list_values.values() if isinstance(v, list)
+            )
 
             for i in range(max_length):
                 new_row = {}
@@ -62,7 +68,7 @@ class Dataset(HFDataset):
         dataset._list_columns = []
         return dataset
 
-    def flatten_objects(self) -> 'Dataset':
+    def flatten_objects(self) -> "Dataset":
         return super(Dataset, self).flatten()
 
     async def completions(
@@ -74,8 +80,8 @@ class Dataset(HFDataset):
         output_column: str,
         keep_columns: bool = True,
         verbose: bool = True,
-        name: Optional[str] = None
-    ) -> 'Dataset':
+        name: Optional[str] = None,
+    ) -> "Dataset":
         """
         Apply structured completions to the dataset using specified model and prompts.
 
@@ -103,7 +109,6 @@ class Dataset(HFDataset):
         system_template = Template(system_prompt)
         user_template = Template(user_prompt)
 
-
         async def litellm_call_with_instructor(row: Dict[str, Any]) -> Any:
             rendered_system = system_template.render(**row)
             rendered_user = user_template.render(**row)
@@ -128,7 +133,11 @@ class Dataset(HFDataset):
         if verbose:
             responses = await tqdm_async.gather(
                 *[call_api(row) for row in rows],
-                desc=f"Making API calls for {name}" if name is not None else  "Making API calls",
+                desc=(
+                    f"Making API calls for {name}"
+                    if name is not None
+                    else "Making API calls"
+                ),
                 total=len(rows),
                 miniters=1,
             )
@@ -139,11 +148,19 @@ class Dataset(HFDataset):
         processed_rows = []
 
         # Use regular tqdm for synchronous processing
-        response_iterator = tqdm(
-            zip(rows, responses),
-            desc=f"Processing responses for {name}" if name is not None else  "Processing responses",
-            total=len(rows)
-        ) if verbose else zip(rows, responses)
+        response_iterator = (
+            tqdm(
+                zip(rows, responses),
+                desc=(
+                    f"Processing responses for {name}"
+                    if name is not None
+                    else "Processing responses"
+                ),
+                total=len(rows),
+            )
+            if verbose
+            else zip(rows, responses)
+        )
 
         for original_row, response in response_iterator:
             new_row = {}
@@ -151,10 +168,15 @@ class Dataset(HFDataset):
                 new_row.update(original_row)
 
             if isinstance(response, ListModel):
-                new_row[output_column] = [item.dict() if isinstance(item, BaseModel) else item for item in response.items]
+                new_row[output_column] = [
+                    item.dict() if isinstance(item, BaseModel) else item
+                    for item in response.items
+                ]
                 self._list_columns.append(output_column)
             else:
-                new_row[output_column] = response.dict() if isinstance(response, BaseModel) else response
+                new_row[output_column] = (
+                    response.dict() if isinstance(response, BaseModel) else response
+                )
 
             processed_rows.append(new_row)
 
