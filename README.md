@@ -10,8 +10,14 @@ poetry install
 
 ### Usage
 
-To test the camel example:
+To run the camel example:
 
 ```bash
 poetry run python camel.py
+```
+
+Run the tests:
+
+```bash
+poetry run pytest
 ```

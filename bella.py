@@ -3,6 +3,8 @@
 import asyncio
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 
+from prompt import Prompter
+
 import instructor
 import pandas as pd
 from datasets import Dataset as HFDataset
@@ -76,10 +78,7 @@ class Dataset(HFDataset):
 
     async def completions(
         self,
-        model_name: str,
-        system_prompt: str,
-        user_prompt: str,
-        response_format: Type[BaseModel],
+        prompter: Prompter,
         output_column: str,
         keep_columns: bool = True,
         verbose: bool = True,
@@ -106,30 +105,7 @@ class Dataset(HFDataset):
             keep_columns = False
             self.initialized = True
 
-        # Initialize client.
-        litellm_client = instructor.from_litellm(litellm_acompletion)
-
-        # Create Jinja2 templates.
-        system_template = Template(system_prompt)
-        user_template = Template(user_prompt)
-
-        async def litellm_call_with_instructor(row: Dict[str, Any]) -> Any:
-            rendered_system = system_template.render(**row)
-            rendered_user = user_template.render(**row)
-
-            messages = [
-                {"role": "system", "content": rendered_system},
-                {"role": "user", "content": rendered_user},
-            ]
-
-            output = await litellm_client.chat.completions.create(
-                model=model_name,
-                messages=messages,
-                response_model=response_format,
-            )
-            return output
-
-        call_api = litellm_call_with_instructor
+        call_api = prompter.get_api_call_fn()
 
         rows = [dict(row) for row in self]
 
