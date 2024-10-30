@@ -4,6 +4,7 @@ from typing import Optional
 
 from prompt import PromptCaller
 
+
 class MockResponseFormat(BaseModel):
     """Mock response format for testing."""
     message: str
@@ -28,13 +29,13 @@ def prompt_caller() -> PromptCaller:
 
 
 @pytest.mark.asyncio
-async def test_prompt_caller_get_callapi(prompt_caller: PromptCaller):
-    """Test that get_callapi returns a callable function that processes prompts correctly.
+async def test_prompt_caller_get_api_call_fn(prompt_caller: PromptCaller):
+    """Test that get_api_call_fn returns a callable function that processes prompts correctly.
     
     Args:
         prompt_caller: Fixture providing a configured PromptCaller instance.
     """
-    call_api = prompt_caller.get_api_call_fn()
+    call_api_fn = prompt_caller.get_api_call_fn()
     
     # Test input data
     row = {
@@ -43,7 +44,7 @@ async def test_prompt_caller_get_callapi(prompt_caller: PromptCaller):
     }
     
     # Call the API
-    result = await call_api(row)
+    result = await call_api_fn(row)
 
     # Assertions
     assert isinstance(result, MockResponseFormat)
