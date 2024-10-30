@@ -12,6 +12,8 @@ pydantic = ">=2.9.2"
 datasets = "^3.0.2"
 ipython = "^8.29.0"
 instructor = "^1.6.3"
+pytest = "^8.3.3"
+pytest-asyncio = "^0.24.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.2.0"
