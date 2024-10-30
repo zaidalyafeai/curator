@@ -15,7 +15,7 @@ class QA(BaseModel):
     answer: str = Field(description="A answer")
 
 
-GetSubjects = prompt.PromptCaller(
+GetSubjects = prompt.Prompter(
     system_prompt="You are a helpful AI assistant.",
     user_prompt="Generate a diverse list of 1 subjects. Keep it high-level (e.g. Math, Science).",
     response_format=ListModel[Subject],
@@ -23,7 +23,7 @@ GetSubjects = prompt.PromptCaller(
 )
 
 
-GetSubSubjects = prompt.PromptCaller(
+GetSubSubjects = prompt.Prompter(
     system_prompt="You are a helpful AI assistant.",
     user_prompt="For the given subject {{ subject.subject }}. Generate 3 diverse subsubjects. No explanation.",
     response_format=ListModel[Subject],
@@ -31,7 +31,7 @@ GetSubSubjects = prompt.PromptCaller(
 )
 
 
-GetQAList = prompt.PromptCaller(
+GetQAList = prompt.Prompter(
     system_prompt="You are a helpful AI assistant.",
     user_prompt="For the given subject {{ subsubject.subject }}, generate 1 diverse questions and answers. No explanation.",
     response_format=ListModel[QA],

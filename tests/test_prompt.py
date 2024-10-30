@@ -2,7 +2,7 @@ import pytest
 from pydantic import BaseModel
 from typing import Optional
 
-from prompt import PromptCaller
+from prompt import Prompter
 
 
 class MockResponseFormat(BaseModel):
@@ -12,15 +12,15 @@ class MockResponseFormat(BaseModel):
 
 
 @pytest.fixture
-def prompt_caller() -> PromptCaller:
-    """Create a PromptCaller instance for testing.
+def prompter() -> Prompter:
+    """Create a Prompter instance for testing.
     
     Returns:
         PromptCaller: A configured prompt caller instance.
     """
     system_prompt = "You are a helpful assistant. Context: {{ context }}"
     user_prompt = "Answer this question: {{ question }}"
-    return PromptCaller(
+    return Prompter(
         model_name="gpt-3.5-turbo",
         system_prompt=system_prompt,
         user_prompt=user_prompt,
@@ -29,13 +29,13 @@ def prompt_caller() -> PromptCaller:
 
 
 @pytest.mark.asyncio
-async def test_prompt_caller_get_api_call_fn(prompt_caller: PromptCaller):
+async def test_prompter_get_api_call_fn(prompter: Prompter):
     """Test that get_api_call_fn returns a callable function that processes prompts correctly.
     
     Args:
-        prompt_caller: Fixture providing a configured PromptCaller instance.
+        prompter: Fixture providing a configured Prompter instance.
     """
-    call_api_fn = prompt_caller.get_api_call_fn()
+    call_api_fn = prompter.get_api_call_fn()
     
     # Test input data
     row = {

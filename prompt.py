@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from typing import Any, Dict, Type
 
 
-class PromptCaller:
+class Prompter:
     """Interface for prompting LLMs."""
 
     def __init__(self, model_name, system_prompt, user_prompt, response_format: Type[BaseModel]):

@@ -3,7 +3,7 @@
 import asyncio
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 
-from prompt import PromptCaller
+from prompt import Prompter
 
 import instructor
 import pandas as pd
@@ -78,7 +78,7 @@ class Dataset(HFDataset):
 
     async def completions(
         self,
-        prompt_caller: PromptCaller,
+        prompter: Prompter,
         output_column: str,
         keep_columns: bool = True,
         verbose: bool = True,
@@ -105,7 +105,7 @@ class Dataset(HFDataset):
             keep_columns = False
             self.initialized = True
 
-        call_api = prompt_caller.get_api_call_fn()
+        call_api = prompter.get_api_call_fn()
 
         rows = [dict(row) for row in self]
 
