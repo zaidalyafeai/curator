@@ -39,11 +39,11 @@ GetQAList = prompt.Prompter(
 )
 
 
-async def camelai(model):
+async def camelai():
     # Generate initial subjects.
     subject_dataset = (
         await Dataset.empty().completions(
-            prompt_caller=GetSubjects,
+            prompter=GetSubjects,
             output_column="subject",
             name="Generate subjects",
         )
@@ -52,7 +52,7 @@ async def camelai(model):
     # Generate subsubjects.
     subsubject_dataset = (
         await subject_dataset.completions(
-            prompt_caller=GetSubSubjects,
+            prompter=GetSubSubjects,
             output_column="subsubject",
             keep_columns=True,
             name="Generate sub-subjects",
@@ -62,7 +62,7 @@ async def camelai(model):
     # Generate list of QA pairs.
     qa_dataset = (
         await subsubject_dataset.completions(
-            prompt_caller=GetQAList,
+            prompter=GetQAList,
             output_column="qa",
             keep_columns=True,
             name="Generate QAs",
@@ -73,4 +73,4 @@ async def camelai(model):
     return qa_dataset
 
 
-asyncio.run(camelai("gpt-4o-mini"))
+asyncio.run(camelai())

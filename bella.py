@@ -25,7 +25,7 @@ class ListModel(BaseModel, Generic[T]):
 
 
 class Dataset(HFDataset):
-    """A wrapper around a Hugging Face Dataset with extra functionality for data generation."""
+    """A wrapper around a HuggingFace Dataset with extra functionality for data generation."""
     initialized: bool = True
     _list_columns: List[str] = []
 
