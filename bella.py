@@ -83,11 +83,7 @@ def read_responses_file_and_write_to_dataset(
                     else:
                         response_parsed = response_message
 
-                    if len(dataset) == 0:
-                        sample = {}
-                    else:
-                        # Get the original sample
-                        sample = dataset[metadata["request_idx"]]
+                    sample = metadata["sample"]
 
                     # Add the parsed response to the sample
                     sample[output_column] = response_parsed

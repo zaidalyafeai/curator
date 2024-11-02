@@ -43,12 +43,12 @@ class Prompter:
                         "schema": self.response_format.model_json_schema(),
                     },
                 },
-                "metadata": {"request_idx": idx},
+                "metadata": {"request_idx": idx, "sample": row},
             }
         else:
             request = {
                 "model": self.model_name,
                 "messages": messages,
-                "metadata": {"request_idx": idx},
+                "metadata": {"request_idx": idx, "sample": row},
             }
         return request
