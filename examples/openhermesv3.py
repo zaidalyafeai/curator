@@ -9,10 +9,7 @@ def convert_ShareGPT_to_IT_format(dataset: Dataset) -> Dataset:
             assert sample["conversations"][1]["from"] == "gpt"
             response = sample["conversations"][1]["value"]
         elif sample["conversations"][1]["from"] == "human":
-            # sometimes the first message is system instructions - ignoring them here
-            # specifically in OH, the system instructions are only present for airoboros2.2 and slimorca
-            # airoboros2.2 provides character cards or "you are a trivia AI"
-            # slimorca provides CoT instructions a la "you are a helpful assistant and explain your steps"
+            # ignore system instructions
             instruction = sample["conversations"][1]["value"]
             assert sample["conversations"][2]["from"] == "gpt"
             response = sample["conversations"][2]["value"]

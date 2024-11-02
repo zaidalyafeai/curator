@@ -106,8 +106,6 @@ from dataclasses import (  # for storing API inputs, outputs, and metadata
     field,
 )
 from typing import Set, Tuple  # for documentation
-
-# imports
 import aiohttp  # for making API calls concurrently
 import requests
 import tiktoken  # for counting tokens
@@ -151,14 +149,24 @@ async def process_api_requests_from_file(
     requests_filepath: str,
     save_filepath: str,
     request_url: str,
-    api_key: str,
-    max_requests_per_minute: float,
-    max_tokens_per_minute: float,
-    token_encoding_name: str,
     max_attempts: int,
     resume: bool,
+    model: str,  # The request defines which model, but here we need it to figure out the tokenizer for counting tokens for rate limiting
 ) -> None:
     """Processes API requests in parallel, throttling to stay under rate limits."""
+
+    # get initial hyperparameters
+    rpm, tpm = get_rate_limits(model, request_url)
+    max_requests_per_minute = rpm
+    logging.debug(f"Automatically set max_requests_per_minute to {rpm}")
+    max_tokens_per_minute = tpm
+    logging.debug(f"Automatically set max_tokens_per_minute to {tpm}")
+
+    if request_url.startswith("https://api.openai.com/"):
+        api_key = os.getenv("OPENAI_API_KEY")
+        token_encoding_name = tiktoken.encoding_for_model(model).name
+    else:
+        raise ValueError(f"Unimplemented API: {request_url}")
 
     # constants
     seconds_to_pause_after_rate_limit_error = 15

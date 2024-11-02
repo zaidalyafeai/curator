@@ -4,19 +4,15 @@ import asyncio
 from typing import Optional
 from prompt import Prompter
 from datasets import Dataset
-from tqdm import tqdm
 import logging
 import json
 import os
 from datasets.arrow_writer import ArrowWriter
-from api_request_parallel_processor import (
-    process_api_requests_from_file,
-    get_rate_limits,
-)
+from api_request_parallel_processor import process_api_requests_from_file
 import tiktoken
 
 
-def create_requests_file(
+def _create_requests_file(
     dataset, requests_file: str, prompter: Prompter, resume: bool = True
 ):
     if os.path.exists(requests_file):
@@ -41,7 +37,6 @@ def create_requests_file(
             )
             raise ValueError(error_message)
     else:
-        # NOTE: this creates one and only request per row, we are limiting ourselves to this for now
         os.makedirs(os.path.dirname(requests_file), exist_ok=True)
         with open(requests_file, "w") as f:
             if len(dataset) == 0:
@@ -54,8 +49,8 @@ def create_requests_file(
         logging.info(f"Requests file {requests_file} written to disk.")
 
 
-def read_responses_file_and_write_to_dataset(
-    dataset, prompter: Prompter, responses_file, dataset_file, output_column
+def _read_responses_file_and_write_to_dataset(
+    prompter: Prompter, responses_file, dataset_file, output_column
 ):
     total_count = 0
     failed_count = 0
@@ -75,6 +70,8 @@ def read_responses_file_and_write_to_dataset(
 
                     metadata = response[2]
                     response_message = response[1]["choices"][0]["message"]["content"]
+
+                    # Parse the response for structured output
                     if prompter.response_format:
                         response_parsed = prompter.response_format.model_validate_json(
                             response_message
@@ -85,7 +82,6 @@ def read_responses_file_and_write_to_dataset(
 
                     sample = metadata["sample"]
 
-                    # Add the parsed response to the sample
                     sample[output_column] = response_parsed
                     if sample == None:
                         raise ValueError("Trying to write a None sample")
@@ -101,41 +97,6 @@ def read_responses_file_and_write_to_dataset(
         writer.finalize()
 
 
-def run_online_generation(
-    jobs_file,
-    responses_file,
-    model,
-    url="https://api.openai.com/v1/chat/completions",
-):
-
-    rpm, tpm = get_rate_limits(model, url)
-    max_requests_per_minute = rpm
-    logging.debug(f"Automatically set max_requests_per_minute to {rpm}")
-    max_tokens_per_minute = tpm
-    logging.debug(f"Automatically set max_tokens_per_minute to {tpm}")
-
-    logging.debug(f"Online generation with parallel processing starting")
-    if url.startswith("https://api.openai.com/"):
-        api_key = os.getenv("OPENAI_API_KEY")
-        token_encoding_name = tiktoken.encoding_for_model(model).name
-    else:
-        raise ValueError(f"Unknown API: {url}")
-
-    asyncio.run(
-        process_api_requests_from_file(
-            requests_filepath=jobs_file,
-            save_filepath=responses_file,
-            request_url=url,
-            api_key=api_key,
-            max_requests_per_minute=max_requests_per_minute,
-            max_tokens_per_minute=max_tokens_per_minute,
-            token_encoding_name=token_encoding_name,
-            max_attempts=5,
-            resume=True,  # detects existing jobs and resume from there
-        )
-    )
-
-
 def completions(
     dataset,
     prompter: Prompter,
@@ -149,13 +110,11 @@ def completions(
     Args:
         prompter: A function that goes from row to request object
         output_column: Name of the column to store the response
-        keep_columns: Whether to keep original columns in the output dataset
-        verbose: Whether to show a progress bar
         name: Name of the task
         resume: Whether to resume from the previous completions run
 
     Returns:
-        A new Dataset with the completions added
+        A Dataset with the completions added in the output_column
     """
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -171,9 +130,18 @@ def completions(
     requests_path = os.path.join(bella_cache_dir, f"{name}/requests.jsonl")
     responses_path = os.path.join(bella_cache_dir, f"{name}/responses.jsonl")
     dataset_path = os.path.join(bella_cache_dir, f"{name}/dataset.arrow")
-    create_requests_file(dataset, requests_path, prompter, resume)
-    run_online_generation(requests_path, responses_path, prompter.model_name)
-    read_responses_file_and_write_to_dataset(
-        dataset, prompter, responses_path, dataset_path, output_column
+    _create_requests_file(dataset, requests_path, prompter, resume)
+    asyncio.run(
+        process_api_requests_from_file(
+            requests_filepath=requests_path,
+            save_filepath=responses_path,
+            request_url="https://api.openai.com/v1/chat/completions",
+            max_attempts=5,
+            resume=True,
+            model=prompter.model_name,
+        )
+    )
+    _read_responses_file_and_write_to_dataset(
+        prompter, responses_path, dataset_path, output_column
     )
     return Dataset.from_file(dataset_path)
