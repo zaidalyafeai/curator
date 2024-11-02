@@ -123,7 +123,7 @@ def completions(
         "BELLA_CACHE_DIR", os.path.expanduser("~/.cache/bella")
     )
     name = (
-        f"{dataset._fingerprint}--{name.replace(' ', '-')}"
+        f"{name.replace(' ', '-')}--{dataset._fingerprint}"
         if name
         else f"{dataset._fingerprint}"
     )
