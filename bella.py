@@ -1,166 +1,147 @@
 """Bella: Bespoke Labs Synthetic Data Generation Library."""
 
 import asyncio
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
-
+from typing import Optional
 from prompt import Prompter
-
-import instructor
-import pandas as pd
-from datasets import Dataset as HFDataset
-from IPython.display import HTML, display
-from jinja2 import Template
-from litellm import acompletion as litellm_acompletion
-from pydantic import BaseModel, ConfigDict, Field
-from tqdm import tqdm
-from tqdm.asyncio import tqdm as tqdm_async
-
-T = TypeVar("T", bound=BaseModel)
+from datasets import Dataset
+import logging
+import json
+import os
+from datasets.arrow_writer import ArrowWriter
+from api_request_parallel_processor import process_api_requests_from_file
+import tiktoken
 
 
-class ListModel(BaseModel, Generic[T]):
-    """A list of items to be used as a response format."""
-    model_config = ConfigDict(title="ListResponse")  # This sets a valid schema name.
-    items: List[T] = Field(description="List of items")
-
-
-class Dataset(HFDataset):
-    """A wrapper around a HuggingFace Dataset with extra functionality for data generation."""
-    initialized: bool = True
-    _list_columns: List[str] = []
-
-    @classmethod
-    def empty(cls) -> "Dataset":
-        dataset = cls.from_list([])
-        dataset.initialized = False
-        dataset._list_columns = []
-        return dataset
-
-    def display(self):
-        display(HTML(self.to_pandas().to_html()))
-
-    def flatten(self) -> "Dataset":
-        """Flatten any list columns in the dataset"""
-        if not self._list_columns:
-            return self
-
-        flattened_rows = []
-        for row in self:
-            row_dict = dict(row)
-            list_values = {
-                col: row_dict[col] for col in self._list_columns if col in row_dict
-            }
-
-            if not any(isinstance(v, list) for v in list_values.values()):
-                flattened_rows.append(row_dict)
-                continue
-
-            max_length = max(
-                len(v) for v in list_values.values() if isinstance(v, list)
+def _create_requests_file(
+    dataset, requests_file: str, prompter: Prompter, resume: bool = True
+):
+    if os.path.exists(requests_file):
+        if resume:
+            logging.info(f"Loading existing jobs from {requests_file}")
+            logging.debug(
+                f"Alternatively, delete the jobs file and re-run the annotator: `rm -rf {requests_file}`"
             )
-
-            for i in range(max_length):
-                new_row = {}
-                for col, value in row_dict.items():
-                    if col in list_values and isinstance(value, list):
-                        new_row[col] = value[i] if i < len(value) else None
-                    else:
-                        new_row[col] = value
-                flattened_rows.append(new_row)
-
-        dataset = Dataset.from_pandas(pd.DataFrame(flattened_rows))
-        dataset.initialized = True
-        dataset._list_columns = []
-        return dataset
-
-    def flatten_objects(self) -> "Dataset":
-        return super(Dataset, self).flatten()
-
-    async def completions(
-        self,
-        prompter: Prompter,
-        output_column: str,
-        keep_columns: bool = True,
-        verbose: bool = True,
-        name: Optional[str] = None,
-    ) -> "Dataset":
-        """
-        Apply structured completions to the dataset using specified model and prompts.
-
-        Args:
-            model_name: Name of the model to use
-            system_prompt: System prompt template
-            user_prompt: User prompt template
-            response_format: Pydantic model defining the response structure
-            output_column: Name of the column to store the response
-            keep_columns: Whether to keep original columns in the output dataset
-            verbose: Whether to show a progress bar
-            name: Name of the task
-
-        Returns:
-            A new Dataset with the completions added
-        """
-        if not self.initialized:
-            self = self.from_dict({"dummy": ["dummy row"]})
-            keep_columns = False
-            self.initialized = True
-
-        call_api = prompter.get_api_call_fn()
-
-        rows = [dict(row) for row in self]
-
-        # Gather all API calls with progress bar if verbose.
-        if verbose:
-            responses = await tqdm_async.gather(
-                *[call_api(row) for row in rows],
-                desc=(
-                    f"Making API calls for {name}"
-                    if name is not None
-                    else "Making API calls"
-                ),
-                total=len(rows),
-                miniters=1,
-            )
+            # count existing jobs in file and print first job
+            with open(requests_file, "r") as f:
+                num_jobs = sum(1 for _ in f)
+                f.seek(0)
+                first_job = json.loads(f.readline())
+            logging.debug(f"Found {num_jobs} jobs in {requests_file}")
+            logging.debug("Example job:")
+            logging.debug(json.dumps(first_job, indent=2))
         else:
-            responses = await asyncio.gather(*[call_api(row) for row in rows])
-
-        # Process responses into a flat dictionary structure.
-        processed_rows = []
-
-        # Use regular tqdm for synchronous processing.
-        response_iterator = (
-            tqdm(
-                zip(rows, responses),
-                desc=(
-                    f"Processing responses for {name}"
-                    if name is not None
-                    else "Processing responses"
-                ),
-                total=len(rows),
+            error_message = (
+                f"Existing job file {requests_file}. "
+                f"Delete the jobs file and re-run the annotator: `rm -rf {requests_file}`. "
+                f"Or run the annotator with the --resume flag to continue from the previous run."
             )
-            if verbose
-            else zip(rows, responses)
-        )
-
-        for original_row, response in response_iterator:
-            new_row = {}
-            if keep_columns:
-                new_row.update(original_row)
-
-            if isinstance(response, ListModel):
-                new_row[output_column] = [
-                    item.dict() if isinstance(item, BaseModel) else item
-                    for item in response.items
-                ]
-                self._list_columns.append(output_column)
+            raise ValueError(error_message)
+    else:
+        os.makedirs(os.path.dirname(requests_file), exist_ok=True)
+        with open(requests_file, "w") as f:
+            if len(dataset) == 0:
+                request = prompter.get_request_object(dict(), 0)
+                f.write(json.dumps(request) + "\n")
             else:
-                new_row[output_column] = (
-                    response.dict() if isinstance(response, BaseModel) else response
-                )
+                for idx, sample in enumerate(dataset):
+                    request = prompter.get_request_object(sample, idx)
+                    f.write(json.dumps(request) + "\n")
+        logging.info(f"Requests file {requests_file} written to disk.")
 
-            processed_rows.append(new_row)
 
-        dataset = Dataset.from_pandas(pd.DataFrame(processed_rows))
-        dataset.initialized = True
-        dataset._list_columns = self._list_columns
-        return dataset
+def _read_responses_file_and_write_to_dataset(
+    prompter: Prompter, responses_file, dataset_file, output_column
+):
+    total_count = 0
+    failed_count = 0
+    with ArrowWriter(path=dataset_file) as writer:
+        with open(responses_file, "r") as f_in:
+            for line in f_in:
+                total_count += 1
+                try:
+                    response = json.loads(line)
+                    if isinstance(response[1], list):
+                        # A failed requests contains a list of all the errors before max_retries
+                        logging.info(
+                            f"Request {response[2].get('request_idx')} failed due to errors: {response[1]}"
+                        )
+                        failed_count += 1
+                        continue
+
+                    metadata = response[2]
+                    response_message = response[1]["choices"][0]["message"]["content"]
+
+                    # Parse the response for structured output
+                    if prompter.response_format:
+                        response_parsed = prompter.response_format.model_validate_json(
+                            response_message
+                        )
+                        response_parsed = response_parsed.model_dump()
+                    else:
+                        response_parsed = response_message
+
+                    sample = metadata["sample"]
+
+                    sample[output_column] = response_parsed
+                    if sample == None:
+                        raise ValueError("Trying to write a None sample")
+                    writer.write(sample)
+
+                except Exception as e:
+                    logging.warning(f"Error: {e}")
+                    logging.warning(f"Full response: {response}")
+                    continue
+        logging.debug(f"Read {total_count} responses, {failed_count} failed")
+        if failed_count == total_count:
+            raise ValueError("All requests failed")
+        writer.finalize()
+
+
+def completions(
+    dataset,
+    prompter: Prompter,
+    output_column: str,
+    name: Optional[str] = None,
+    resume: bool = True,
+) -> "Dataset":
+    """
+    Apply structured completions to the dataset using specified model and prompts.
+
+    Args:
+        prompter: A function that goes from row to request object
+        output_column: Name of the column to store the response
+        name: Name of the task
+        resume: Whether to resume from the previous completions run
+
+    Returns:
+        A Dataset with the completions added in the output_column
+    """
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
+    bella_cache_dir = os.environ.get(
+        "BELLA_CACHE_DIR", os.path.expanduser("~/.cache/bella")
+    )
+    name = (
+        f"{dataset._fingerprint}--{name.replace(' ', '-')}"
+        if name
+        else f"{dataset._fingerprint}"
+    )
+    requests_path = os.path.join(bella_cache_dir, f"{name}/requests.jsonl")
+    responses_path = os.path.join(bella_cache_dir, f"{name}/responses.jsonl")
+    dataset_path = os.path.join(bella_cache_dir, f"{name}/dataset.arrow")
+    _create_requests_file(dataset, requests_path, prompter, resume)
+    asyncio.run(
+        process_api_requests_from_file(
+            requests_filepath=requests_path,
+            save_filepath=responses_path,
+            request_url="https://api.openai.com/v1/chat/completions",
+            max_attempts=5,
+            resume=True,
+            model=prompter.model_name,
+        )
+    )
+    _read_responses_file_and_write_to_dataset(
+        prompter, responses_path, dataset_path, output_column
+    )
+    return Dataset.from_file(dataset_path)

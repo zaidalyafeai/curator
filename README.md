@@ -13,7 +13,8 @@ poetry install
 To run the camel example:
 
 ```bash
-poetry run python camel.py
+poetry run python examples/camel.py
+poetry run python examples/openhermesv3.py
 ```
 
 Run the tests:
