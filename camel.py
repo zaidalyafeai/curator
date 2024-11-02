@@ -1,4 +1,3 @@
-import asyncio
 import prompt
 
 from pydantic import BaseModel, Field
@@ -41,11 +40,15 @@ GetQAList = prompt.Prompter(
 
 def camelai():
     # Generate initial subjects.
-    subject_dataset = Dataset.empty().completions(
-        prompter=GetSubjects,
-        output_column="subject",
-        name="Generate subjects",
-    ).flatten()
+    subject_dataset = (
+        Dataset.empty()
+        .completions(
+            prompter=GetSubjects,
+            output_column="subject",
+            name="Generate subjects",
+        )
+        .flatten()
+    )
 
     print(subject_dataset)
     print(subject_dataset[0])

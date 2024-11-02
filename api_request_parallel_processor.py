@@ -1,6 +1,5 @@
 """
 API REQUEST PARALLEL PROCESSOR
-modifed from https://github.com/openai/openai-cookbook/blob/main/examples/api_request_parallel_processor.py
 
 Using the OpenAI API to process lots of text quickly takes some care.
 If you trickle in a million API requests one by one, they'll take days to complete.
@@ -70,9 +69,6 @@ Inputs:
     - 20 = INFO; will log when requests start and the status at finish
     - 10 = DEBUG; will log various things as the loop runs to see when they occur
     - if omitted, will default to 20 (INFO).
-- log_filepath : str, optional
-    - path to the log file
-    - if omitted, will not log to a file
 - resume : bool, optional
     - if True, the script will resume progress from an existing save file
     - if omitted, will default to False
@@ -99,7 +95,6 @@ The script is structured as follows:
     - Run main()
 """
 
-import argparse  # for running script from command line
 import asyncio  # for running API calls concurrently
 import json  # for saving results to a jsonl file
 import logging  # for logging rate limit warnings and other messages
@@ -110,12 +105,46 @@ from dataclasses import (  # for storing API inputs, outputs, and metadata
     dataclass,
     field,
 )
-from typing import Optional, Set  # for documentation
+from typing import Set, Tuple  # for documentation
 
 # imports
 import aiohttp  # for making API calls concurrently
+import requests
 import tiktoken  # for counting tokens
 from tqdm.asyncio import tqdm  # for nice progress bar
+
+
+def get_rate_limits(
+    model: str, url: str = "https://api.openai.com/v1/chat/completions"
+) -> Tuple[int, int]:
+    """
+    Function to get rate limits for a given annotator. Makes a single request to openAI API
+    and gets the rate limits from the response headers. These rate limits vary per model
+    and are determined by your organization's usage tier. View the following:
+    https://platform.openai.com/docs/guides/rate-limits/usage-tiers
+    https://platform.openai.com/settings/organization/limits
+
+    Args:
+        annotator (str): The annotator for which to get the rate limits.
+
+    Returns:
+        Tuple[int, int]: The maximum number of requests and tokens per minute.
+    """
+    if "openai" in url:
+        # Send a dummy request to get rate limit information
+        response = requests.post(
+            url,
+            headers={"Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}"},
+            json={"model": model, "messages": []},
+        )
+
+        # Extract rate limit information from headers
+        max_requests = int(response.headers.get("x-ratelimit-limit-requests", 1500))
+        max_tokens = int(response.headers.get("x-ratelimit-limit-tokens", 6250000))
+    else:
+        raise ValueError(f"Unknown API: {url}")
+
+    return max_requests, max_tokens
 
 
 async def process_api_requests_from_file(
@@ -128,26 +157,8 @@ async def process_api_requests_from_file(
     token_encoding_name: str,
     max_attempts: int,
     resume: bool,
-    log_filepath: str,
-    logging_level: int = logging.INFO,
 ) -> None:
     """Processes API requests in parallel, throttling to stay under rate limits."""
-    if log_filepath:
-        # Set up logging to both file and stdout
-        file_handler = logging.FileHandler(log_filepath, mode="a")
-        file_handler.setLevel(logging.DEBUG)
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging_level)
-
-        logging.basicConfig(
-            level=logging.DEBUG,  # Set to DEBUG to capture all levels
-            format="%(asctime)s - %(levelname)s - %(message)s",
-            handlers=[file_handler, console_handler],
-        )
-    else:
-        logging.basicConfig(
-            level=logging_level, format="%(asctime)s - %(levelname)s - %(message)s"
-        )
 
     # constants
     seconds_to_pause_after_rate_limit_error = 15
@@ -186,16 +197,16 @@ async def process_api_requests_from_file(
     if os.path.exists(save_filepath):
         if resume:
             # save all successfully completed requests to a temporary file, then overwrite the original file with the temporary file
-            logging.warning(f"Resuming progress from existing file: {save_filepath}")
-            logging.warning(
-                f"Removing all failed requests from {save_filepath} so they can be retried"
+            logging.info(f"Resuming progress from existing file: {save_filepath}")
+            logging.debug(
+                f"Removing any failed requests from {save_filepath} so they can be retried"
             )
             temp_filepath = f"{save_filepath}.temp"
             num_previously_failed_requests = 0
             with open(save_filepath, "r") as input_file, open(
                 temp_filepath, "w"
             ) as output_file:
-                for line in tqdm(input_file, desc="Processing existing requests"):
+                for line in input_file:
                     data = json.loads(line)
                     if isinstance(data[1], list):
                         # this means that the request failed and we have a list of errors
@@ -206,11 +217,8 @@ async def process_api_requests_from_file(
                     else:
                         completed_request_ids.add(data[2].get("request_idx"))
                         output_file.write(line)
-            logging.info(
-                f"Found {len(completed_request_ids)} completed requests and {num_previously_failed_requests} previously failed requests"
-            )
-            logging.info(
-                "Failed requests and remaining requests will now be processed."
+            logging.debug(
+                f"Found {len(completed_request_ids)} completed requests and {num_previously_failed_requests} previously failed requests. Failed requests and remaining requests will now be processed."
             )
             os.replace(temp_filepath, save_filepath)
         else:
@@ -231,7 +239,7 @@ async def process_api_requests_from_file(
         total_requests = sum(1 for _ in open(requests_filepath))
 
         # Create progress bar
-        pbar = tqdm(total=total_requests, desc="Processing parallel requests to OpenAI")
+        pbar = tqdm(total=total_requests, desc="Sending requests to API")
 
         connector = aiohttp.TCPConnector(limit=10 * max_requests_per_minute)
         async with aiohttp.ClientSession(
@@ -357,11 +365,8 @@ async def process_api_requests_from_file(
         pbar.close()
 
         # after finishing, log final status
-        logging.info(
-            f"""Parallel processing complete. Results saved to {save_filepath}"""
-        )
-
-        logging.info(f"Status tracker: {status_tracker}")
+        logging.info(f"Parallel processing complete. Results saved to {save_filepath}")
+        logging.debug(f"Status tracker: {status_tracker}")
 
         if status_tracker.num_tasks_failed > 0:
             logging.warning(
@@ -574,61 +579,3 @@ def task_id_generator_function():
     while True:
         yield task_id
         task_id += 1
-
-
-if __name__ == "__main__":
-    # parse command line arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--requests_filepath")
-    parser.add_argument("--save_filepath", default=None)
-    parser.add_argument(
-        "--request_url", default="https://api.openai.com/v1/chat/completions"
-    )
-    parser.add_argument("--api_key", default=os.getenv("OPENAI_API_KEY"))
-    parser.add_argument("--max_requests_per_minute", type=int, default=3_000 * 0.5)
-    parser.add_argument("--max_tokens_per_minute", type=int, default=250_000 * 0.5)
-    parser.add_argument("--token_encoding_name", default="cl100k_base")
-    parser.add_argument("--max_attempts", type=int, default=5)
-    parser.add_argument("--logging_level", default=logging.INFO)
-    parser.add_argument(
-        "--resume", action="store_true", help="Resume progress from existing save file"
-    )
-    parser.add_argument(
-        "--log_filepath", default=None, help="Path to the log file (optional)"
-    )
-    args = parser.parse_args()
-
-    if args.save_filepath is None:
-        args.save_filepath = args.requests_filepath.replace(".jsonl", "_results.jsonl")
-
-    if args.log_filepath:
-        # Set up logging to both file and stdout
-        file_handler = logging.FileHandler(args.log_filepath, mode="a")
-        file_handler.setLevel(logging.DEBUG)
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(args.logging_level)
-
-        logging.basicConfig(
-            level=logging.DEBUG,  # Set to DEBUG to capture all levels
-            format="%(asctime)s - %(levelname)s - %(message)s",
-            handlers=[file_handler, console_handler],
-        )
-    else:
-        logging.basicConfig(
-            level=args.logging_level, format="%(asctime)s - %(levelname)s - %(message)s"
-        )
-
-    # run script
-    asyncio.run(
-        process_api_requests_from_file(
-            requests_filepath=args.requests_filepath,
-            save_filepath=args.save_filepath,
-            request_url=args.request_url,
-            api_key=args.api_key,
-            max_requests_per_minute=float(args.max_requests_per_minute),
-            max_tokens_per_minute=float(args.max_tokens_per_minute),
-            token_encoding_name=args.token_encoding_name,
-            max_attempts=int(args.max_attempts),
-            resume=args.resume,
-        )
-    )

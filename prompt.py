@@ -1,13 +1,18 @@
+from re import M
 from jinja2 import Template
 from pydantic import BaseModel
-from typing import Any, Dict, Type
+from typing import Any, Dict, Optional, Type
 
 
 class Prompter:
     """Interface for prompting LLMs."""
 
     def __init__(
-        self, model_name, system_prompt, user_prompt, response_format: Type[BaseModel]
+        self,
+        model_name,
+        user_prompt,
+        system_prompt: Optional[str] = None,
+        response_format: Optional[Type[BaseModel]] = None,
     ):
         self.model_name = model_name
         self.system_prompt = system_prompt
@@ -16,15 +21,16 @@ class Prompter:
 
     def get_request_object(self, row: Dict[str, Any], idx: int) -> Dict[str, Any]:
         """Format the request object based off Prompter attributes."""
+        messages = []
+        if self.system_prompt:
+            system_template = Template(self.system_prompt)
+            messages.append(
+                {"role": "system", "content": system_template.render(**row)}
+            )
 
-        # Create Jinja2 templates
-        system_template = Template(self.system_prompt)
         user_template = Template(self.user_prompt)
+        messages.append({"role": "user", "content": user_template.render(**row)})
 
-        messages = [
-            {"role": "system", "content": system_template.render(**row)},
-            {"role": "user", "content": user_template.render(**row)},
-        ]
         if self.response_format:
             # OpenAI API https://platform.openai.com/docs/api-reference/chat/create#chat-create-response_format
             request = {
