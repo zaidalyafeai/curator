@@ -119,6 +119,7 @@ def _parse_responses_file(prompter: Prompter, responses_file):
                     continue
 
                 response_message = response[1]["choices"][0]["message"]["content"]
+                metadata = response[2]
 
                 # Parse the response for structured output
                 if prompter.response_format:
@@ -129,13 +130,16 @@ def _parse_responses_file(prompter: Prompter, responses_file):
                 else:
                     response_parsed = response_message
 
-                samples.append(response_parsed)
+                samples.append((metadata["request_idx"], response_parsed))
 
             except Exception as e:
                 logging.warning(f"Error: {e}")
                 logging.warning(f"Full response: {response}")
                 continue
     logging.debug(f"Read {total_count} responses, {failed_count} failed")
+    # Sort by idx then return only the responses
+    samples.sort(key=lambda x: x[0])
+    samples = [sample[1] for sample in samples]  # Keep only the response_parsed values
     if failed_count == total_count:
         raise ValueError("All requests failed")
     return samples

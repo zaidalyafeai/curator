@@ -1,5 +1,6 @@
 from typing import List
 
+import pandas as pd
 from pydantic import BaseModel, Field
 
 import bella
@@ -37,7 +38,7 @@ GetSubSubjects = prompt.Prompter(
 
 GetQAList = prompt.Prompter(
     system_prompt="You are a helpful AI assistant.",
-    user_prompt="For the given subject {{ subsubjects__subjects }}, generate 1 diverse questions and answers. No explanation.",
+    user_prompt="For the given subject {{ subsubject }}, generate 1 diverse questions and answers. No explanation.",
     response_format=QAs,
     model_name="gpt-4o-mini",
 )
@@ -49,21 +50,18 @@ def camelai():
         prompter=GetSubjects,
         name="Generate subjects",
     )
-
-    print(subject_dataset)
     # If the response is a list, bella automatically flattens it.
     subject_dataset = bella.map(
         subject_dataset,
         lambda sample: [{"subject": subject} for subject in sample["subjects"]],
     )
-    print(subject_dataset)
+    print(pd.DataFrame.from_records(subject_dataset))
 
     subsubject_dataset = bella.completions(
         dataset=subject_dataset,
         prompter=GetSubSubjects,
         name="Generate subsubjects",
     )
-
     # join the subject and subsubject datasets
     subsubject_dataset = bella.map(
         zip(subject_dataset, subsubject_dataset),
@@ -72,17 +70,26 @@ def camelai():
             for subsubject in sample[1]["subjects"]
         ],
     )
+    print(pd.DataFrame.from_records(subsubject_dataset))
 
     qa_dataset = bella.completions(
         subsubject_dataset,
         prompter=GetQAList,
         name="Generate QAs",
     )
-    print(qa_dataset)
     qa_dataset = bella.map(
-        qa_dataset, lambda qa: [{"question": qa["question"], "answer": qa["answer"]} for qa in qa["qas"]]
+        zip(subsubject_dataset, qa_dataset),
+        lambda sample: [
+            {
+                "subject": sample[0]["subject"],
+                "subsubject": sample[0]["subsubject"],
+                "question": qa["question"],
+                "answer": qa["answer"],
+            }
+            for qa in sample[1]["qas"]
+        ],
     )
-    print(qa_dataset)
+    print(pd.DataFrame.from_records(qa_dataset))
 
 
 camelai()

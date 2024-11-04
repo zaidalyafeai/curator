@@ -31,7 +31,6 @@ class Prompter:
 
         user_template = Template(self.user_prompt)
         messages.append({"role": "user", "content": user_template.render(**row)})
-
         if self.response_format:
             # OpenAI API https://platform.openai.com/docs/api-reference/chat/create#chat-create-response_format
             request = {
