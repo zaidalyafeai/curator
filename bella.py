@@ -138,7 +138,7 @@ def completions(
     bella_cache_dir = os.environ.get(
         "BELLA_CACHE_DIR", os.path.expanduser("~/.cache/bella")
     )
-    
+
     # Convert all elements to strings and join them before hashing
     fingerprint_str = "_".join(
         [
@@ -149,7 +149,6 @@ def completions(
             str(prompter.response_format.schema_json()),
         ]
     )
-
 
     fingerprint = hashlib.md5(fingerprint_str.encode("utf-8")).hexdigest()
 
@@ -226,3 +225,10 @@ def flatten_list(dataset):
         return new_batch
 
     return dataset.map(_flatten_list_batch, batched=True)
+
+
+def flatten_dict(dataset: Dataset) -> Dataset:
+    dataset = dataset.flatten()
+    return dataset.rename_columns(
+        {col_name: col_name.replace(".", "__") for col_name in dataset.column_names}
+    )

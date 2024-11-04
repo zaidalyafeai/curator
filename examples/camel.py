@@ -29,7 +29,7 @@ GetSubjects = prompt.Prompter(
 
 GetSubSubjects = prompt.Prompter(
     system_prompt="You are a helpful AI assistant.",
-    user_prompt="For the given subject {{ subjects.subjects }}. Generate 3 diverse subsubjects. No explanation.",
+    user_prompt="For the given subject {{ subjects__subjects }}. Generate 3 diverse subsubjects. No explanation.",
     response_format=Subjects,
     model_name="gpt-4o-mini",
 )
@@ -37,7 +37,7 @@ GetSubSubjects = prompt.Prompter(
 
 GetQAList = prompt.Prompter(
     system_prompt="You are a helpful AI assistant.",
-    user_prompt="For the given subject {{ subsubjects.subjects }}, generate 1 diverse questions and answers. No explanation.",
+    user_prompt="For the given subject {{ subsubjects__subjects }}, generate 1 diverse questions and answers. No explanation.",
     response_format=QAs,
     model_name="gpt-4o-mini",
 )
@@ -45,12 +45,14 @@ GetQAList = prompt.Prompter(
 
 def camelai():
     subject_dataset = bella.flatten_list(
-        bella.completions(
-            dataset=bella.empty(),
-            prompter=GetSubjects,
-            output_column="subjects",
-            name="Generate subjects",
-        ).flatten()
+        bella.flatten_dict(
+            bella.completions(
+                dataset=bella.empty(),
+                prompter=GetSubjects,
+                output_column="subjects",
+                name="Generate subjects",
+            )
+        )
     )
 
     print(subject_dataset[0])
@@ -59,12 +61,14 @@ def camelai():
 
     # Generate subsubjects.
     subsubject_dataset = bella.flatten_list(
-        bella.completions(
-            dataset=subject_dataset,
-            prompter=GetSubSubjects,
-            output_column="subsubjects",
-            name="Generate sub-subjects",
-        ).flatten()
+        bella.flatten_dict(
+            bella.completions(
+                dataset=subject_dataset,
+                prompter=GetSubSubjects,
+                output_column="subsubjects",
+                name="Generate sub-subjects",
+            )
+        )
     )
 
     print(subsubject_dataset[0])
@@ -72,14 +76,18 @@ def camelai():
     print(subsubject_dataset[2])
 
     # Generate list of QA pairs.
-    qa_dataset = bella.flatten_list(
-        bella.completions(
-            dataset=subsubject_dataset,
-            prompter=GetQAList,
-            output_column="qa",
-            name="Generate QAs",
-        ).flatten()
-    ).flatten()
+    qa_dataset = bella.flatten_dict(
+        bella.flatten_list(
+            bella.flatten_dict(
+                bella.completions(
+                    dataset=subsubject_dataset,
+                    prompter=GetQAList,
+                    output_column="qa",
+                    name="Generate QAs",
+                )
+            )
+        )
+    )
 
     print(qa_dataset[0])
     print(qa_dataset[1])
