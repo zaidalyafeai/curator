@@ -1,15 +1,18 @@
 """Bella: Bespoke Labs Synthetic Data Generation Library."""
 
 import asyncio
-from typing import Optional
-from prompt import Prompter
-from datasets import Dataset
-import logging
+import hashlib
 import json
+import logging
 import os
+from itertools import product
+from typing import Optional
+
+from datasets import Dataset
 from datasets.arrow_writer import ArrowWriter
+
 from api_request_parallel_processor import process_api_requests_from_file
-import tiktoken
+from prompt import Prompter
 
 
 def _create_requests_file(
@@ -97,8 +100,20 @@ def _read_responses_file_and_write_to_dataset(
         writer.finalize()
 
 
+PROMPT_DUMMY_VALUE = "___bella_dummy_value___"
+
+
+class EmptyDataset:
+    empty_bella_dataset = True
+    fingerprint = "empty"
+
+
+def empty():
+    return EmptyDataset()
+
+
 def completions(
-    dataset,
+    dataset: Dataset | EmptyDataset,
     prompter: Prompter,
     output_column: str,
     name: Optional[str] = None,
@@ -116,20 +131,33 @@ def completions(
     Returns:
         A Dataset with the completions added in the output_column
     """
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-    )
+    is_empty_dataset = isinstance(dataset, EmptyDataset)
+    if is_empty_dataset:
+        dataset = Dataset.from_dict({PROMPT_DUMMY_VALUE: [PROMPT_DUMMY_VALUE]})
+
     bella_cache_dir = os.environ.get(
         "BELLA_CACHE_DIR", os.path.expanduser("~/.cache/bella")
     )
-    name = (
-        f"{name.replace(' ', '-')}--{dataset._fingerprint}"
-        if name
-        else f"{dataset._fingerprint}"
+    
+    # Convert all elements to strings and join them before hashing
+    fingerprint_str = "_".join(
+        [
+            str(dataset._fingerprint),
+            str(prompter.user_prompt),
+            str(prompter.system_prompt),
+            str(prompter.model_name),
+            str(prompter.response_format.schema_json()),
+        ]
     )
+
+
+    fingerprint = hashlib.md5(fingerprint_str.encode("utf-8")).hexdigest()
+
+    name = f"{name.replace(' ', '-')}--{fingerprint}" if name else fingerprint
     requests_path = os.path.join(bella_cache_dir, f"{name}/requests.jsonl")
     responses_path = os.path.join(bella_cache_dir, f"{name}/responses.jsonl")
     dataset_path = os.path.join(bella_cache_dir, f"{name}/dataset.arrow")
+
     _create_requests_file(dataset, requests_path, prompter, resume)
     asyncio.run(
         process_api_requests_from_file(
@@ -144,4 +172,57 @@ def completions(
     _read_responses_file_and_write_to_dataset(
         prompter, responses_path, dataset_path, output_column
     )
-    return Dataset.from_file(dataset_path)
+
+    result = Dataset.from_file(dataset_path)
+    if is_empty_dataset:
+        result = result.remove_columns(PROMPT_DUMMY_VALUE)
+    return result
+
+
+def flatten_list(dataset):
+    """
+    Flatten a dataset with rows containing lists.
+
+    If multiple columns contain lists, the cartesian product of all the lists is taken.
+
+    Example:
+    dataset: [{"name": "John", "hobbies": ["reading", "traveling"]}]
+    flattened dataset: [{"name": "John", "hobbies": "reading"}, {"name": "John", "hobbies": "traveling"}]
+
+    Args:
+        dataset: A dataset with a column of lists.
+
+    Returns:
+        A dataset with the column of lists flattened.
+    """
+
+    def _flatten_list_batch(batch):
+        # A batch is a dict of lists of equal length.
+        cols = list(batch.values())
+        batch_length = len(cols[0])
+
+        # Iterate over the rows of the batch. For each row, we
+        # want to create new rows by taking the cartesian product
+        # of all the values of the columns in the row.
+        # For example, let's say we have the following row:
+        # {"a": [1,2], "b": [3,4]}
+        # We want to create the following new rows:
+        # [{"a": 1, "b": 3}, {"a": 1, "b": 4}, {"a": 2, "b": 3}, {"a": 2, "b": 4}]
+        new_rows = []
+        for i in range(batch_length):
+            values = []
+            for col in cols:
+                values.append(col[i] if isinstance(col[i], list) else [col[i]])
+            new_rows.extend(list(product(*values)))
+
+        # Convert the new rows into the "column-oriented" format.
+        new_batch = {}
+        for row in new_rows:
+            for k, v in zip(batch.keys(), row):
+                if k not in new_batch:
+                    new_batch[k] = []
+                new_batch[k].append(v)
+
+        return new_batch
+
+    return dataset.map(_flatten_list_batch, batched=True)
