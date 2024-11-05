@@ -27,6 +27,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu"
+import { homedir } from 'os'
+import { join } from 'path'
+import fs from 'fs/promises'
 
 const TABLE_COLUMNS = [
   "User Message",
@@ -40,7 +43,11 @@ const GROUPABLE_COLUMNS = [
   "System Message"
 ]
 
-export function DatasetViewer() {
+interface DatasetViewerProps {
+  runHash?: string
+}
+
+export function DatasetViewer({ runHash }: DatasetViewerProps) {
   const [data, setData] = useState<DataItem[]>([])
   const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
@@ -82,6 +89,20 @@ export function DatasetViewer() {
   }
 
   const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (runHash) {
+      try {
+        const responsesPath = join(homedir(), '.cache', 'bella', runHash, 'responses.jsonl')
+        const content = await fs.readFile(responsesPath, 'utf-8')
+        const lines = content.split('\n').filter(line => line.trim() !== '')
+        const jsonData = lines.map(line => JSON.parse(line))
+        setData(jsonData)
+      } catch (error) {
+        console.error("Error reading responses file:", error)
+        alert("Failed to read responses file.")
+      }
+      return
+    }
+
     const file = event.target.files?.[0]
     if (!file) return
 
@@ -100,7 +121,13 @@ export function DatasetViewer() {
       console.error("Error parsing file:", error)
       alert("Failed to parse file. Please ensure it's a valid JSON file.")
     }
-  }, [])
+  }, [runHash])
+
+  useEffect(() => {
+    if (runHash) {
+      handleFileUpload(null as any)
+    }
+  }, [runHash, handleFileUpload])
 
   const handleSort = useCallback((column: string) => {
     if (sortColumn === column) {
