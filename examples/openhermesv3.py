@@ -33,7 +33,6 @@ def convert_ShareGPT_to_IT_format(dataset: Dataset) -> Dataset:
 ds = load_dataset("teknium/OpenHermes-2.5", split="train")
 ds = convert_ShareGPT_to_IT_format(ds)
 ds = ds.select(range(10))
-print(ds.to_list())
 ds_results = bella.completions(
     dataset=ds.to_list(),
     prompter=bella.Prompter(
@@ -45,6 +44,6 @@ ds_results = bella.completions(
 
 rows = []
 for row, result in zip(ds, ds_results):
-    rows.append({"instruction": row["instruction"], "response": result["response"]})
+    rows.append({"instruction": row["instruction"], "response": result.response})
 
 print(pd.DataFrame.from_records(rows))
