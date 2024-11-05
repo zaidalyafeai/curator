@@ -8,6 +8,7 @@ import bella
 class InstructionResponse(BaseModel):
     response: str = Field(description="The response")
 
+
 def convert_ShareGPT_to_IT_format(dataset: Dataset) -> Dataset:
     def it_from_sharegpt(sample):
         if sample["conversations"][0]["from"] == "human":

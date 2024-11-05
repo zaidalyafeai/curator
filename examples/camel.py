@@ -10,15 +10,19 @@ import prompt
 class Subject(BaseModel):
     subject: str = Field(description="A subject")
 
+
 class Subjects(BaseModel):
     subjects: List[Subject] = Field(description="A list of subjects")
+
 
 class QA(BaseModel):
     question: str = Field(description="A question")
     answer: str = Field(description="A answer")
 
+
 class QAs(BaseModel):
     qas: List[QA] = Field(description="A list of QAs")
+
 
 GetSubjects = prompt.Prompter(
     system_prompt="You are a helpful AI assistant.",
@@ -42,17 +46,26 @@ GetQAList = prompt.Prompter(
 )
 
 
-def join_subject_subsubject(subject: Subject, subsubjects: Subjects) -> List[Dict[str, Any]]:
+def join_subject_subsubject(
+    subject: Subject, subsubjects: Subjects
+) -> List[Dict[str, Any]]:
     return [
         {"subject": subject["subject"], "subsubject": subsubject["subject"]}
         for subsubject in subsubjects["subjects"]
     ]
 
+
 def join_subsubject_qas(subsubject: Subject, qas: QAs) -> List[Dict[str, Any]]:
     return [
-        {"subject": subsubject["subject"], "subsubject": subsubject["subsubject"], "question": qa["question"], "answer": qa["answer"]}
+        {
+            "subject": subsubject["subject"],
+            "subsubject": subsubject["subsubject"],
+            "question": qa["question"],
+            "answer": qa["answer"],
+        }
         for qa in qas["qas"]
     ]
+
 
 subject_dataset = bella.completions(
     (),
@@ -61,7 +74,7 @@ subject_dataset = bella.completions(
 rows = []
 for subject in subject_dataset:
     rows.extend(subject["subjects"])
-subject_dataset = rows 
+subject_dataset = rows
 
 
 subsubjects_dataset = bella.completions(
@@ -71,7 +84,7 @@ subsubjects_dataset = bella.completions(
 rows = []
 for subject, subsubjects in zip(subject_dataset, subsubjects_dataset):
     rows.extend(join_subject_subsubject(subject, subsubjects))
-subsubject_dataset = rows 
+subsubject_dataset = rows
 
 print(pd.DataFrame.from_records(subsubject_dataset))
 
@@ -82,6 +95,6 @@ qa_dataset = bella.completions(
 rows = []
 for subsubject, qas in zip(subsubject_dataset, qa_dataset):
     rows.extend(join_subsubject_qas(subsubject, qas))
-qa_dataset = rows 
+qa_dataset = rows
 
 print(pd.DataFrame.from_records(qa_dataset))
