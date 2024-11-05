@@ -6,8 +6,7 @@ import json
 import logging
 import os
 import uuid
-from itertools import product
-from typing import Callable, Iterable, Optional
+from typing import Iterable, Optional
 
 from datasets import Dataset
 from datasets.arrow_writer import ArrowWriter
@@ -143,18 +142,6 @@ def _parse_responses_file(prompter: Prompter, responses_file):
     if failed_count == total_count:
         raise ValueError("All requests failed")
     return samples
-
-
-PROMPT_DUMMY_VALUE = "___bella_dummy_value___"
-
-
-class EmptyDataset:
-    empty_bella_dataset = True
-    fingerprint = "empty"
-
-
-def empty():
-    return EmptyDataset()
 
 
 def completions(
