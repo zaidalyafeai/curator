@@ -208,7 +208,7 @@ def completions(
     name = f"{name.replace(' ', '-')}--{fingerprint}" if name else fingerprint
     requests_path = os.path.join(bella_cache_dir, f"{name}/requests.jsonl")
     responses_path = os.path.join(bella_cache_dir, f"{name}/responses.jsonl")
-    db_path = os.path.join(bella_cache_dir, "bella.db")
+    db_path = os.path.join(bella_cache_dir, "metadata.db")
     
     metadata_dict = {
         'timestamp': datetime.now().isoformat(),
