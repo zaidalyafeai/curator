@@ -98,8 +98,8 @@ def _parse_responses_file(prompter: Prompter, responses_file):
     return samples
 
 
-def _process_chunk(chunk: list, chunk_size: int) -> list:
-    """Process a chunk of data into JSON strings."""
+def _hash_chunk(chunk: list) -> list:
+    """Hash a chunk of data."""
     chunk = [json.dumps(row, sort_keys=True) for row in chunk]
     chunk_str = "|||".join(chunk)
     return xxh64(chunk_str).hexdigest()
@@ -125,7 +125,7 @@ def _hash_dataset(dataset: Iterable):
     # Process chunks in parallel
     with ProcessPoolExecutor(max_workers=num_cores) as executor:
         chunk_hash = list(
-            executor.map(_process_chunk, chunks, [chunk_size] * len(chunks))
+            executor.map(_hash_chunk, chunks)
         )
         chunk_hash_str = "|||".join(chunk_hash)
         hash_value = xxh64(chunk_hash_str).hexdigest()
