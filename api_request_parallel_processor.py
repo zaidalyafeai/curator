@@ -248,7 +248,7 @@ async def process_api_requests_from_file(
         # Count total number of requests
         total_requests = sum(1 for _ in open(requests_filepath))
         if total_requests == len(completed_request_ids):
-            # if all requests are already completed, skip the main loop
+            # If all requests are already completed, skip the main loop
             return
 
         # Create progress bar
