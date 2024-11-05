@@ -36,7 +36,7 @@ GetSubSubjects = prompt.Prompter(
 
 GetQAList = prompt.Prompter(
     system_prompt="You are a helpful AI assistant.",
-    user_prompt="For the given subject {{ subsubject }}, generate 1 diverse questions and answers. No explanation.",
+    user_prompt="For the given subject {{ subsubject }}, generate 10 diverse questions and answers. No explanation.",
     response_format=QAs,
     model_name="gpt-4o-mini",
 )
