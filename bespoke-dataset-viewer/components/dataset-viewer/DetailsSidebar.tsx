@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Copy, X } from "lucide-react"
 import { DataItem } from "@/types/dataset"
+import { useCallback } from "react"
 
 interface DetailsSidebarProps {
   item: DataItem | null
@@ -13,11 +14,15 @@ interface DetailsSidebarProps {
 }
 
 export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
+  const copyToClipboard = useCallback(async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
       alert("Copied to clipboard!")
-    })
-  }
+    } catch (err) {
+      console.error("Failed to copy:", err)
+      alert("Failed to copy to clipboard")
+    }
+  }, [])
 
   if (!item) return null
 

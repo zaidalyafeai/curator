@@ -28,6 +28,18 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu"
 
+const TABLE_COLUMNS = [
+  "User Message",
+  "Assistant Message",
+  "Prompt Tokens",
+  "Completion Tokens",
+]
+
+const GROUPABLE_COLUMNS = [
+  "Model",
+  "System Message"
+]
+
 export function DatasetViewer() {
   const [data, setData] = useState<DataItem[]>([])
   const [sortColumn, setSortColumn] = useState<string | null>(null)
@@ -36,19 +48,7 @@ export function DatasetViewer() {
   const [groupBy, setGroupBy] = useState<string | null>(null)
   const [theme, setTheme] = useState<"light" | "dark">("light")
   const [mounted, setMounted] = useState(false)
-  const [columns, setColumns] = useState([
-    // "Model",
-    // "System Message",
-    "User Message",
-    "Assistant Message",
-    // "Total Tokens",
-    "Prompt Tokens",
-    "Completion Tokens",
-  ])
-  const groupableColumns = [
-  "Model",
-  "System Message"
-  ];
+  const [columns, setColumns] = useState(TABLE_COLUMNS)
   const [selectedDistribution, setSelectedDistribution] = useState<string | null>(null)
   const [selectedItem, setSelectedItem] = useState<DataItem | null>(null)
 
@@ -81,22 +81,24 @@ export function DatasetViewer() {
     setTheme(prev => prev === 'light' ? 'dark' : 'light')
   }
 
-  const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        try {
-          const content = e.target?.result as string
-          const lines = content.split('\n').filter(line => line.trim() !== '')
-          const jsonData = lines.map(line => JSON.parse(line))
-          setData(jsonData)
-        } catch (error) {
-          console.error("Error parsing JSON:", error)
-          alert("Invalid JSON file. Please try again.")
-        }
-      }
-      reader.readAsText(file)
+    if (!file) return
+
+    try {
+      const content = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = (e) => resolve(e.target?.result as string)
+        reader.onerror = reject
+        reader.readAsText(file)
+      })
+
+      const lines = content.split('\n').filter(line => line.trim() !== '')
+      const jsonData = lines.map(line => JSON.parse(line))
+      setData(jsonData)
+    } catch (error) {
+      console.error("Error parsing file:", error)
+      alert("Failed to parse file. Please ensure it's a valid JSON file.")
     }
   }, [])
 
@@ -213,7 +215,7 @@ export function DatasetViewer() {
                   <DropdownMenuItem onClick={() => handleGroup(null)}>
                     None
                   </DropdownMenuItem>
-                  {groupableColumns.map((column) => (
+                  {GROUPABLE_COLUMNS.map((column) => (
                     <DropdownMenuItem key={column} onClick={() => handleGroup(column)}>
                       {column}
                     </DropdownMenuItem>

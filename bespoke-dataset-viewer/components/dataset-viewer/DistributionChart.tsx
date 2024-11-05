@@ -9,16 +9,19 @@ interface DistributionChartProps {
   column: string
 }
 
+// Move this outside component
+const COLUMN_DISPLAY_NAMES: Record<string, string> = {
+  total_tokens: "Total Tokens",
+  prompt_tokens: "Prompt Tokens",
+  completion_tokens: "Completion Tokens"
+}
+
 export function DistributionChart({ data, column }: DistributionChartProps) {
   const distributionData = getDistributionData(data, column);
 
   if (distributionData.length === 0) return null;
 
-  const displayName = {
-    total_tokens: "Total Tokens",
-    prompt_tokens: "Prompt Tokens",
-    completion_tokens: "Completion Tokens"
-  }[column] || column;
+  const displayName = COLUMN_DISPLAY_NAMES[column] || column;
 
   return (
     <div className="mb-8 h-64">
