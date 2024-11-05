@@ -63,6 +63,10 @@ def _parse_responses_file(prompter: Prompter, responses_file):
         for line in f_in:
             total_count += 1
             try:
+                # Each response is a tuple of (request, response, metadata) where:
+                # - request is the original request object
+                # - response is the response from the API
+                # - metadata is a dictionary of metadata about the request (such as the request index)
                 response = json.loads(line)
                 if isinstance(response[1], list):
                     # A failed requests contains a list of all the errors before max_retries
