@@ -11,6 +11,7 @@ from concurrent.futures import ProcessPoolExecutor
 from typing import Iterable, Optional
 
 from datasets import Dataset
+from pydantic import BaseModel
 from xxhash import xxh64
 
 from api_request_parallel_processor import process_api_requests_from_file
@@ -79,29 +80,33 @@ def _parse_responses_file(prompter: Prompter, responses_file):
                     response_parsed = prompter.response_format.model_validate_json(
                         response_message
                     )
-                    response_parsed = response_parsed.model_dump()
                 else:
                     response_parsed = response_message
 
                 samples.append((metadata["request_idx"], response_parsed))
 
             except Exception as e:
-                logging.warning(f"Error: {e}")
-                logging.warning(f"Full response: {response}")
+                logging.warning(f"Error: {e}. Full response: {response}")
                 continue
     logging.debug(f"Read {total_count} responses, {failed_count} failed")
     # Sort by idx then return only the responses
     samples.sort(key=lambda x: x[0])
-    samples = [sample[1] for sample in samples]  # Keep only the response_parsed values
+    samples = [sample[1] for sample in samples]
     if failed_count == total_count:
         raise ValueError("All requests failed")
     return samples
 
 
-def _hash_chunk(chunk: list) -> list:
+def _hash_chunk(chunks: list) -> list:
     """Hash a chunk of data."""
-    chunk = [json.dumps(row, sort_keys=True) for row in chunk]
-    chunk_str = "|||".join(chunk)
+
+    def _json_dumps_row(row):
+        if isinstance(row, BaseModel):
+            row = row.model_dump()
+        return json.dumps(row, sort_keys=True)
+
+    chunks = [_json_dumps_row(row) for row in chunks]
+    chunk_str = "|||".join(chunks)
     return xxh64(chunk_str).hexdigest()
 
 
@@ -124,9 +129,7 @@ def _hash_dataset(dataset: Iterable):
 
     # Process chunks in parallel
     with ProcessPoolExecutor(max_workers=num_cores) as executor:
-        chunk_hash = list(
-            executor.map(_hash_chunk, chunks)
-        )
+        chunk_hash = list(executor.map(_hash_chunk, chunks))
         chunk_hash_str = "|||".join(chunk_hash)
         hash_value = xxh64(chunk_hash_str).hexdigest()
 

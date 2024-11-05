@@ -17,7 +17,7 @@ class Subjects(BaseModel):
 
 class QA(BaseModel):
     question: str = Field(description="A question")
-    answer: str = Field(description="A answer")
+    answer: str = Field(description="An answer")
 
 
 class QAs(BaseModel):
@@ -50,8 +50,8 @@ def join_subject_subsubject(
     subject: Subject, subsubjects: Subjects
 ) -> List[Dict[str, Any]]:
     return [
-        {"subject": subject["subject"], "subsubject": subsubject["subject"]}
-        for subsubject in subsubjects["subjects"]
+        {"subject": subject.subject, "subsubject": subsubject.subject}
+        for subsubject in subsubjects.subjects
     ]
 
 
@@ -60,10 +60,10 @@ def join_subsubject_qas(subsubject: Subject, qas: QAs) -> List[Dict[str, Any]]:
         {
             "subject": subsubject["subject"],
             "subsubject": subsubject["subsubject"],
-            "question": qa["question"],
-            "answer": qa["answer"],
+            "question": qa.question,
+            "answer": qa.answer,
         }
-        for qa in qas["qas"]
+        for qa in qas.qas
     ]
 
 
@@ -73,9 +73,8 @@ subject_dataset = bella.completions(
 )
 rows = []
 for subject in subject_dataset:
-    rows.extend(subject["subjects"])
+    rows.extend(subject.subjects)
 subject_dataset = rows
-
 
 subsubjects_dataset = bella.completions(
     dataset=subject_dataset,
