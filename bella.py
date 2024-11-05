@@ -4,8 +4,10 @@ import asyncio
 import hashlib
 import json
 import logging
+import math
 import os
 import time
+from concurrent.futures import ProcessPoolExecutor
 from typing import Iterable, Optional
 
 from datasets import Dataset
@@ -96,16 +98,42 @@ def _parse_responses_file(prompter: Prompter, responses_file):
     return samples
 
 
+def _process_chunk(chunk: list, chunk_size: int) -> list:
+    """Process a chunk of data into JSON strings."""
+    chunk = [json.dumps(row, sort_keys=True) for row in chunk]
+    chunk_str = "|||".join(chunk)
+    return xxh64(chunk_str).hexdigest()
+
+
 def _hash_dataset(dataset: Iterable):
     """Hash a dataset to a consistent value using parallel processing."""
     start = time.perf_counter_ns()
-    hash = xxh64(
-        "|||".join([json.dumps(row, sort_keys=True) for row in dataset])
-    ).hexdigest()
+
+    # Convert to list and determine chunking parameters
+    dataset_list = list(dataset)
+    if len(dataset_list) == 0:
+        return xxh64("").hexdigest()
+
+    num_cores = 4
+    total_size = len(dataset_list)
+    chunk_size = math.ceil(total_size / (num_cores * 4))  # 4 chunks per core
+
+    chunks = [
+        dataset_list[i : i + chunk_size] for i in range(0, total_size, chunk_size)
+    ]
+
+    # Process chunks in parallel
+    with ProcessPoolExecutor(max_workers=num_cores) as executor:
+        chunk_hash = list(
+            executor.map(_process_chunk, chunks, [chunk_size] * len(chunks))
+        )
+        chunk_hash_str = "|||".join(chunk_hash)
+        hash_value = xxh64(chunk_hash_str).hexdigest()
+
     logging.debug(
-        f"Dataset hash time: {(time.perf_counter_ns() - start) / 1e6:.6f} miliseconds"
+        f"Dataset hash time: {(time.perf_counter_ns() - start) / 1e6:.6f} milliseconds"
     )
-    return hash
+    return hash_value
 
 
 def completions(
