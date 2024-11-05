@@ -5,11 +5,13 @@ import hashlib
 import json
 import logging
 import os
-import uuid
+import time
+from concurrent.futures import ProcessPoolExecutor
 from typing import Iterable, Optional
 
 from datasets import Dataset
 from datasets.arrow_writer import ArrowWriter
+from xxhash import xxh64
 
 from api_request_parallel_processor import process_api_requests_from_file
 from prompt import Prompter
@@ -143,6 +145,12 @@ def _parse_responses_file(prompter: Prompter, responses_file):
         raise ValueError("All requests failed")
     return samples
 
+def _hash_dataset(dataset: Iterable):
+    """Hash a dataset to a consistent value using parallel processing."""
+    start = time.perf_counter_ns()
+    hash = xxh64("|||".join([json.dumps(row, sort_keys=True) for row in dataset])).hexdigest()
+    logging.debug(f"Dataset hash time: {(time.perf_counter_ns() - start) / 1e9:.2f} seconds")
+    return hash
 
 def completions(
     dataset: Iterable,
@@ -166,10 +174,11 @@ def completions(
         "BELLA_CACHE_DIR", os.path.expanduser("~/.cache/bella")
     )
 
+    dataset_hash = _hash_dataset(dataset)
     # Convert all elements to strings and join them before hashing
     fingerprint_str = "_".join(
         [
-            str(uuid.uuid4()),
+            str(dataset_hash),
             str(prompter.user_prompt),
             str(prompter.system_prompt),
             str(prompter.model_name),
