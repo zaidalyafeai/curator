@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, Dict, List
 
 import pandas as pd
 from pydantic import BaseModel, Field
@@ -7,18 +7,18 @@ import bella
 import prompt
 
 
-class Subjects(BaseModel):
-    subjects: List[str] = Field(description="A list of subjects")
+class Subject(BaseModel):
+    subject: str = Field(description="A subject")
 
+class Subjects(BaseModel):
+    subjects: List[Subject] = Field(description="A list of subjects")
 
 class QA(BaseModel):
     question: str = Field(description="A question")
     answer: str = Field(description="A answer")
 
-
 class QAs(BaseModel):
     qas: List[QA] = Field(description="A list of QAs")
-
 
 GetSubjects = prompt.Prompter(
     system_prompt="You are a helpful AI assistant.",
@@ -27,14 +27,12 @@ GetSubjects = prompt.Prompter(
     model_name="gpt-4o-mini",
 )
 
-
 GetSubSubjects = prompt.Prompter(
     system_prompt="You are a helpful AI assistant.",
     user_prompt="For the given subject {{ subject }}. Generate 3 diverse subsubjects. No explanation.",
     response_format=Subjects,
     model_name="gpt-4o-mini",
 )
-
 
 GetQAList = prompt.Prompter(
     system_prompt="You are a helpful AI assistant.",
@@ -44,52 +42,46 @@ GetQAList = prompt.Prompter(
 )
 
 
-def camelai():
-    subject_dataset = bella.completions(
-        dataset=(),
-        prompter=GetSubjects,
-        name="Generate subjects",
-    )
-    # If the response is a list, bella automatically flattens it.
-    subject_dataset = bella.map(
-        subject_dataset,
-        lambda sample: [{"subject": subject} for subject in sample["subjects"]],
-    )
-    print(pd.DataFrame.from_records(subject_dataset))
+def join_subject_subsubject(subject: Subject, subsubjects: Subjects) -> List[Dict[str, Any]]:
+    return [
+        {"subject": subject["subject"], "subsubject": subsubject["subject"]}
+        for subsubject in subsubjects["subjects"]
+    ]
 
-    subsubject_dataset = bella.completions(
-        dataset=subject_dataset,
-        prompter=GetSubSubjects,
-        name="Generate subsubjects",
-    )
-    # join the subject and subsubject datasets
-    subsubject_dataset = bella.map(
-        zip(subject_dataset, subsubject_dataset),
-        lambda sample: [
-            {"subject": sample[0]["subject"], "subsubject": subsubject}
-            for subsubject in sample[1]["subjects"]
-        ],
-    )
-    print(pd.DataFrame.from_records(subsubject_dataset))
+def join_subsubject_qas(subsubject: Subject, qas: QAs) -> List[Dict[str, Any]]:
+    return [
+        {"subject": subsubject["subject"], "subsubject": subsubject["subsubject"], "question": qa["question"], "answer": qa["answer"]}
+        for qa in qas["qas"]
+    ]
 
-    qa_dataset = bella.completions(
-        subsubject_dataset,
-        prompter=GetQAList,
-        name="Generate QAs",
-    )
-    qa_dataset = bella.map(
-        zip(subsubject_dataset, qa_dataset),
-        lambda sample: [
-            {
-                "subject": sample[0]["subject"],
-                "subsubject": sample[0]["subsubject"],
-                "question": qa["question"],
-                "answer": qa["answer"],
-            }
-            for qa in sample[1]["qas"]
-        ],
-    )
-    print(pd.DataFrame.from_records(qa_dataset))
+subject_dataset = bella.completions(
+    (),
+    prompter=GetSubjects,
+)
+rows = []
+for subject in subject_dataset:
+    rows.extend(subject["subjects"])
+subject_dataset = rows 
 
 
-camelai()
+subsubjects_dataset = bella.completions(
+    dataset=subject_dataset,
+    prompter=GetSubSubjects,
+)
+rows = []
+for subject, subsubjects in zip(subject_dataset, subsubjects_dataset):
+    rows.extend(join_subject_subsubject(subject, subsubjects))
+subsubject_dataset = rows 
+
+print(pd.DataFrame.from_records(subsubject_dataset))
+
+qa_dataset = bella.completions(
+    dataset=subsubject_dataset,
+    prompter=GetQAList,
+)
+rows = []
+for subsubject, qas in zip(subsubject_dataset, qa_dataset):
+    rows.extend(join_subsubject_qas(subsubject, qas))
+qa_dataset = rows 
+
+print(pd.DataFrame.from_records(qa_dataset))
