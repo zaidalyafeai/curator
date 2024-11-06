@@ -26,11 +26,19 @@ class Prompter:
         prompt_func: Callable,
         response_format: Optional[Type[BaseModel]] = None,
     ):
+        """Initialize a Prompter.
+
+        Args:
+            model_name (str): The name of the LLM to use
+            prompt_func (Callable): A function that goes from row to request object
+            response_format (Optional[Type[BaseModel]]): A Pydantic model specifying the
+                response format from the LLM.
+        """
         self.model_name = model_name
         self.prompt_func = prompt_func
         self.response_format = response_format
 
-    def get_request_object(
+    def _get_request_object(
         self, row: Dict[str, Any] | BaseModel, idx: int
     ) -> Dict[str, Any]:
         """Format the request object based off Prompter attributes."""
@@ -82,6 +90,7 @@ class Prompter:
         return request
 
     def __call__(self, dataset: Iterable = []):
+        """Run completions on a dataset."""
         return _completions(dataset, self)
 
 
@@ -95,13 +104,16 @@ def _completions(
     Apply structured completions to the dataset using specified model and prompts.
 
     Args:
-        prompter: A function that goes from row to request object
-        output_column: Name of the column to store the response
-        name: Name of the task
-        resume: Whether to resume from the previous completions run
+        dataset (Iterable): A dataset of items to apply completions to in parallel
+        prompter (Prompter): A Prompter that contains the logic for formatting each
+            item in the dataset
+        name (str): Name of the task
+        resume (bool): Whether to resume from the previous completions run. If True,
+            we use a fingerprint from the input dataset and the prompter to resume
+            from a previous run that matches the same fingerprint.
 
     Returns:
-        A Dataset with the completions added in the output_column
+        Iterable: A list of responses from the completions
     """
     if prompter is None:
         raise ValueError("Prompter must be provided")
