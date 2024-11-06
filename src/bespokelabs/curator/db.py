@@ -12,7 +12,7 @@ class MetadataDB:
 
     def store_metadata(self, metadata: dict):
         """Store metadata about a Bella run in the database.
-        
+
         Args:
             metadata: Dictionary containing run metadata with keys:
                 - timestamp: ISO format timestamp

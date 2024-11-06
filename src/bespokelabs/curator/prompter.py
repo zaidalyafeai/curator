@@ -1,4 +1,4 @@
-"""Bella: Bespoke Labs Synthetic Data Generation Library."""
+"""Curator: Bespoke Labs Synthetic Data Generation Library."""
 
 import asyncio
 import inspect
@@ -7,15 +7,20 @@ import logging
 import math
 import os
 import time
-from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
-from typing import Any, Callable, Dict, Iterable, Optional, Type
-from bespokelabs.curator.db import MetadataDB
+from datetime import datetime
+from typing import Any, Callable, Dict, Iterable, Optional, Type, TypeVar, Union
+
 from datasets import Dataset
 from pydantic import BaseModel
 from xxhash import xxh64
 
-from bespokelabs.curator.api_request_parallel_processor import process_api_requests_from_file
+from bespokelabs.curator.api_request_parallel_processor import (
+    process_api_requests_from_file,
+)
+from bespokelabs.curator.db import MetadataDB
+
+T = TypeVar("T")
 
 
 class Prompter:
@@ -24,19 +29,42 @@ class Prompter:
     def __init__(
         self,
         model_name: str,
-        prompt_func: Callable,
+        prompt_func: Callable[[Union[Dict[str, Any], BaseModel]], Dict[str, str]],
+        parse_func: Optional[
+            Callable[
+                [Union[Dict[str, Any], BaseModel], Union[Dict[str, Any], BaseModel]], T
+            ]
+        ] = None,
         response_format: Optional[Type[BaseModel]] = None,
     ):
         """Initialize a Prompter.
 
         Args:
             model_name (str): The name of the LLM to use
-            prompt_func (Callable): A function that goes from row to request object
+            prompt_func (Callable[[Dict[str, Any]], Dict[str, str]]): A function that takes a single row
+                and returns a dict with "system_prompt" and "user_prompt"
+            parse_func (Callable[[Dict[str, Any], Any], T]): A function that takes the input row and
+                response object and returns the parsed output
             response_format (Optional[Type[BaseModel]]): A Pydantic model specifying the
                 response format from the LLM.
         """
         self.model_name = model_name
+
+        prompt_sig = inspect.signature(prompt_func)
+        if len(prompt_sig.parameters) > 1:
+            raise ValueError(
+                f"prompt_func must take one argument or less, got {len(prompt_sig.parameters)}"
+            )
+
+        if parse_func is not None:
+            parse_sig = inspect.signature(parse_func)
+            if len(parse_sig.parameters) != 2:
+                raise ValueError(
+                    f"parse_func must take exactly 2 arguments, got {len(parse_sig.parameters)}"
+                )
+
         self.prompt_func = prompt_func
+        self.parse_func = parse_func
         self.response_format = response_format
 
     def get_request_object(
@@ -120,17 +148,19 @@ def _completions(
     if prompter is None:
         raise ValueError("Prompter must be provided")
 
-    bella_cache_dir = os.environ.get(
-        "BELLA_CACHE_DIR", os.path.expanduser("~/.cache/bella")
+    curator_cache_dir = os.environ.get(
+        "BELLA_CACHE_DIR", os.path.expanduser("~/.cache/curator")
     )
 
     dataset_hash = _hash_dataset(dataset)
-    func_hash = _get_function_hash(prompter.prompt_func)
+    prompt_func_hash = _get_function_hash(prompter.prompt_func)
+    parse_func_hash = _get_function_hash(prompter.parse_func)
 
     fingerprint_str = "_".join(
         [
             str(dataset_hash),
-            str(func_hash),
+            str(prompt_func_hash),
+            str(parse_func_hash),
             str(prompter.model_name),
             str(prompter.response_format.schema_json()),
         ]
@@ -139,18 +169,23 @@ def _completions(
     fingerprint = xxh64(fingerprint_str.encode("utf-8")).hexdigest()
 
     name = f"{name.replace(' ', '-')}--{fingerprint}" if name else fingerprint
-    requests_path = os.path.join(bella_cache_dir, f"{name}/requests.jsonl")
-    responses_path = os.path.join(bella_cache_dir, f"{name}/responses.jsonl")
-    metadata_db_path = os.path.join(bella_cache_dir, "metadata.db")
+    requests_path = os.path.join(curator_cache_dir, f"{name}/requests.jsonl")
+    responses_path = os.path.join(curator_cache_dir, f"{name}/responses.jsonl")
+    metadata_db_path = os.path.join(curator_cache_dir, "metadata.db")
     metadata_db = MetadataDB(metadata_db_path)
-    
+
     # Get the source code of the prompt function
     prompt_func_source = inspect.getsource(prompter.prompt_func)
+    if prompter.parse_func is not None:
+        parse_func_source = inspect.getsource(prompter.parse_func)
+    else:
+        parse_func_source = ""
 
     metadata_dict = {
         "timestamp": datetime.now().isoformat(),
         "dataset_hash": dataset_hash,
         "prompt_func": prompt_func_source,
+        "parse_func": parse_func_source,
         "model_name": prompter.model_name,
         "response_format": prompter.response_format.schema_json(),
         "run_hash": fingerprint,
@@ -234,17 +269,22 @@ def _parse_responses_file(prompter: Prompter, responses_file):
 
                 # Parse the response for structured output
                 if prompter.response_format:
-                    response_parsed = prompter.response_format.model_validate_json(
+                    response = prompter.response_format.model_validate_json(
                         response_message
                     )
                 else:
-                    response_parsed = response_message
+                    response = response_message
 
-                samples.append((metadata["request_idx"], response_parsed))
+                parsed_output = prompter.parse_func(metadata["sample"], response)
+                if isinstance(parsed_output, list):
+                    samples.extend([(metadata["request_idx"], output) for output in parsed_output])
+                else:
+                    samples.append((metadata["request_idx"], parsed_output))
 
             except Exception as e:
                 logging.warning(f"Error: {e}. Full response: {response}")
                 continue
+
     logging.debug(f"Read {total_count} responses, {failed_count} failed")
     # Sort by idx then return only the responses
     samples.sort(key=lambda x: x[0])
@@ -256,7 +296,6 @@ def _parse_responses_file(prompter: Prompter, responses_file):
 
 def _hash_chunk(chunks: list) -> list:
     """Hash a chunk of data."""
-
     def _json_dumps_row(row):
         if isinstance(row, BaseModel):
             row = row.model_dump()
