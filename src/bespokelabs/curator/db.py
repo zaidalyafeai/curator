@@ -15,6 +15,7 @@ class MetadataDB:
         
         Args:
             metadata: Dictionary containing run metadata with keys:
+                - timestamp: ISO format timestamp
                 - dataset_hash: Unique hash of input dataset
                 - prompt_func: Source code of prompt function
                 - model_name: Name of model used
