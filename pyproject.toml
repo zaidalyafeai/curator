@@ -24,6 +24,7 @@ xxhash = "^3.5.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.2.0"
+twine = "^5.0.0"
 
 [build-system]
 requires = ["poetry-core"]
