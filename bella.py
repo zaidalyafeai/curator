@@ -7,9 +7,10 @@ import logging
 import math
 import os
 import time
+from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
 from typing import Any, Callable, Dict, Iterable, Optional, Type
-
+from db import MetadataDB
 from datasets import Dataset
 from pydantic import BaseModel
 from xxhash import xxh64
@@ -127,6 +128,21 @@ def _completions(
     name = f"{name.replace(' ', '-')}--{fingerprint}" if name else fingerprint
     requests_path = os.path.join(bella_cache_dir, f"{name}/requests.jsonl")
     responses_path = os.path.join(bella_cache_dir, f"{name}/responses.jsonl")
+    metadata_db_path = os.path.join(bella_cache_dir, "metadata.db")
+    metadata_db = MetadataDB(metadata_db_path)
+    
+    # Get the source code of the prompt function
+    prompt_func_source = inspect.getsource(prompter.prompt_func)
+
+    metadata_dict = {
+        "timestamp": datetime.now().isoformat(),
+        "dataset_hash": dataset_hash,
+        "prompt_func": prompt_func_source,
+        "model_name": prompter.model_name,
+        "response_format": prompter.response_format.schema_json(),
+        "run_hash": fingerprint,
+    }
+    metadata_db.store_metadata(metadata_dict)
 
     _create_requests_file(dataset, requests_path, prompter, resume)
     asyncio.run(
