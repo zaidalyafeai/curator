@@ -1,9 +1,10 @@
 [tool.poetry]
-name = "bella"
+name = "bespokelabs-curator"
 version = "0.1.0"
 description = ""
 authors = ["Bespoke Labs <company@bespokelabs.ai>"]
 readme = "README.md"
+packages = [{include = "bespokelabs", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"

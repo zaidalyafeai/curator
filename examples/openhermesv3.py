@@ -2,7 +2,7 @@ import pandas as pd
 from datasets import Dataset, load_dataset
 from pydantic import BaseModel, Field
 
-import bella
+import bespokelabs.curator.prompter as prompter
 from prompt import prompter
 
 
@@ -43,7 +43,7 @@ def get_instruction_response(row):
     }
 
 
-ds_results = bella.completions(
+ds_results = prompter.completions(
     dataset=ds.to_list(),
     prompter=get_instruction_response,
 )

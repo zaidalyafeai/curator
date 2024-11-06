@@ -14,7 +14,7 @@ from datasets import Dataset
 from pydantic import BaseModel
 from xxhash import xxh64
 
-from api_request_parallel_processor import process_api_requests_from_file
+from bespokelabs.curator.api_request_parallel_processor import process_api_requests_from_file
 
 
 class Prompter:
