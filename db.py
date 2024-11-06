@@ -28,15 +28,15 @@ class MetadataDB:
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS runs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT,
-                dataset_hash TEXT,
-                prompt_func TEXT,
-                model_name TEXT,
-                response_format TEXT,
-                run_hash TEXT
-            )
-            """
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT,
+                    dataset_hash TEXT, 
+                    prompt_func TEXT,
+                    model_name TEXT,
+                    response_format TEXT,
+                    run_hash TEXT
+                )
+                """
             )
             cursor.execute(
                 """
