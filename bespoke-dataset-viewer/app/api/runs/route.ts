@@ -4,11 +4,13 @@ import { homedir } from 'os'
 import { join } from 'path'
 import { existsSync } from 'fs'
 
-export async function GET() {
+export async function GET(request: Request) {
   return new Promise((resolve) => {
+    const { searchParams } = new URL(request.url)
+    const lastCreatedTime = searchParams.get('lastCreatedTime')
+    
     const dbPath = join(homedir(), '.cache', 'bella', 'metadata.db')
     
-    // Check if database file exists
     if (!existsSync(dbPath)) {
       console.error(`Database file not found at: ${dbPath}`)
       resolve(NextResponse.json({ error: 'Database file not found' }, { status: 500 }))
@@ -24,8 +26,15 @@ export async function GET() {
         }
       })
 
+      const query = lastCreatedTime
+        ? 'SELECT * FROM runs WHERE created_time > ? ORDER BY created_time DESC'
+        : 'SELECT * FROM runs ORDER BY created_time DESC'
+      
+      const params = lastCreatedTime ? [lastCreatedTime] : []
+
       db.all(
-        'SELECT * FROM runs ORDER BY timestamp DESC',
+        query,
+        params,
         (err, rows) => {
           if (err) {
             console.error('Database query error:', err)
