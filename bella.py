@@ -286,7 +286,4 @@ def _get_function_hash(func) -> str:
         return xxh64("").hexdigest()
 
     # Get function signature for debugging
-    sig = inspect.signature(func)
-    logging.debug(f"Function parameters: {list(sig.parameters.keys())}")
-
-    return xxh64(func.__code__.co_code).hexdigest()
+    return xxh64(inspect.getsource(func)).hexdigest()

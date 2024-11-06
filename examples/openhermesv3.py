@@ -2,8 +2,7 @@ import pandas as pd
 from datasets import Dataset, load_dataset
 from pydantic import BaseModel, Field
 
-import bella
-from prompt import prompter
+from bella import Prompter
 
 
 class InstructionResponse(BaseModel):
@@ -36,17 +35,18 @@ ds = convert_ShareGPT_to_IT_format(ds)
 ds = ds.select(range(10))
 
 
-@prompter("gpt-4o-mini", InstructionResponse)
 def get_instruction_response(row):
     return {
         "user_prompt": f"{row['instruction']}",
     }
 
-
-ds_results = bella.completions(
-    dataset=ds.to_list(),
-    prompter=get_instruction_response,
+prompter = Prompter(
+    model_name="gpt-4o-mini",
+    prompt_func=get_instruction_response,
+    response_format=InstructionResponse,
 )
+
+ds_results = prompter(ds.to_list())
 
 rows = []
 for row, result in zip(ds, ds_results):
