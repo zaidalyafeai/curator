@@ -277,7 +277,9 @@ def _parse_responses_file(prompter: Prompter, responses_file):
 
                 parsed_output = prompter.parse_func(metadata["sample"], response)
                 if isinstance(parsed_output, list):
-                    samples.extend([(metadata["request_idx"], output) for output in parsed_output])
+                    samples.extend(
+                        [(metadata["request_idx"], output) for output in parsed_output]
+                    )
                 else:
                     samples.append((metadata["request_idx"], parsed_output))
 
@@ -296,6 +298,7 @@ def _parse_responses_file(prompter: Prompter, responses_file):
 
 def _hash_chunk(chunks: list) -> list:
     """Hash a chunk of data."""
+
     def _json_dumps_row(row):
         if isinstance(row, BaseModel):
             row = row.model_dump()
