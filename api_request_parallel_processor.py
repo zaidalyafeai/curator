@@ -106,6 +106,7 @@ from dataclasses import (  # for storing API inputs, outputs, and metadata
     field,
 )
 from typing import Set, Tuple  # for documentation
+
 import aiohttp  # for making API calls concurrently
 import requests
 import tiktoken  # for counting tokens
@@ -202,6 +203,7 @@ async def process_api_requests_from_file(
     logging.debug(f"Initialization complete.")
 
     completed_request_ids: Set[int] = set()
+
     if os.path.exists(save_filepath):
         if resume:
             # save all successfully completed requests to a temporary file, then overwrite the original file with the temporary file
@@ -245,6 +247,9 @@ async def process_api_requests_from_file(
 
         # Count total number of requests
         total_requests = sum(1 for _ in open(requests_filepath))
+        if total_requests == len(completed_request_ids):
+            # If all requests are already completed, skip the main loop
+            return
 
         # Create progress bar
         pbar = tqdm(total=total_requests, desc="Sending requests to API")

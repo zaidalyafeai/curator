@@ -1,5 +1,13 @@
+import pandas as pd
+from datasets import Dataset, load_dataset
+from pydantic import BaseModel, Field
+
 import bella
-from datasets import load_dataset, Dataset
+from prompt import prompter
+
+
+class InstructionResponse(BaseModel):
+    response: str = Field(description="The response")
 
 
 def convert_ShareGPT_to_IT_format(dataset: Dataset) -> Dataset:
@@ -27,13 +35,21 @@ ds = load_dataset("teknium/OpenHermes-2.5", split="train")
 ds = convert_ShareGPT_to_IT_format(ds)
 ds = ds.select(range(10))
 
-ds = bella.completions(
-    dataset=ds,
-    prompter=bella.Prompter(
-        user_prompt="{{instruction}}",
-        model_name="gpt-4o-mini",
-    ),
-    output_column="model_response",
+
+@prompter("gpt-4o-mini", InstructionResponse)
+def get_instruction_response(row):
+    return {
+        "user_prompt": f"{row['instruction']}",
+    }
+
+
+ds_results = bella.completions(
+    dataset=ds.to_list(),
+    prompter=get_instruction_response,
 )
 
-print(ds)
+rows = []
+for row, result in zip(ds, ds_results):
+    rows.append({"instruction": row["instruction"], "response": result.response})
+
+print(pd.DataFrame.from_records(rows))

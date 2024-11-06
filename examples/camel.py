@@ -1,78 +1,79 @@
-import prompt
+from typing import List
 
+import pandas as pd
 from pydantic import BaseModel, Field
 
-from bella import Dataset, ListModel
+import bella
+from bella import Prompter
 
 
 class Subject(BaseModel):
-    subject: str
+    subject: str = Field(description="A subject")
+
+
+class Subjects(BaseModel):
+    subjects: List[Subject] = Field(description="A list of subjects")
 
 
 class QA(BaseModel):
     question: str = Field(description="A question")
-    answer: str = Field(description="A answer")
+    answer: str = Field(description="An answer")
 
 
-GetSubjects = prompt.Prompter(
-    system_prompt="You are a helpful AI assistant.",
-    user_prompt="Generate a diverse list of 1 subjects. Keep it high-level (e.g. Math, Science).",
-    response_format=ListModel[Subject],
+class QAs(BaseModel):
+    qas: List[QA] = Field(description="A list of QAs")
+
+
+subject_prompter = Prompter(
+    prompt_func=lambda: {
+        "user_prompt": f"Generate a diverse list of 3 subjects. Keep it high-level (e.g. Math, Science)."
+    },
     model_name="gpt-4o-mini",
+    response_format=Subjects,
 )
+result = subject_prompter()
+subject_dataset = []
+for subject in result:
+    subject_dataset.extend(subject.subjects)
 
 
-GetSubSubjects = prompt.Prompter(
-    system_prompt="You are a helpful AI assistant.",
-    user_prompt="For the given subject {{ subject.subject }}. Generate 3 diverse subsubjects. No explanation.",
-    response_format=ListModel[Subject],
+subsubject_prompter = Prompter(
+    prompt_func=lambda subject: {
+        "user_prompt": f"For the given subject {subject}. Generate 3 diverse subsubjects. No explanation."
+    },
     model_name="gpt-4o-mini",
+    response_format=Subjects,
 )
-
-
-GetQAList = prompt.Prompter(
-    system_prompt="You are a helpful AI assistant.",
-    user_prompt="For the given subject {{ subsubject.subject }}, generate 1 diverse questions and answers. No explanation.",
-    response_format=ListModel[QA],
-    model_name="gpt-4o-mini",
-)
-
-
-def camelai():
-    # Generate initial subjects.
-    subject_dataset = (
-        Dataset.empty()
-        .completions(
-            prompter=GetSubjects,
-            output_column="subject",
-            name="Generate subjects",
-        )
-        .flatten()
+result = subsubject_prompter(subject_dataset)
+subsubject_dataset = []
+for subject, subsubjects in zip(subject_dataset, result):
+    subsubject_dataset.extend(
+        [
+            {"subject": subject.subject, "subsubject": subsubject.subject}
+            for subsubject in subsubjects.subjects
+        ]
     )
 
-    print(subject_dataset)
-    print(subject_dataset[0])
+qa_prompter = Prompter(
+    prompt_func=lambda subsubject: {
+        "user_prompt": f"For the given subsubject {subsubject}. Generate 3 diverse questions and answers. No explanation."
+    },
+    model_name="gpt-4o-mini",
+    response_format=QAs,
+)
+result = qa_prompter(subsubject_dataset)
 
-    # Generate subsubjects.
-    subsubject_dataset = subject_dataset.completions(
-        prompter=GetSubSubjects,
-        output_column="subsubject",
-        name="Generate sub-subjects",
-    ).flatten()
-
-    print(subsubject_dataset)
-    print(subsubject_dataset[0])
-    breakpoint()
-
-    # Generate list of QA pairs.
-    qa_dataset = subsubject_dataset.completions(
-        prompter=GetQAList, output_column="qa", name="Generate QAs"
-    ).flatten()
-
-    print(qa_dataset)
-    print(qa_dataset[0])
-
-    return qa_dataset
-
-
-camelai()
+qa_dataset = []
+for subsubject, qas in zip(subsubject_dataset, result):
+    qa_dataset.extend(
+        [
+            {
+                "subject": subsubject["subject"],
+                "subsubject": subsubject["subsubject"],
+                "question": qa.question,
+                "answer": qa.answer,
+            }
+            for qa in qas.qas
+        ]
+    )
+print(pd.DataFrame.from_records(qa_dataset))
