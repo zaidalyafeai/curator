@@ -41,7 +41,7 @@ def get_instruction_response(row):
     }
 
 instruction_prompter = curator.Prompter(
-    model_name="gpt-4o-mini-2024-07-18",
+    model_name="gpt-4o-mini",
     prompt_func=get_instruction_response,
     response_format=InstructionResponse,
 )
