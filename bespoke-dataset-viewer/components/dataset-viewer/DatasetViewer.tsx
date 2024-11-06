@@ -48,7 +48,7 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
   const [groupBy, setGroupBy] = useState<string | null>(null)
   const [theme, setTheme] = useState<"light" | "dark">("light")
   const [mounted, setMounted] = useState(false)
-  const [selectedDistribution, setSelectedDistribution] = useState<string | null>(null)
+  const [selectedDistribution, setSelectedDistribution] = useState<string | null>("total_tokens")
   const [selectedItem, setSelectedItem] = useState<DataItem | null>(null)
   const { toast } = useToast()
   const [isPolling, setIsPolling] = useState(false)
