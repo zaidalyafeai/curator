@@ -106,9 +106,13 @@ export function SortableTable({
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="cursor-help">{truncatedContent}</span>
+            <span className="border-b border-dotted border-muted-foreground/50 hover:border-foreground transition-colors">
+              {truncatedContent}
+            </span>
           </TooltipTrigger>
-          <TooltipContent className="max-w-[400px] whitespace-pre-wrap">
+          <TooltipContent 
+            className="max-w-[400px] whitespace-pre-wrap bg-popover/95 backdrop-blur supports-[backdrop-filter]:bg-popover/85"
+          >
             {content}
           </TooltipContent>
         </Tooltip>
