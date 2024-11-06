@@ -4,7 +4,7 @@ import pandas as pd
 from pydantic import BaseModel, Field
 
 import bella
-from prompt import prompter
+from bella import Prompter
 
 
 class Subject(BaseModel):
@@ -24,33 +24,27 @@ class QAs(BaseModel):
     qas: List[QA] = Field(description="A list of QAs")
 
 
-@prompter("gpt-4o-mini", Subjects)
-def get_subjects():
-    return {
+subject_prompter = Prompter(
+    prompt_func=lambda: {
         "user_prompt": f"Generate a diverse list of 3 subjects. Keep it high-level (e.g. Math, Science)."
-    }
-
-
-@prompter("gpt-4o-mini", Subjects)
-def get_subsubjects(subject):
-    return {
-        "user_prompt": f"For the given subject {subject}. Generate 3 diverse subsubjects. No explanation."
-    }
-
-
-@prompter("gpt-4o-mini", QAs)
-def get_qas(row):
-    return {
-        "user_prompt": f"For the given subject {row['subsubject']}, generate 3 diverse questions and answers. No explanation."
-    }
-
-
-result = bella.completions(prompter=get_subjects)
+    },
+    model_name="gpt-4o-mini",
+    response_format=Subjects,
+)
+result = subject_prompter()
 subject_dataset = []
 for subject in result:
     subject_dataset.extend(subject.subjects)
 
-result = bella.completions(dataset=subject_dataset, prompter=get_subsubjects)
+
+subsubject_prompter = Prompter(
+    prompt_func=lambda subject: {
+        "user_prompt": f"For the given subject {subject}. Generate 3 diverse subsubjects. No explanation."
+    },
+    model_name="gpt-4o-mini",
+    response_format=Subjects,
+)
+result = subsubject_prompter(subject_dataset)
 subsubject_dataset = []
 for subject, subsubjects in zip(subject_dataset, result):
     subsubject_dataset.extend(
@@ -60,7 +54,15 @@ for subject, subsubjects in zip(subject_dataset, result):
         ]
     )
 
-result = bella.completions(dataset=subsubject_dataset, prompter=get_qas)
+qa_prompter = Prompter(
+    prompt_func=lambda subsubject: {
+        "user_prompt": f"For the given subsubject {subsubject}. Generate 3 diverse questions and answers. No explanation."
+    },
+    model_name="gpt-4o-mini",
+    response_format=QAs,
+)
+result = qa_prompter(subsubject_dataset)
+
 qa_dataset = []
 for subsubject, qas in zip(subsubject_dataset, result):
     qa_dataset.extend(

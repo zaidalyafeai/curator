@@ -1,7 +1,6 @@
 """Bella: Bespoke Labs Synthetic Data Generation Library."""
 
 import asyncio
-import hashlib
 import inspect
 import json
 import logging
@@ -9,14 +8,138 @@ import math
 import os
 import time
 from concurrent.futures import ProcessPoolExecutor
-from typing import Iterable, Optional
+from typing import Any, Callable, Dict, Iterable, Optional, Type
 
 from datasets import Dataset
 from pydantic import BaseModel
 from xxhash import xxh64
 
 from api_request_parallel_processor import process_api_requests_from_file
-from prompt import Prompter
+
+
+class Prompter:
+    """Interface for prompting LLMs."""
+
+    def __init__(
+        self,
+        model_name: str,
+        prompt_func: Callable,
+        response_format: Optional[Type[BaseModel]] = None,
+    ):
+        self.model_name = model_name
+        self.prompt_func = prompt_func
+        self.response_format = response_format
+
+    def get_request_object(
+        self, row: Dict[str, Any] | BaseModel, idx: int
+    ) -> Dict[str, Any]:
+        """Format the request object based off Prompter attributes."""
+        sig = inspect.signature(self.prompt_func)
+        if len(sig.parameters) == 0:
+            prompts = self.prompt_func()
+        elif len(sig.parameters) == 1:
+            prompts = self.prompt_func(row)
+        else:
+            raise ValueError(
+                f"Prompting function {self.prompt_func} must have 0 or 1 arguments."
+            )
+
+        messages = []
+        system_prompt = prompts.get("system_prompt", "You are a helpful AI assistant.")
+        messages.append({"role": "system", "content": system_prompt})
+
+        if "user_prompt" not in prompts:
+            raise ValueError("user_prompt is required")
+        messages.append({"role": "user", "content": prompts["user_prompt"]})
+
+        # Convert BaseModel to dict for serialization
+        if isinstance(row, BaseModel):
+            row = row.model_dump()
+
+        if self.response_format:
+            # OpenAI API
+            # https://platform.openai.com/docs/api-reference/chat/create#chat-create-response_format
+            request = {
+                "model": self.model_name,
+                "messages": messages,
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {
+                        # TODO(ryan): not sure if this should be something else.
+                        # TODO(ryan): also not sure if we should use strict: True
+                        "name": "output_schema",
+                        "schema": self.response_format.model_json_schema(),
+                    },
+                },
+                "metadata": {"request_idx": idx, "sample": row},
+            }
+        else:
+            request = {
+                "model": self.model_name,
+                "messages": messages,
+                "metadata": {"request_idx": idx, "sample": row},
+            }
+        return request
+
+    def __call__(self, dataset: Iterable = []):
+        return _completions(dataset, self)
+
+
+def _completions(
+    dataset: Iterable = (),
+    prompter: Prompter = None,
+    name: Optional[str] = None,
+    resume: bool = True,
+) -> "Dataset":
+    """
+    Apply structured completions to the dataset using specified model and prompts.
+
+    Args:
+        prompter: A function that goes from row to request object
+        output_column: Name of the column to store the response
+        name: Name of the task
+        resume: Whether to resume from the previous completions run
+
+    Returns:
+        A Dataset with the completions added in the output_column
+    """
+    if prompter is None:
+        raise ValueError("Prompter must be provided")
+
+    bella_cache_dir = os.environ.get(
+        "BELLA_CACHE_DIR", os.path.expanduser("~/.cache/bella")
+    )
+
+    dataset_hash = _hash_dataset(dataset)
+    func_hash = _get_function_hash(prompter.prompt_func)
+
+    fingerprint_str = "_".join(
+        [
+            str(dataset_hash),
+            str(func_hash),
+            str(prompter.model_name),
+            str(prompter.response_format.schema_json()),
+        ]
+    )
+
+    fingerprint = xxh64(fingerprint_str.encode("utf-8")).hexdigest()
+
+    name = f"{name.replace(' ', '-')}--{fingerprint}" if name else fingerprint
+    requests_path = os.path.join(bella_cache_dir, f"{name}/requests.jsonl")
+    responses_path = os.path.join(bella_cache_dir, f"{name}/responses.jsonl")
+
+    _create_requests_file(dataset, requests_path, prompter, resume)
+    asyncio.run(
+        process_api_requests_from_file(
+            requests_filepath=requests_path,
+            save_filepath=responses_path,
+            request_url="https://api.openai.com/v1/chat/completions",
+            max_attempts=5,
+            resume=True,
+            model=prompter.model_name,
+        )
+    )
+    return _parse_responses_file(prompter, responses_path)
 
 
 def _create_requests_file(
@@ -154,60 +277,3 @@ def _get_function_hash(func) -> str:
     logging.debug(f"Function parameters: {list(sig.parameters.keys())}")
 
     return xxh64(func.__code__.co_code).hexdigest()
-
-
-def completions(
-    dataset: Iterable = (),
-    prompter: Prompter = None,
-    name: Optional[str] = None,
-    resume: bool = True,
-) -> "Dataset":
-    """
-    Apply structured completions to the dataset using specified model and prompts.
-
-    Args:
-        prompter: A function that goes from row to request object
-        output_column: Name of the column to store the response
-        name: Name of the task
-        resume: Whether to resume from the previous completions run
-
-    Returns:
-        A Dataset with the completions added in the output_column
-    """
-    if prompter is None:
-        raise ValueError("Prompter must be provided")
-
-    bella_cache_dir = os.environ.get(
-        "BELLA_CACHE_DIR", os.path.expanduser("~/.cache/bella")
-    )
-
-    dataset_hash = _hash_dataset(dataset)
-    func_hash = _get_function_hash(prompter.prompting_func)
-
-    fingerprint_str = "_".join(
-        [
-            str(dataset_hash),
-            str(func_hash),
-            str(prompter.model_name),
-            str(prompter.response_format.schema_json()),
-        ]
-    )
-
-    fingerprint = xxh64(fingerprint_str.encode("utf-8")).hexdigest()
-
-    name = f"{name.replace(' ', '-')}--{fingerprint}" if name else fingerprint
-    requests_path = os.path.join(bella_cache_dir, f"{name}/requests.jsonl")
-    responses_path = os.path.join(bella_cache_dir, f"{name}/responses.jsonl")
-
-    _create_requests_file(dataset, requests_path, prompter, resume)
-    asyncio.run(
-        process_api_requests_from_file(
-            requests_filepath=requests_path,
-            save_filepath=responses_path,
-            request_url="https://api.openai.com/v1/chat/completions",
-            max_attempts=5,
-            resume=True,
-            model=prompter.model_name,
-        )
-    )
-    return _parse_responses_file(prompter, responses_path)
