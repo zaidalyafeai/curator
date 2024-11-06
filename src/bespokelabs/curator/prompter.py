@@ -10,7 +10,7 @@ import time
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
 from typing import Any, Callable, Dict, Iterable, Optional, Type
-from db import MetadataDB
+from bespokelabs.curator.db import MetadataDB
 from datasets import Dataset
 from pydantic import BaseModel
 from xxhash import xxh64
