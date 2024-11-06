@@ -99,6 +99,7 @@ def _parse_responses_file(prompter: Prompter, responses_file):
         raise ValueError("All requests failed")
     return samples
 
+
 def _hash_chunk(chunk: list) -> list:
     """Hash a chunk of data."""
     chunk = [json.dumps(row, sort_keys=True) for row in chunk]
@@ -125,9 +126,7 @@ def _hash_dataset(dataset: Iterable):
 
     # Process chunks in parallel
     with ProcessPoolExecutor(max_workers=num_cores) as executor:
-        chunk_hash = list(
-            executor.map(_hash_chunk, chunks)
-        )
+        chunk_hash = list(executor.map(_hash_chunk, chunks))
         chunk_hash_str = "|||".join(chunk_hash)
         hash_value = xxh64(chunk_hash_str).hexdigest()
 
@@ -170,7 +169,7 @@ def completions(
             str(prompter.response_format.schema_json()),
         ]
     )
-    
+
     fingerprint = hashlib.md5(fingerprint_str.encode("utf-8")).hexdigest()
 
     name = f"{name.replace(' ', '-')}--{fingerprint}" if name else fingerprint
@@ -178,18 +177,18 @@ def completions(
     responses_path = os.path.join(bella_cache_dir, f"{name}/responses.jsonl")
     metadata_db_path = os.path.join(bella_cache_dir, "metadata.db")
     metadata_db = MetadataDB(metadata_db_path)
-    
+
     metadata_dict = {
-        'timestamp': datetime.now().isoformat(),
-        'dataset_hash': dataset_hash,
-        'user_prompt': prompter.user_prompt,
-        'system_prompt': prompter.system_prompt,
-        'model_name': prompter.model_name,
-        'response_format': prompter.response_format.schema_json(),
-        'run_hash': fingerprint
+        "timestamp": datetime.now().isoformat(),
+        "dataset_hash": dataset_hash,
+        "user_prompt": prompter.user_prompt,
+        "system_prompt": prompter.system_prompt,
+        "model_name": prompter.model_name,
+        "response_format": prompter.response_format.schema_json(),
+        "run_hash": fingerprint,
     }
     metadata_db.store_metadata(metadata_dict)
-    
+
     _create_requests_file(dataset, requests_path, prompter, resume)
     asyncio.run(
         process_api_requests_from_file(
