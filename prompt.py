@@ -1,7 +1,15 @@
-from typing import Any, Dict, Optional, Type
+import inspect
+from typing import Any, Callable, Dict, Optional, Type
 
 from jinja2 import Template
 from pydantic import BaseModel
+
+
+def prompter(model_name: str, response_format: Optional[Type[BaseModel]] = None):
+    def decorator(func):
+        return Prompter(model_name, func, response_format=response_format)
+
+    return decorator
 
 
 class Prompter:
@@ -10,26 +18,32 @@ class Prompter:
     def __init__(
         self,
         model_name: str,
-        user_prompt: str,
-        system_prompt: Optional[str] = None,
+        prompting_func: Callable,
         response_format: Optional[Type[BaseModel]] = None,
     ):
         self.model_name = model_name
-        self.system_prompt = system_prompt
-        self.user_prompt = user_prompt
+        self.prompting_func = prompting_func
         self.response_format = response_format
 
-    def get_request_object(self, row: Dict[str, Any], idx: int) -> Dict[str, Any]:
+    def get_request_object(
+        self, row: Dict[str, Any] | BaseModel, idx: int
+    ) -> Dict[str, Any]:
         """Format the request object based off Prompter attributes."""
-        messages = []
-        if self.system_prompt:
-            system_template = Template(self.system_prompt)
-            messages.append(
-                {"role": "system", "content": system_template.render(**row)}
-            )
+        if isinstance(row, BaseModel):
+            row = row.model_dump()
 
-        user_template = Template(self.user_prompt)
-        messages.append({"role": "user", "content": user_template.render(**row)})
+        sig = inspect.signature(self.prompting_func)
+        kwargs_row = {k: v for k, v in row.items() if k in sig.parameters}
+        prompts = self.prompting_func(**kwargs_row)
+
+        messages = []
+        system_prompt = prompts.get("system_prompt", "You are a helpful AI assistant.")
+        messages.append({"role": "system", "content": system_prompt})
+
+        if "user_prompt" not in prompts:
+            raise ValueError("user_prompt is required")
+        messages.append({"role": "user", "content": prompts["user_prompt"]})
+
         if self.response_format:
             # OpenAI API
             # https://platform.openai.com/docs/api-reference/chat/create#chat-create-response_format

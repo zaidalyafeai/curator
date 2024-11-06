@@ -4,7 +4,7 @@ import pandas as pd
 from pydantic import BaseModel, Field
 
 import bella
-import prompt
+from prompt import prompter
 
 
 class Subject(BaseModel):
@@ -24,55 +24,54 @@ class QAs(BaseModel):
     qas: List[QA] = Field(description="A list of QAs")
 
 
-result = bella.completions(
-    (),
-    prompter=prompt.Prompter(
-        system_prompt="You are a helpful AI assistant.",
-        user_prompt="Generate a diverse list of 3 subjects. Keep it high-level (e.g. Math, Science).",
-        response_format=Subjects,
-        model_name="gpt-4o-mini",
-    ),
-)
+@prompter("gpt-4o-mini", Subjects)
+def get_subjects():
+    return {
+        "user_prompt": f"Generate a diverse list of 3 subjects. Keep it high-level (e.g. Math, Science)."
+    }
+
+
+@prompter("gpt-4o-mini", Subjects)
+def get_subsubjects(subject):
+    return {
+        "user_prompt": f"For the given subject {subject}. Generate 3 diverse subsubjects. No explanation."
+    }
+
+
+@prompter("gpt-4o-mini", QAs)
+def get_qas(subsubject):
+    return {
+        "user_prompt": f"For the given subject {subsubject}, generate 3 diverse questions and answers. No explanation."
+    }
+
+
+result = bella.completions(prompter=get_subjects)
 subject_dataset = []
 for subject in result:
     subject_dataset.extend(subject.subjects)
-print(pd.DataFrame.from_records(subject_dataset))
 
-result = bella.completions(
-    dataset=subject_dataset,
-    prompter=prompt.Prompter(
-        system_prompt="You are a helpful AI assistant.",
-        user_prompt="For the given subject {{ subject }}. Generate 3 diverse subsubjects. No explanation.",
-        response_format=Subjects,
-        model_name="gpt-4o-mini",
-    ),
-)
+result = bella.completions(dataset=subject_dataset, prompter=get_subsubjects)
 subsubject_dataset = []
 for subject, subsubjects in zip(subject_dataset, result):
-    for subsubject in subsubjects.subjects:
-        subsubject_dataset.append(
+    subsubject_dataset.extend(
+        [
             {"subject": subject.subject, "subsubject": subsubject.subject}
-        )
-print(pd.DataFrame.from_records(subsubject_dataset))
+            for subsubject in subsubjects.subjects
+        ]
+    )
 
-result = bella.completions(
-    dataset=subsubject_dataset,
-    prompter=prompt.Prompter(
-        system_prompt="You are a helpful AI assistant.",
-        user_prompt="For the given subject {{ subsubject }}, generate 10 diverse questions and answers. No explanation.",
-        response_format=QAs,
-        model_name="gpt-4o-mini",
-    ),
-)
+result = bella.completions(dataset=subsubject_dataset, prompter=get_qas)
 qa_dataset = []
 for subsubject, qas in zip(subsubject_dataset, result):
-    for qa in qas.qas:
-        qa_dataset.append(
+    qa_dataset.extend(
+        [
             {
                 "subject": subsubject["subject"],
                 "subsubject": subsubject["subsubject"],
                 "question": qa.question,
                 "answer": qa.answer,
             }
-        )
+            for qa in qas.qas
+        ]
+    )
 print(pd.DataFrame.from_records(qa_dataset))

@@ -2,6 +2,7 @@
 
 import asyncio
 import hashlib
+import inspect
 import json
 import logging
 import math
@@ -23,7 +24,7 @@ def _create_requests_file(
 ):
     if os.path.exists(requests_file):
         if resume:
-            logging.info(f"Loading existing jobs from {requests_file}")
+            print(f"Loading existing jobs from {requests_file}")
             logging.debug(
                 f"Alternatively, delete the jobs file and re-run the annotator: `rm -rf {requests_file}`"
             )
@@ -143,9 +144,21 @@ def _hash_dataset(dataset: Iterable):
     return hash_value
 
 
+def _get_function_hash(func) -> str:
+    """Get a hash of a function's bytecode."""
+    if func is None:
+        return xxh64("").hexdigest()
+    
+    # Get function signature for debugging
+    sig = inspect.signature(func)
+    logging.debug(f"Function parameters: {list(sig.parameters.keys())}")
+    
+    return xxh64(func.__code__.co_code).hexdigest()
+
+
 def completions(
-    dataset: Iterable,
-    prompter: Prompter,
+    dataset: Iterable = (),
+    prompter: Prompter = None,
     name: Optional[str] = None,
     resume: bool = True,
 ) -> "Dataset":
@@ -161,23 +174,26 @@ def completions(
     Returns:
         A Dataset with the completions added in the output_column
     """
+    if prompter is None:
+        raise ValueError("Prompter must be provided")
+
     bella_cache_dir = os.environ.get(
         "BELLA_CACHE_DIR", os.path.expanduser("~/.cache/bella")
     )
 
     dataset_hash = _hash_dataset(dataset)
-    # Convert all elements to strings and join them before hashing
+    func_hash = _get_function_hash(prompter.prompting_func)
+
     fingerprint_str = "_".join(
         [
             str(dataset_hash),
-            str(prompter.user_prompt),
-            str(prompter.system_prompt),
+            str(func_hash),
             str(prompter.model_name),
             str(prompter.response_format.schema_json()),
         ]
     )
 
-    fingerprint = hashlib.md5(fingerprint_str.encode("utf-8")).hexdigest()
+    fingerprint = xxh64(fingerprint_str.encode("utf-8")).hexdigest()
 
     name = f"{name.replace(' ', '-')}--{fingerprint}" if name else fingerprint
     requests_path = os.path.join(bella_cache_dir, f"{name}/requests.jsonl")
