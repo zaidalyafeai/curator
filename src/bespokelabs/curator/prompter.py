@@ -10,6 +10,7 @@ import time
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from typing import Any, Callable, Dict, Iterable, Optional, Type, TypeVar, Union
+import traceback
 
 from datasets import Dataset
 from pydantic import BaseModel
@@ -162,7 +163,7 @@ def _completions(
             str(prompt_func_hash),
             str(parse_func_hash),
             str(prompter.model_name),
-            str(prompter.response_format.schema_json()),
+            str(prompter.response_format.schema_json() if prompter.response_format else "plain_text"),
         ]
     )
 
@@ -187,7 +188,7 @@ def _completions(
         "prompt_func": prompt_func_source,
         "parse_func": parse_func_source,
         "model_name": prompter.model_name,
-        "response_format": prompter.response_format.schema_json(),
+        "response_format": prompter.response_format.schema_json() if prompter.response_format else "text",
         "run_hash": fingerprint,
     }
     metadata_db.store_metadata(metadata_dict)
@@ -267,7 +268,6 @@ def _parse_responses_file(prompter: Prompter, responses_file):
                 response_message = response[1]["choices"][0]["message"]["content"]
                 metadata = response[2]
 
-                # Parse the response for structured output
                 if prompter.response_format:
                     response = prompter.response_format.model_validate_json(
                         response_message
@@ -275,7 +275,11 @@ def _parse_responses_file(prompter: Prompter, responses_file):
                 else:
                     response = response_message
 
-                parsed_output = prompter.parse_func(metadata["sample"], response)
+                if prompter.parse_func:
+                    parsed_output = prompter.parse_func(metadata["sample"], response)
+                else:
+                    parsed_output = response
+
                 if isinstance(parsed_output, list):
                     samples.extend(
                         [(metadata["request_idx"], output) for output in parsed_output]
@@ -284,7 +288,7 @@ def _parse_responses_file(prompter: Prompter, responses_file):
                     samples.append((metadata["request_idx"], parsed_output))
 
             except Exception as e:
-                logging.warning(f"Error: {e}. Full response: {response}")
+                logging.warning(f"Error: {e}. Full traceback: {traceback.format_exc()}. Full response: {response}")
                 continue
 
     logging.debug(f"Read {total_count} responses, {failed_count} failed")
