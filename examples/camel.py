@@ -56,7 +56,7 @@ for subject, subsubjects in zip(subject_dataset, result):
 
 qa_prompter = Prompter(
     prompt_func=lambda subsubject: {
-        "user_prompt": f"For the given subsubject {subsubject}. Generate 15 diverse questions and answers. No explanation."
+        "user_prompt": f"For the given subsubject {subsubject}. Generate 3 diverse questions and answers. No explanation."
     },
     model_name="gpt-4o-mini",
     response_format=QAs,
