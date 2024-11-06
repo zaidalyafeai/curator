@@ -1,4 +1,4 @@
-"""Database module for storing metadata about Bella runs."""
+"""Database class for storing metadata for Bella runs."""
 
 import os
 import sqlite3
