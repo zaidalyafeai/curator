@@ -3,8 +3,7 @@
 import { useState, useCallback, useEffect, useMemo } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Moon, Sun, Loader2, Bell } from "lucide-react"
+import { Moon, Sun, Loader2 } from "lucide-react"
 import { DataItem } from "@/types/dataset"
 import { getColumnValue } from "@/lib/utils"
 import { DetailsSidebar } from "./DetailsSidebar"
@@ -19,8 +18,7 @@ import { useRouter } from "next/navigation"
 import { Column } from "@/types/table"
 import { SortableTable } from "@/components/ui/sortable-table"
 import { useToast } from "@/components/ui/use-toast"
-import { motion, AnimatePresence } from "framer-motion"
-import { Badge } from "@/components/ui/badge"
+import { AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
 
 const COLUMNS: Column[] = [
@@ -79,21 +77,6 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
     setTheme(prev => prev === 'light' ? 'dark' : 'light')
   }
 
-  const handleSort = useCallback((column: string) => {
-    if (sortColumn === column) {
-      setSortDirection(prev => prev === "asc" ? "desc" : "asc")
-    } else {
-      setSortColumn(column)
-      setSortDirection("asc")
-    }
-  }, [sortColumn])
-
-  const handleFilter = useCallback((column: string, value: string) => {
-    setFilters(prev => ({
-      ...prev,
-      [column]: value
-    }))
-  }, [])
 
   const handleGroup = useCallback((column: string | null) => {
     setGroupBy(column)
