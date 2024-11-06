@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "bespokelabs-curator"
 version = "0.1.0"
-description = "Your package description here"
+description = "Bespoke Labs Curator"
 authors = ["Bespoke Labs <company@bespokelabs.ai>"]
 readme = "README.md"
 packages = [{include = "bespokelabs", from = "src"}]
