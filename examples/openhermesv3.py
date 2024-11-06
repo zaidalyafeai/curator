@@ -40,6 +40,7 @@ def get_instruction_response(row):
         "user_prompt": f"{row['instruction']}",
     }
 
+
 prompter = Prompter(
     model_name="gpt-4o-mini",
     prompt_func=get_instruction_response,
