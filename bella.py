@@ -281,9 +281,8 @@ def _hash_dataset(dataset: Iterable):
 
 
 def _get_function_hash(func) -> str:
-    """Get a hash of a function's bytecode."""
+    """Get a hash of a function's source code."""
     if func is None:
         return xxh64("").hexdigest()
 
-    # Get function signature for debugging
     return xxh64(inspect.getsource(func)).hexdigest()
