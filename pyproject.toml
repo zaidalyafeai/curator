@@ -1,10 +1,14 @@
 [tool.poetry]
 name = "bespokelabs-curator"
 version = "0.1.0"
-description = ""
+description = "Your package description here"
 authors = ["Bespoke Labs <company@bespokelabs.ai>"]
 readme = "README.md"
 packages = [{include = "bespokelabs", from = "src"}]
+license = "Apache-2.0"
+homepage = "https://github.com/bespokelabsai/curator"
+repository = "https://github.com/bespokelabsai/curator"
+keywords = ["ai", "curator", "bespoke"]
 
 [tool.poetry.dependencies]
 python = "^3.10"
