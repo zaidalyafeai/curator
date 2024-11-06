@@ -274,7 +274,6 @@ def _hash_dataset(dataset: Iterable):
     # Process chunks in parallel
     with ProcessPoolExecutor(max_workers=num_cores) as executor:
         chunk_hash = list(executor.map(_hash_chunk, chunks))
-        chunk_hash = list(executor.map(_hash_chunk, chunks))
         chunk_hash_str = "|||".join(chunk_hash)
         hash_value = xxh64(chunk_hash_str).hexdigest()
 
