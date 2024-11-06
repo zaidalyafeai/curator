@@ -148,11 +148,11 @@ def _get_function_hash(func) -> str:
     """Get a hash of a function's bytecode."""
     if func is None:
         return xxh64("").hexdigest()
-    
+
     # Get function signature for debugging
     sig = inspect.signature(func)
     logging.debug(f"Function parameters: {list(sig.parameters.keys())}")
-    
+
     return xxh64(func.__code__.co_code).hexdigest()
 
 

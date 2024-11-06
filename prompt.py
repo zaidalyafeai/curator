@@ -29,12 +29,15 @@ class Prompter:
         self, row: Dict[str, Any] | BaseModel, idx: int
     ) -> Dict[str, Any]:
         """Format the request object based off Prompter attributes."""
-        if isinstance(row, BaseModel):
-            row = row.model_dump()
-
         sig = inspect.signature(self.prompting_func)
-        kwargs_row = {k: v for k, v in row.items() if k in sig.parameters}
-        prompts = self.prompting_func(**kwargs_row)
+        if len(sig.parameters) == 0:
+            prompts = self.prompting_func()
+        elif len(sig.parameters) == 1:
+            prompts = self.prompting_func(row)
+        else:
+            raise ValueError(
+                f"Prompting function {self.prompting_func} must have 0 or 1 arguments."
+            )
 
         messages = []
         system_prompt = prompts.get("system_prompt", "You are a helpful AI assistant.")
@@ -43,6 +46,10 @@ class Prompter:
         if "user_prompt" not in prompts:
             raise ValueError("user_prompt is required")
         messages.append({"role": "user", "content": prompts["user_prompt"]})
+
+        # Convert BaseModel to dict for serialization
+        if isinstance(row, BaseModel):
+            row = row.model_dump()
 
         if self.response_format:
             # OpenAI API

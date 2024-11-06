@@ -35,10 +35,11 @@ ds = load_dataset("teknium/OpenHermes-2.5", split="train")
 ds = convert_ShareGPT_to_IT_format(ds)
 ds = ds.select(range(10))
 
+
 @prompter("gpt-4o-mini", InstructionResponse)
-def get_instruction_response(instruction):
+def get_instruction_response(row):
     return {
-        "user_prompt": f"{instruction}",
+        "user_prompt": f"{row['instruction']}",
     }
 
 

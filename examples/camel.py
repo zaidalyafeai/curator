@@ -39,9 +39,9 @@ def get_subsubjects(subject):
 
 
 @prompter("gpt-4o-mini", QAs)
-def get_qas(subsubject):
+def get_qas(row):
     return {
-        "user_prompt": f"For the given subject {subsubject}, generate 3 diverse questions and answers. No explanation."
+        "user_prompt": f"For the given subject {row['subsubject']}, generate 3 diverse questions and answers. No explanation."
     }
 
 
