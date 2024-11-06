@@ -38,7 +38,7 @@ class Prompter:
         self.prompt_func = prompt_func
         self.response_format = response_format
 
-    def _get_request_object(
+    def get_request_object(
         self, row: Dict[str, Any] | BaseModel, idx: int
     ) -> Dict[str, Any]:
         """Format the request object based off Prompter attributes."""
