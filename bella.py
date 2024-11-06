@@ -101,10 +101,11 @@ def _completions(
     resume: bool = True,
 ) -> "Dataset":
     """
-    Apply structured completions to the dataset using specified model and prompts.
+    Apply structured completions in parallel to a dataset using specified model and
+    prompts.
 
     Args:
-        dataset (Iterable): A dataset of items to apply completions to in parallel
+        dataset (Iterable): A dataset consisting of a list of items to apply completions
         prompter (Prompter): A Prompter that contains the logic for formatting each
             item in the dataset
         name (str): Name of the task
@@ -113,7 +114,7 @@ def _completions(
             from a previous run that matches the same fingerprint.
 
     Returns:
-        Iterable: A list of responses from the completions
+        Iterable: A list of structured outputs from the completions
     """
     if prompter is None:
         raise ValueError("Prompter must be provided")
