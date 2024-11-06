@@ -7,11 +7,10 @@ import logging
 import math
 import os
 import time
-import sqlite3
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
 from typing import Iterable, Optional
-
+from db import MetadataDB
 from datasets import Dataset
 from xxhash import xxh64
 
@@ -99,37 +98,6 @@ def _parse_responses_file(prompter: Prompter, responses_file):
         raise ValueError("All requests failed")
     return samples
 
-def _store_metadata(metadata: dict, db_path: str):
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS runs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT,
-                dataset_hash TEXT,
-                user_prompt TEXT,
-                system_prompt TEXT,
-                model_name TEXT,
-                response_format TEXT,
-                run_hash TEXT
-            )
-        ''')
-        cursor.execute('''
-            INSERT INTO runs (
-                timestamp, dataset_hash, user_prompt, system_prompt,
-                model_name, response_format, run_hash
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            metadata['timestamp'],
-            metadata['dataset_hash'],
-            metadata['user_prompt'],
-            metadata['system_prompt'],
-            metadata['model_name'],
-            metadata['response_format'],
-            metadata['run_hash']
-        ))
-        conn.commit()
 
 def _hash_chunk(chunk: list) -> list:
     """Hash a chunk of data."""
@@ -157,9 +125,7 @@ def _hash_dataset(dataset: Iterable):
 
     # Process chunks in parallel
     with ProcessPoolExecutor(max_workers=num_cores) as executor:
-        chunk_hash = list(
-            executor.map(_hash_chunk, chunks)
-        )
+        chunk_hash = list(executor.map(_hash_chunk, chunks))
         chunk_hash_str = "|||".join(chunk_hash)
         hash_value = xxh64(chunk_hash_str).hexdigest()
 
@@ -202,25 +168,26 @@ def completions(
             str(prompter.response_format.schema_json()),
         ]
     )
-    
+
     fingerprint = hashlib.md5(fingerprint_str.encode("utf-8")).hexdigest()
 
     name = f"{name.replace(' ', '-')}--{fingerprint}" if name else fingerprint
     requests_path = os.path.join(bella_cache_dir, f"{name}/requests.jsonl")
     responses_path = os.path.join(bella_cache_dir, f"{name}/responses.jsonl")
-    db_path = os.path.join(bella_cache_dir, "bella.db")
-    
+    metadata_db_path = os.path.join(bella_cache_dir, "metadata.db")
+    metadata_db = MetadataDB(metadata_db_path)
+
     metadata_dict = {
-        'timestamp': datetime.now().isoformat(),
-        'dataset_hash': dataset_hash,
-        'user_prompt': prompter.user_prompt,
-        'system_prompt': prompter.system_prompt,
-        'model_name': prompter.model_name,
-        'response_format': prompter.response_format.schema_json(),
-        'run_hash': fingerprint
+        "timestamp": datetime.now().isoformat(),
+        "dataset_hash": dataset_hash,
+        "user_prompt": prompter.user_prompt,
+        "system_prompt": prompter.system_prompt,
+        "model_name": prompter.model_name,
+        "response_format": prompter.response_format.schema_json(),
+        "run_hash": fingerprint,
     }
-    _store_metadata(metadata_dict, db_path)
-    
+    metadata_db.store_metadata(metadata_dict)
+
     _create_requests_file(dataset, requests_path, prompter, resume)
     asyncio.run(
         process_api_requests_from_file(
