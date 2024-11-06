@@ -26,13 +26,6 @@ const COLUMNS: Column[] = [
   { key: "completion_tokens", label: "Completion Tokens" }
 ]
 
-const TABLE_COLUMNS = [
-  "User Message",
-  "Assistant Message",
-  "Prompt Tokens",
-  "Completion Tokens"
-]
-
 const GROUPABLE_COLUMNS = [
   "Model",
   "System Message"
