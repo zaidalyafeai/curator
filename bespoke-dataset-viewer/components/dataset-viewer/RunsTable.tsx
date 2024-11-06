@@ -2,25 +2,17 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-  TableHead,
-} from "@/components/ui/table"
+import { SortableTable } from "@/components/ui/sortable-table"
+import { Column } from "@/types/table"
+import { Run } from "@/types/dataset"
 
-interface Run {
-  id: number
-  timestamp: string
-  dataset_hash: string
-  user_prompt: string
-  system_prompt: string
-  model_name: string
-  response_format: string
-  run_hash: string
-}
+const COLUMNS: Column[] = [
+  { key: "timestamp", label: "Timestamp" },
+  { key: "model_name", label: "Model" },
+  { key: "system_prompt", label: "System Prompt" },
+  { key: "user_prompt", label: "User Prompt" },
+  { key: "response_format", label: "Response Format" }
+]
 
 export function RunsTable() {
   const [runs, setRuns] = useState<Run[]>([])
@@ -37,13 +29,13 @@ export function RunsTable() {
         const data = await response.json()
         
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}, message: ${data.error || 'Unknown error'}`)
+          throw new Error(`HTTP error! status: ${response.status}`)
         }
 
-        // Ensure data is an array
         if (!Array.isArray(data)) {
           throw new Error('Data is not in the expected format')
         }
+        
         setRuns(data)
       } catch (error) {
         console.error('Failed to fetch runs:', error)
@@ -56,50 +48,30 @@ export function RunsTable() {
     fetchRuns()
   }, [])
 
-  const handleRowClick = (runHash: string) => {
-    router.push(`/dataset/${runHash}`)
+  const getCellContent = (run: Run, columnKey: string) => {
+    switch (columnKey) {
+      case "timestamp":
+        return new Date(run.timestamp).toLocaleString()
+      default:
+        return run[columnKey as keyof Run]
+    }
   }
 
-  if (isLoading) {
-    return <div>Loading...</div>
-  }
-
-  if (error) {
-    return <div>Error: {error}</div>
-  }
-
-  if (runs.length === 0) {
-    return <div>No runs found</div>
-  }
+  if (isLoading) return <div>Loading...</div>
+  if (error) return <div>Error: {error}</div>
+  if (runs.length === 0) return <div>No runs found</div>
 
   return (
-    <div className="rounded-lg border bg-card">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Timestamp</TableHead>
-            <TableHead>Model</TableHead>
-            <TableHead>User Prompt</TableHead>
-            <TableHead>System Prompt</TableHead>
-            <TableHead>Response Format</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {runs.map((run) => (
-            <TableRow
-              key={run.id}
-              className="cursor-pointer hover:bg-muted/50"
-              onClick={() => handleRowClick(run.run_hash)}
-            >
-              <TableCell>{new Date(run.timestamp).toLocaleString()}</TableCell>
-              <TableCell>{run.model_name}</TableCell>
-              <TableCell className="max-w-[300px] truncate">{run.user_prompt}</TableCell>
-              <TableCell className="max-w-[300px] truncate">{run.system_prompt}</TableCell>
-              <TableCell>{run.response_format}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <SortableTable
+      columns={COLUMNS}
+      data={runs}
+      getRowKey={(run) => run.id}
+      getCellContent={getCellContent}
+      onRowClick={(run) => router.push(`/dataset/${run.run_hash}`)}
+      truncateConfig={{ 
+        enabled: true, 
+        maxLength: 100 // Adjust based on your needs
+      }}
+    />
   )
-} 
+}

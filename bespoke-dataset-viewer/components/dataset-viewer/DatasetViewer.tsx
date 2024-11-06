@@ -4,38 +4,33 @@ import { useState, useCallback, useEffect, useMemo } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-  TableHead,
-} from "@/components/ui/table"
 import { Moon, Sun } from "lucide-react"
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
-import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { DataItem } from "@/types/dataset"
 import { getColumnValue } from "@/lib/utils"
-import { SortableHeader } from "./SortableHeader"
 import { DetailsSidebar } from "./DetailsSidebar"
 import { DistributionChart } from "./DistributionChart"
-import { MessagePreviewCell } from "./MessagePreviewCell"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu"
-import { homedir } from 'os'
-import { join } from 'path'
-import fs from 'fs/promises'
+import { useRouter } from "next/navigation"
+import { Column } from "@/types/table"
+import { SortableTable } from "@/components/ui/sortable-table"
+
+const COLUMNS: Column[] = [
+  { key: "user_message", label: "User Message" },
+  { key: "assistant_message", label: "Assistant Message" },
+  { key: "prompt_tokens", label: "Prompt Tokens" },
+  { key: "completion_tokens", label: "Completion Tokens" }
+]
 
 const TABLE_COLUMNS = [
   "User Message",
   "Assistant Message",
   "Prompt Tokens",
-  "Completion Tokens",
+  "Completion Tokens"
 ]
 
 const GROUPABLE_COLUMNS = [
@@ -48,6 +43,7 @@ interface DatasetViewerProps {
 }
 
 export function DatasetViewer({ runHash }: DatasetViewerProps) {
+  const router = useRouter()
   const [data, setData] = useState<DataItem[]>([])
   const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
@@ -55,16 +51,8 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
   const [groupBy, setGroupBy] = useState<string | null>(null)
   const [theme, setTheme] = useState<"light" | "dark">("light")
   const [mounted, setMounted] = useState(false)
-  const [columns, setColumns] = useState(TABLE_COLUMNS)
   const [selectedDistribution, setSelectedDistribution] = useState<string | null>(null)
   const [selectedItem, setSelectedItem] = useState<DataItem | null>(null)
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  )
 
   useEffect(() => {
     const systemPreference = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
@@ -91,10 +79,9 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
   const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (runHash) {
       try {
-        const responsesPath = join(homedir(), '.cache', 'bella', runHash, 'responses.jsonl')
-        const content = await fs.readFile(responsesPath, 'utf-8')
-        const lines = content.split('\n').filter(line => line.trim() !== '')
-        const jsonData = lines.map(line => JSON.parse(line))
+        const response = await fetch(`/api/responses/${runHash}`)
+        if (!response.ok) throw new Error('Failed to fetch responses')
+        const jsonData = await response.json()
         setData(jsonData)
       } catch (error) {
         console.error("Error reading responses file:", error)
@@ -149,17 +136,6 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
     setGroupBy(column)
   }, [])
 
-  const handleDragEnd = useCallback((event: any) => {
-    const { active, over } = event
-    if (active.id !== over.id) {
-      setColumns((items) => {
-        const oldIndex = items.indexOf(active.id)
-        const newIndex = items.indexOf(over.id)
-        return arrayMove(items, oldIndex, newIndex)
-      })
-    }
-  }, [])
-
   const filteredData = useMemo(() => {
     return data.filter((item) => {
       return Object.entries(filters).every(([column, filterValue]) => {
@@ -192,6 +168,29 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
       return groups
     }, {} as Record<string, DataItem[]>)
   }, [sortedData, groupBy])
+  
+  useEffect(() => {
+  console.log('Raw data:', data);
+  console.log('Filtered data:', filteredData);
+  console.log('Sorted data:', sortedData);
+  console.log('Grouped data:', groupedData);
+  }, [data, filteredData, sortedData, groupedData])
+  const getCellContent = (item: DataItem, columnKey: string) => {
+    const [requestData, responseData] = item;
+    
+    switch (columnKey) {
+      case "user_message":
+        return requestData.messages.find(m => m.role === "user")?.content || "N/A";
+      case "assistant_message":
+        return responseData.choices[0]?.message?.content || "N/A";
+      case "prompt_tokens":
+        return responseData.usage.prompt_tokens?.toString() || "N/A";
+      case "completion_tokens":
+        return responseData.usage.completion_tokens?.toString() || "N/A";
+      default:
+        return "N/A";
+    }
+  }
 
   // Don't render anything until mounted
   if (!mounted) {
@@ -202,7 +201,7 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => router.push('/')}>
             <Image
               src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-sN2O0LK0cVw6NesKNPlJCoWAu7xfOm.png"
               alt="Bespoke Logo"
@@ -280,46 +279,17 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
               <div key={group} className="mb-8">
                 {groupBy && <h2 className="text-xl font-semibold mb-2">{group}</h2>}
                 <div className="rounded-lg border bg-card">
-                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <SortableContext items={columns} strategy={verticalListSortingStrategy}>
-                            {columns.map((column) => (
-                              <SortableHeader 
-                                key={column} 
-                                column={column} 
-                                onSort={handleSort}
-                                sortColumn={sortColumn}
-                                sortDirection={sortDirection}
-                                onFilter={handleFilter}
-                                filterValue={filters[column] || ""}
-                              />
-                            ))}
-                          </SortableContext>
-                          <TableHead>View Details</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {items.map((item, index) => (
-                          <TableRow key={index}>
-                            {columns.map((column) => (
-                              <MessagePreviewCell
-                                key={column}
-                                content={getColumnValue(item, column)}
-                                column={column}
-                              />
-                            ))}
-                            <TableCell>
-                              <Button variant="outline" onClick={() => setSelectedItem(item)}>
-                                View Details
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </DndContext>
+                  <SortableTable
+                    columns={COLUMNS}
+                    data={items}
+                    getRowKey={(item) => item.id}
+                    getCellContent={getCellContent}
+                    onRowClick={(item) => setSelectedItem(item)}
+                    truncateConfig={{ 
+                      enabled: true, 
+                      maxLength: 150 // Adjust this value as needed
+                    }}
+                  />
                 </div>
               </div>
             ))}
