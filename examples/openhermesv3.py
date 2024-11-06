@@ -2,7 +2,7 @@ import pandas as pd
 from datasets import Dataset, load_dataset
 from pydantic import BaseModel, Field
 
-from bella import Prompter
+from bespokelabs import curator
 
 
 class InstructionResponse(BaseModel):
@@ -41,13 +41,13 @@ def get_instruction_response(row):
     }
 
 
-prompter = Prompter(
+instruction_prompter = curator.Prompter(
     model_name="gpt-4o-mini",
     prompt_func=get_instruction_response,
     response_format=InstructionResponse,
 )
 
-ds_results = prompter(ds.to_list())
+ds_results = instruction_prompter(ds.to_list())
 
 rows = []
 for row, result in zip(ds, ds_results):

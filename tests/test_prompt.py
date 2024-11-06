@@ -5,7 +5,7 @@ import os
 
 from prompt import Prompter
 from datasets import Dataset
-import bella
+import bespokelabs.curator.prompter as prompter
 
 
 class MockResponseFormat(BaseModel):
@@ -51,7 +51,7 @@ def test_completions(prompter: Prompter, tmp_path):
     os.environ["BELLA_CACHE_DIR"] = str(tmp_path)
 
     # Run completions
-    result_dataset = bella.completions(
+    result_dataset = prompter.completions(
         dataset=dataset,
         prompter=prompter,
         output_column="response",
