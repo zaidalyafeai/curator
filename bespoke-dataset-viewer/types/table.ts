@@ -7,6 +7,11 @@ export interface Column {
   label: string
 }
 
+export interface TruncateConfig {
+  enabled: boolean
+  maxLength: number
+}
+
 export interface SortableHeaderProps {
   column: Column
   onSort: (columnKey: string) => void
@@ -19,9 +24,10 @@ export interface SortableHeaderProps {
 export interface SortableTableProps {
   columns: Column[]
   data: any[]
-  getRowKey: (row: any) => string | number
-  getCellContent: (row: any, columnKey: string) => ReactNode
-  onRowClick?: (row: any) => void
+  getRowKey: (item: any) => string | number
+  getCellContent: (item: any, columnKey: string) => ReactNode
+  onRowClick?: (item: any) => void
+  truncateConfig?: TruncateConfig
   initialSortColumn?: string
   initialSortDirection?: SortDirection
 } 

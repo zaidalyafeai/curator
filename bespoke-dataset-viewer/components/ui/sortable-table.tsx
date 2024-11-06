@@ -14,6 +14,8 @@ import { SortableHeader } from "./sortable-header"
 import { SortableTableProps, SortDirection } from "@/types/table"
 import { Tooltip } from "@/components/ui/tooltip"
 import { TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { motion } from "framer-motion"
+import { cn } from "@/lib/utils"
 
 export function SortableTable({
   columns,
@@ -23,7 +25,8 @@ export function SortableTable({
   onRowClick,
   initialSortColumn = null,
   initialSortDirection = "asc",
-  truncateConfig = { enabled: false, maxLength: 100 }
+  truncateConfig = { enabled: false, maxLength: 100 },
+  rowProps
 }: SortableTableProps) {
   const [sortColumn, setSortColumn] = useState<string | null>(initialSortColumn)
   const [sortDirection, setSortDirection] = useState<SortDirection>(initialSortDirection)
@@ -143,17 +146,21 @@ export function SortableTable({
           </TableHeader>
           <TableBody>
             {filteredAndSortedData.map(row => (
-              <TableRow
+              <motion.tr
                 key={getRowKey(row)}
-                className={onRowClick ? "cursor-pointer hover:bg-muted/50" : ""}
+                className={cn(
+                  onRowClick ? "cursor-pointer hover:bg-muted/50" : "",
+                  rowProps?.(row)?.className
+                )}
                 onClick={() => onRowClick?.(row)}
+                {...(rowProps?.(row) || {})}
               >
                 {orderedColumns.map(column => (
                   <TableCell key={`${getRowKey(row)}-${column.key}`}>
                     {renderCell(getCellContent(row, column.key), truncateConfig.enabled)}
                   </TableCell>
                 ))}
-              </TableRow>
+              </motion.tr>
             ))}
           </TableBody>
         </Table>

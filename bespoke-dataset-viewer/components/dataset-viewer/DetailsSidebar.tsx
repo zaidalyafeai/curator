@@ -29,7 +29,7 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
   const [requestData, responseData] = item
 
   return (
-    <Card className="fixed right-0 top-0 h-full w-1/3 rounded-none border-l">
+    <Card className="fixed right-0 top-0 h-full w-1/3 rounded-none border-l translate-y-[64px] h-[calc(100vh-64px)]">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-2xl font-bold">Details</CardTitle>
         <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
@@ -37,7 +37,7 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
           <span className="sr-only">Close</span>
         </Button>
       </CardHeader>
-      <ScrollArea className="h-[calc(100vh-5rem)] px-6">
+      <ScrollArea className="h-[calc(100vh-10rem)] px-6">
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <h3 className="text-lg font-semibold">Model</h3>
