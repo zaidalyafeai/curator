@@ -39,7 +39,7 @@ for subject in result:
 
 subsubject_prompter = Prompter(
     prompt_func=lambda subject: {
-        "user_prompt": f"For the given subject {subject}. Generate 2 diverse subsubjects. No explanation."
+        "user_prompt": f"For the given subject {subject}. Generate 3 diverse subsubjects. No explanation."
     },
     model_name="gpt-4o-mini",
     response_format=Subjects,
