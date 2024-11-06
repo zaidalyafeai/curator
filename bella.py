@@ -7,7 +7,6 @@ import logging
 import math
 import os
 import time
-import sqlite3
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
 from typing import Iterable, Optional
