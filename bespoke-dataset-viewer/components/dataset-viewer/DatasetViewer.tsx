@@ -28,11 +28,6 @@ const COLUMNS: Column[] = [
   { key: "completion_tokens", label: "Completion Tokens" }
 ]
 
-const GROUPABLE_COLUMNS = [
-  "Model",
-  "System Message"
-]
-
 interface DatasetViewerProps {
   runHash?: string
 }
@@ -43,7 +38,6 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
   const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [filters, setFilters] = useState<Record<string, string>>({})
-  const [groupBy, setGroupBy] = useState<string | null>(null)
   const [theme, setTheme] = useState<"light" | "dark">("light")
   const [mounted, setMounted] = useState(false)
   const [selectedDistribution, setSelectedDistribution] = useState<string | null>("total_tokens")
@@ -53,7 +47,6 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
   const [lastLineNumber, setLastLineNumber] = useState(0)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [newItemIds, setNewItemIds] = useState<Set<string>>(new Set())
-  const [hasNewData, setHasNewData] = useState(false)
 
   useEffect(() => {
     const systemPreference = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
@@ -76,11 +69,6 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light')
   }
-
-
-  const handleGroup = useCallback((column: string | null) => {
-    setGroupBy(column)
-  }, [])
 
   const filteredData = useMemo(() => {
     const dataArray = Array.isArray(data) ? data : []
@@ -105,24 +93,13 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
       return sortDirection === "asc" ? comparison : -comparison
     })
   }, [filteredData, sortColumn, sortDirection])
-
-  const groupedData = useMemo(() => {
-    if (!groupBy) return { "": sortedData }
-    
-    return sortedData.reduce((groups, item) => {
-      const groupKey = getColumnValue(item, groupBy)
-      if (!groups[groupKey]) groups[groupKey] = []
-      groups[groupKey].push(item)
-      return groups
-    }, {} as Record<string, DataItem[]>)
-  }, [sortedData, groupBy])
   
   useEffect(() => {
   console.log('Raw data:', data);
   console.log('Filtered data:', filteredData);
   console.log('Sorted data:', sortedData);
-  console.log('Grouped data:', groupedData);
-  }, [data, filteredData, sortedData, groupedData])
+  }, [data, filteredData, sortedData])
+
   const getCellContent = (item: DataItem, columnKey: string) => {
     const [requestData, responseData] = item;
     
@@ -151,14 +128,12 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
       
       if (newData && newData.length > 0) {
         setNewItemIds(new Set(newData.map((item: DataItem) => item.id)))
-        setHasNewData(true)
 
         setData(prevData => [...newData.reverse(), ...prevData])
         setLastLineNumber(totalLines)
         
         setTimeout(() => {
           setNewItemIds(new Set())
-          setHasNewData(false)
         }, 5000)
 
         toast({
@@ -291,22 +266,6 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
             <div className="mb-4 flex space-x-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline">Group By</Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => handleGroup(null)}>
-                    None
-                  </DropdownMenuItem>
-                  {GROUPABLE_COLUMNS.map((column) => (
-                    <DropdownMenuItem key={column} onClick={() => handleGroup(column)}>
-                      {column}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
                   <Button variant="outline">Show Distribution</Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
@@ -331,48 +290,43 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
               />
             )}
 
-            {Object.entries(groupedData).map(([group, items]) => (
-              <div key={group} className="mb-8">
-                {groupBy && <h2 className="text-xl font-semibold mb-2">{group}</h2>}
-                <div className="rounded-lg border bg-card">
-                  <AnimatePresence>
-                    <SortableTable
-                      columns={COLUMNS}
-                      data={items}
-                      getRowKey={(item) => item.id}
-                      getCellContent={getCellContent}
-                      onRowClick={(item) => setSelectedItem(item)}
-                      truncateConfig={{ 
-                        enabled: true, 
-                        maxLength: 150
-                      }}
-                      rowProps={(item) => ({
-                        className: cn(
-                          newItemIds.has(item.id) && "bg-success/30 animate-highlight",
-                          "transition-colors duration-300"
-                        ),
-                        layout: true,
-                        initial: { opacity: 0, y: -20 },
-                        animate: { 
-                          opacity: 1, 
-                          y: 0,
-                          transition: {
-                            duration: 0.2
-                          }
-                        },
-                        exit: { 
-                          opacity: 0,
-                          y: -20,
-                          transition: {
-                            duration: 0.2
-                          }
-                        },
-                      })}
-                    />
-                  </AnimatePresence>
-                </div>
-              </div>
-            ))}
+            <div className="rounded-lg border bg-card">
+              <AnimatePresence>
+                <SortableTable
+                  columns={COLUMNS}
+                  data={sortedData}
+                  getRowKey={(item) => item.id}
+                  getCellContent={getCellContent}
+                  onRowClick={(item) => setSelectedItem(item)}
+                  truncateConfig={{ 
+                    enabled: true, 
+                    maxLength: 150
+                  }}
+                  rowProps={(item) => ({
+                    className: cn(
+                      newItemIds.has(item.id) && "bg-success/30 animate-highlight",
+                      "transition-colors duration-300"
+                    ),
+                    layout: true,
+                    initial: { opacity: 0, y: -20 },
+                    animate: { 
+                      opacity: 1, 
+                      y: 0,
+                      transition: {
+                        duration: 0.2
+                      }
+                    },
+                    exit: { 
+                      opacity: 0,
+                      y: -20,
+                      transition: {
+                        duration: 0.2
+                      }
+                    },
+                  })}
+                />
+              </AnimatePresence>
+            </div>
           </>
         )}
       </main>
