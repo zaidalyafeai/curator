@@ -130,12 +130,14 @@ def _completions(
     responses_path = os.path.join(bella_cache_dir, f"{name}/responses.jsonl")
     metadata_db_path = os.path.join(bella_cache_dir, "metadata.db")
     metadata_db = MetadataDB(metadata_db_path)
+    
+    # Get the source code of the prompt function
+    prompt_func_source = inspect.getsource(prompter.prompt_func)
 
     metadata_dict = {
         "timestamp": datetime.now().isoformat(),
         "dataset_hash": dataset_hash,
-        "user_prompt": prompter.user_prompt,
-        "system_prompt": prompter.system_prompt,
+        "prompt_func": prompt_func_source,
         "model_name": prompter.model_name,
         "response_format": prompter.response_format.schema_json(),
         "run_hash": fingerprint,
