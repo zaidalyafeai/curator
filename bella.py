@@ -1,7 +1,7 @@
 """Bella: Bespoke Labs Synthetic Data Generation Library."""
 
 import asyncio
-import hashlib
+import inspect
 import json
 import logging
 import math
@@ -9,13 +9,151 @@ import os
 import time
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
-from typing import Iterable, Optional
+from typing import Any, Callable, Dict, Iterable, Optional, Type
 from db import MetadataDB
 from datasets import Dataset
+from pydantic import BaseModel
 from xxhash import xxh64
 
 from api_request_parallel_processor import process_api_requests_from_file
-from prompt import Prompter
+
+
+class Prompter:
+    """Interface for prompting LLMs."""
+
+    def __init__(
+        self,
+        model_name: str,
+        prompt_func: Callable,
+        response_format: Optional[Type[BaseModel]] = None,
+    ):
+        self.model_name = model_name
+        self.prompt_func = prompt_func
+        self.response_format = response_format
+
+    def get_request_object(
+        self, row: Dict[str, Any] | BaseModel, idx: int
+    ) -> Dict[str, Any]:
+        """Format the request object based off Prompter attributes."""
+        sig = inspect.signature(self.prompt_func)
+        if len(sig.parameters) == 0:
+            prompts = self.prompt_func()
+        elif len(sig.parameters) == 1:
+            prompts = self.prompt_func(row)
+        else:
+            raise ValueError(
+                f"Prompting function {self.prompt_func} must have 0 or 1 arguments."
+            )
+
+        messages = []
+        system_prompt = prompts.get("system_prompt", "You are a helpful AI assistant.")
+        messages.append({"role": "system", "content": system_prompt})
+
+        if "user_prompt" not in prompts:
+            raise ValueError("user_prompt is required")
+        messages.append({"role": "user", "content": prompts["user_prompt"]})
+
+        # Convert BaseModel to dict for serialization
+        if isinstance(row, BaseModel):
+            row = row.model_dump()
+
+        if self.response_format:
+            # OpenAI API
+            # https://platform.openai.com/docs/api-reference/chat/create#chat-create-response_format
+            request = {
+                "model": self.model_name,
+                "messages": messages,
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {
+                        # TODO(ryan): not sure if this should be something else.
+                        # TODO(ryan): also not sure if we should use strict: True
+                        "name": "output_schema",
+                        "schema": self.response_format.model_json_schema(),
+                    },
+                },
+                "metadata": {"request_idx": idx, "sample": row},
+            }
+        else:
+            request = {
+                "model": self.model_name,
+                "messages": messages,
+                "metadata": {"request_idx": idx, "sample": row},
+            }
+        return request
+
+    def __call__(self, dataset: Iterable = []):
+        return _completions(dataset, self)
+
+
+def _completions(
+    dataset: Iterable = (),
+    prompter: Prompter = None,
+    name: Optional[str] = None,
+    resume: bool = True,
+) -> "Dataset":
+    """
+    Apply structured completions to the dataset using specified model and prompts.
+
+    Args:
+        prompter: A function that goes from row to request object
+        output_column: Name of the column to store the response
+        name: Name of the task
+        resume: Whether to resume from the previous completions run
+
+    Returns:
+        A Dataset with the completions added in the output_column
+    """
+    if prompter is None:
+        raise ValueError("Prompter must be provided")
+
+    bella_cache_dir = os.environ.get(
+        "BELLA_CACHE_DIR", os.path.expanduser("~/.cache/bella")
+    )
+
+    dataset_hash = _hash_dataset(dataset)
+    func_hash = _get_function_hash(prompter.prompt_func)
+
+    fingerprint_str = "_".join(
+        [
+            str(dataset_hash),
+            str(func_hash),
+            str(prompter.model_name),
+            str(prompter.response_format.schema_json()),
+        ]
+    )
+
+    fingerprint = xxh64(fingerprint_str.encode("utf-8")).hexdigest()
+
+    name = f"{name.replace(' ', '-')}--{fingerprint}" if name else fingerprint
+    requests_path = os.path.join(bella_cache_dir, f"{name}/requests.jsonl")
+    responses_path = os.path.join(bella_cache_dir, f"{name}/responses.jsonl")
+    metadata_db_path = os.path.join(bella_cache_dir, "metadata.db")
+    metadata_db = MetadataDB(metadata_db_path)
+
+    metadata_dict = {
+        "timestamp": datetime.now().isoformat(),
+        "dataset_hash": dataset_hash,
+        "user_prompt": prompter.user_prompt,
+        "system_prompt": prompter.system_prompt,
+        "model_name": prompter.model_name,
+        "response_format": prompter.response_format.schema_json(),
+        "run_hash": fingerprint,
+    }
+    metadata_db.store_metadata(metadata_dict)
+
+    _create_requests_file(dataset, requests_path, prompter, resume)
+    asyncio.run(
+        process_api_requests_from_file(
+            requests_filepath=requests_path,
+            save_filepath=responses_path,
+            request_url="https://api.openai.com/v1/chat/completions",
+            max_attempts=5,
+            resume=True,
+            model=prompter.model_name,
+        )
+    )
+    return _parse_responses_file(prompter, responses_path)
 
 
 def _create_requests_file(
@@ -23,7 +161,7 @@ def _create_requests_file(
 ):
     if os.path.exists(requests_file):
         if resume:
-            logging.info(f"Loading existing jobs from {requests_file}")
+            print(f"Loading existing jobs from {requests_file}")
             logging.debug(
                 f"Alternatively, delete the jobs file and re-run the annotator: `rm -rf {requests_file}`"
             )
@@ -63,6 +201,10 @@ def _parse_responses_file(prompter: Prompter, responses_file):
         for line in f_in:
             total_count += 1
             try:
+                # Each response is a tuple of (request, response, metadata) where:
+                # - request is the original request object
+                # - response is the response from the API
+                # - metadata is a dictionary of metadata about the request (such as the request index)
                 response = json.loads(line)
                 if isinstance(response[1], list):
                     # A failed requests contains a list of all the errors before max_retries
@@ -80,29 +222,33 @@ def _parse_responses_file(prompter: Prompter, responses_file):
                     response_parsed = prompter.response_format.model_validate_json(
                         response_message
                     )
-                    response_parsed = response_parsed.model_dump()
                 else:
                     response_parsed = response_message
 
                 samples.append((metadata["request_idx"], response_parsed))
 
             except Exception as e:
-                logging.warning(f"Error: {e}")
-                logging.warning(f"Full response: {response}")
+                logging.warning(f"Error: {e}. Full response: {response}")
                 continue
     logging.debug(f"Read {total_count} responses, {failed_count} failed")
     # Sort by idx then return only the responses
     samples.sort(key=lambda x: x[0])
-    samples = [sample[1] for sample in samples]  # Keep only the response_parsed values
+    samples = [sample[1] for sample in samples]
     if failed_count == total_count:
         raise ValueError("All requests failed")
     return samples
 
 
-def _hash_chunk(chunk: list) -> list:
+def _hash_chunk(chunks: list) -> list:
     """Hash a chunk of data."""
-    chunk = [json.dumps(row, sort_keys=True) for row in chunk]
-    chunk_str = "|||".join(chunk)
+
+    def _json_dumps_row(row):
+        if isinstance(row, BaseModel):
+            row = row.model_dump()
+        return json.dumps(row, sort_keys=True)
+
+    chunks = [_json_dumps_row(row) for row in chunks]
+    chunk_str = "|||".join(chunks)
     return xxh64(chunk_str).hexdigest()
 
 
@@ -126,6 +272,7 @@ def _hash_dataset(dataset: Iterable):
     # Process chunks in parallel
     with ProcessPoolExecutor(max_workers=num_cores) as executor:
         chunk_hash = list(executor.map(_hash_chunk, chunks))
+        chunk_hash = list(executor.map(_hash_chunk, chunks))
         chunk_hash_str = "|||".join(chunk_hash)
         hash_value = xxh64(chunk_hash_str).hexdigest()
 
@@ -135,68 +282,13 @@ def _hash_dataset(dataset: Iterable):
     return hash_value
 
 
-def completions(
-    dataset: Iterable,
-    prompter: Prompter,
-    name: Optional[str] = None,
-    resume: bool = True,
-) -> "Dataset":
-    """
-    Apply structured completions to the dataset using specified model and prompts.
+def _get_function_hash(func) -> str:
+    """Get a hash of a function's bytecode."""
+    if func is None:
+        return xxh64("").hexdigest()
 
-    Args:
-        prompter: A function that goes from row to request object
-        output_column: Name of the column to store the response
-        name: Name of the task
-        resume: Whether to resume from the previous completions run
+    # Get function signature for debugging
+    sig = inspect.signature(func)
+    logging.debug(f"Function parameters: {list(sig.parameters.keys())}")
 
-    Returns:
-        A Dataset with the completions added in the output_column
-    """
-    bella_cache_dir = os.environ.get(
-        "BELLA_CACHE_DIR", os.path.expanduser("~/.cache/bella")
-    )
-
-    dataset_hash = _hash_dataset(dataset)
-    # Convert all elements to strings and join them before hashing
-    fingerprint_str = "_".join(
-        [
-            str(dataset_hash),
-            str(prompter.user_prompt),
-            str(prompter.system_prompt),
-            str(prompter.model_name),
-            str(prompter.response_format.schema_json()),
-        ]
-    )
-
-    fingerprint = hashlib.md5(fingerprint_str.encode("utf-8")).hexdigest()
-
-    name = f"{name.replace(' ', '-')}--{fingerprint}" if name else fingerprint
-    requests_path = os.path.join(bella_cache_dir, f"{name}/requests.jsonl")
-    responses_path = os.path.join(bella_cache_dir, f"{name}/responses.jsonl")
-    metadata_db_path = os.path.join(bella_cache_dir, "metadata.db")
-    metadata_db = MetadataDB(metadata_db_path)
-
-    metadata_dict = {
-        "timestamp": datetime.now().isoformat(),
-        "dataset_hash": dataset_hash,
-        "user_prompt": prompter.user_prompt,
-        "system_prompt": prompter.system_prompt,
-        "model_name": prompter.model_name,
-        "response_format": prompter.response_format.schema_json(),
-        "run_hash": fingerprint,
-    }
-    metadata_db.store_metadata(metadata_dict)
-
-    _create_requests_file(dataset, requests_path, prompter, resume)
-    asyncio.run(
-        process_api_requests_from_file(
-            requests_filepath=requests_path,
-            save_filepath=responses_path,
-            request_url="https://api.openai.com/v1/chat/completions",
-            max_attempts=5,
-            resume=True,
-            model=prompter.model_name,
-        )
-    )
-    return _parse_responses_file(prompter, responses_path)
+    return xxh64(func.__code__.co_code).hexdigest()
