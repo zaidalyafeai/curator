@@ -79,46 +79,6 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
     setTheme(prev => prev === 'light' ? 'dark' : 'light')
   }
 
-  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (runHash) {
-      try {
-        const response = await fetch(`/api/responses/${runHash}`)
-        if (!response.ok) throw new Error('Failed to fetch responses')
-        const jsonData = await response.json()
-        setData(jsonData)
-      } catch (error) {
-        console.error("Error reading responses file:", error)
-        alert("Failed to read responses file.")
-      }
-      return
-    }
-
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    try {
-      const content = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = (e) => resolve(e.target?.result as string)
-        reader.onerror = reject
-        reader.readAsText(file)
-      })
-
-      const lines = content.split('\n').filter(line => line.trim() !== '')
-      const jsonData = lines.map(line => JSON.parse(line))
-      setData(jsonData)
-    } catch (error) {
-      console.error("Error parsing file:", error)
-      alert("Failed to parse file. Please ensure it's a valid JSON file.")
-    }
-  }, [runHash])
-
-  useEffect(() => {
-    if (runHash) {
-      handleFileUpload(null as any)
-    }
-  }, [runHash, handleFileUpload])
-
   const handleSort = useCallback((column: string) => {
     if (sortColumn === column) {
       setSortDirection(prev => prev === "asc" ? "desc" : "asc")
@@ -345,102 +305,91 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
           </div>
         ) : (
           <>
-            <Input
-              type="file"
-              accept=".json"
-              onChange={handleFileUpload}
-              className="mb-4"
-            />
-            
-            {data.length > 0 && (
-              <>
-                <div className="mb-4 flex space-x-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline">Group By</Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onClick={() => handleGroup(null)}>
-                        None
+            <div className="mb-4 flex space-x-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline">Group By</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => handleGroup(null)}>
+                    None
+                  </DropdownMenuItem>
+                  {GROUPABLE_COLUMNS.map((column) => (
+                    <DropdownMenuItem key={column} onClick={() => handleGroup(column)}>
+                      {column}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline">Show Distribution</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => setSelectedDistribution(null)}>
+                    None
+                  </DropdownMenuItem>
+                  {["total_tokens", "prompt_tokens", "completion_tokens"].map((column) => (
+                    <DropdownMenuItem key={column} onClick={() => setSelectedDistribution(column)}>
+                      {column === "total_tokens" ? "Total Tokens" : 
+                       column === "prompt_tokens" ? "Prompt Tokens" : 
+                       "Completion Tokens"}
                       </DropdownMenuItem>
-                      {GROUPABLE_COLUMNS.map((column) => (
-                        <DropdownMenuItem key={column} onClick={() => handleGroup(column)}>
-                          {column}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
 
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline">Show Distribution</Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onClick={() => setSelectedDistribution(null)}>
-                        None
-                      </DropdownMenuItem>
-                      {["total_tokens", "prompt_tokens", "completion_tokens"].map((column) => (
-                        <DropdownMenuItem key={column} onClick={() => setSelectedDistribution(column)}>
-                          {column === "total_tokens" ? "Total Tokens" : 
-                           column === "prompt_tokens" ? "Prompt Tokens" : 
-                           "Completion Tokens"}
-                          </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-
-                {selectedDistribution && (
-                  <DistributionChart
-                    data={sortedData}
-                    column={selectedDistribution}
-                  />
-                )}
-
-                {Object.entries(groupedData).map(([group, items]) => (
-                  <div key={group} className="mb-8">
-                    {groupBy && <h2 className="text-xl font-semibold mb-2">{group}</h2>}
-                    <div className="rounded-lg border bg-card">
-                      <AnimatePresence>
-                        <SortableTable
-                          columns={COLUMNS}
-                          data={items}
-                          getRowKey={(item) => item.id}
-                          getCellContent={getCellContent}
-                          onRowClick={(item) => setSelectedItem(item)}
-                          truncateConfig={{ 
-                            enabled: true, 
-                            maxLength: 150
-                          }}
-                          rowProps={(item) => ({
-                            className: cn(
-                              newItemIds.has(item.id) && "bg-success/30 animate-highlight",
-                              "transition-colors duration-300"
-                            ),
-                            layout: true,
-                            initial: { opacity: 0, y: -20 },
-                            animate: { 
-                              opacity: 1, 
-                              y: 0,
-                              transition: {
-                                duration: 0.2
-                              }
-                            },
-                            exit: { 
-                              opacity: 0,
-                              y: -20,
-                              transition: {
-                                duration: 0.2
-                              }
-                            },
-                          })}
-                        />
-                      </AnimatePresence>
-                    </div>
-                  </div>
-                ))}
-              </>
+            {selectedDistribution && (
+              <DistributionChart
+                data={sortedData}
+                column={selectedDistribution}
+              />
             )}
+
+            {Object.entries(groupedData).map(([group, items]) => (
+              <div key={group} className="mb-8">
+                {groupBy && <h2 className="text-xl font-semibold mb-2">{group}</h2>}
+                <div className="rounded-lg border bg-card">
+                  <AnimatePresence>
+                    <SortableTable
+                      columns={COLUMNS}
+                      data={items}
+                      getRowKey={(item) => item.id}
+                      getCellContent={getCellContent}
+                      onRowClick={(item) => setSelectedItem(item)}
+                      truncateConfig={{ 
+                        enabled: true, 
+                        maxLength: 150
+                      }}
+                      rowProps={(item) => ({
+                        className: cn(
+                          newItemIds.has(item.id) && "bg-success/30 animate-highlight",
+                          "transition-colors duration-300"
+                        ),
+                        layout: true,
+                        initial: { opacity: 0, y: -20 },
+                        animate: { 
+                          opacity: 1, 
+                          y: 0,
+                          transition: {
+                            duration: 0.2
+                          }
+                        },
+                        exit: { 
+                          opacity: 0,
+                          y: -20,
+                          transition: {
+                            duration: 0.2
+                          }
+                        },
+                      })}
+                    />
+                  </AnimatePresence>
+                </div>
+              </div>
+            ))}
           </>
         )}
       </main>
