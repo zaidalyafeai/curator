@@ -2,8 +2,7 @@ import pandas as pd
 from datasets import Dataset, load_dataset
 from pydantic import BaseModel, Field
 
-import bespokelabs.curator.prompter as prompter
-from prompt import prompter
+from bespokelabs import curator
 
 
 class InstructionResponse(BaseModel):
@@ -36,17 +35,18 @@ ds = convert_ShareGPT_to_IT_format(ds)
 ds = ds.select(range(10))
 
 
-@prompter("gpt-4o-mini", InstructionResponse)
 def get_instruction_response(row):
     return {
         "user_prompt": f"{row['instruction']}",
     }
 
-
-ds_results = prompter.completions(
-    dataset=ds.to_list(),
-    prompter=get_instruction_response,
+instruction_prompter = curator.Prompter(
+    model_name="gpt-4o-mini",
+    prompt_func=get_instruction_response,
+    response_format=InstructionResponse,
 )
+
+ds_results = instruction_prompter(ds.to_list())
 
 rows = []
 for row, result in zip(ds, ds_results):
