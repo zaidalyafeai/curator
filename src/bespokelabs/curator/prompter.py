@@ -1,4 +1,4 @@
-"""Bella: Bespoke Labs Synthetic Data Generation Library."""
+"""Curator: Bespoke Labs Synthetic Data Generation Library."""
 
 import asyncio
 import inspect
@@ -97,7 +97,7 @@ class Prompter:
 
 def _completions(
     dataset: Iterable = (),
-    prompter: Prompter = None,
+    prompter: Optional[Prompter] = None,
     name: Optional[str] = None,
     resume: bool = True,
 ) -> "Dataset":
