@@ -10,12 +10,12 @@ import time
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
 from typing import Any, Callable, Dict, Iterable, Optional, Type
-from db import MetadataDB
+from bespokelabs.curator.db import MetadataDB
 from datasets import Dataset
 from pydantic import BaseModel
 from xxhash import xxh64
 
-from api_request_parallel_processor import process_api_requests_from_file
+from bespokelabs.curator.api_request_parallel_processor import process_api_requests_from_file
 
 
 class Prompter:
@@ -27,6 +27,14 @@ class Prompter:
         prompt_func: Callable,
         response_format: Optional[Type[BaseModel]] = None,
     ):
+        """Initialize a Prompter.
+
+        Args:
+            model_name (str): The name of the LLM to use
+            prompt_func (Callable): A function that goes from row to request object
+            response_format (Optional[Type[BaseModel]]): A Pydantic model specifying the
+                response format from the LLM.
+        """
         self.model_name = model_name
         self.prompt_func = prompt_func
         self.response_format = response_format
@@ -83,6 +91,7 @@ class Prompter:
         return request
 
     def __call__(self, dataset: Iterable = []):
+        """Run completions on a dataset."""
         return _completions(dataset, self)
 
 
@@ -93,16 +102,20 @@ def _completions(
     resume: bool = True,
 ) -> "Dataset":
     """
-    Apply structured completions to the dataset using specified model and prompts.
+    Apply structured completions in parallel to a dataset using specified model and
+    prompts.
 
     Args:
-        prompter: A function that goes from row to request object
-        output_column: Name of the column to store the response
-        name: Name of the task
-        resume: Whether to resume from the previous completions run
+        dataset (Iterable): A dataset consisting of a list of items to apply completions
+        prompter (Prompter): A Prompter that contains the logic for formatting each
+            item in the dataset
+        name (str): Name of the task
+        resume (bool): Whether to resume from the previous completions run. If True,
+            we use a fingerprint from the input dataset and the prompter to resume
+            from a previous run that matches the same fingerprint.
 
     Returns:
-        A Dataset with the completions added in the output_column
+        Iterable: A list of structured outputs from the completions
     """
     if prompter is None:
         raise ValueError("Prompter must be provided")
@@ -284,12 +297,8 @@ def _hash_dataset(dataset: Iterable):
 
 
 def _get_function_hash(func) -> str:
-    """Get a hash of a function's bytecode."""
+    """Get a hash of a function's source code."""
     if func is None:
         return xxh64("").hexdigest()
 
-    # Get function signature for debugging
-    sig = inspect.signature(func)
-    logging.debug(f"Function parameters: {list(sig.parameters.keys())}")
-
-    return xxh64(func.__code__.co_code).hexdigest()
+    return xxh64(inspect.getsource(func)).hexdigest()

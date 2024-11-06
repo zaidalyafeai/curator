@@ -3,8 +3,7 @@ from typing import List
 import pandas as pd
 from pydantic import BaseModel, Field
 
-import bella
-from bella import Prompter
+from bespokelabs import curator
 
 
 class Subject(BaseModel):
@@ -24,7 +23,7 @@ class QAs(BaseModel):
     qas: List[QA] = Field(description="A list of QAs")
 
 
-subject_prompter = Prompter(
+subject_prompter = curator.Prompter(
     prompt_func=lambda: {
         "user_prompt": f"Generate a diverse list of 3 subjects. Keep it high-level (e.g. Math, Science)."
     },
@@ -37,7 +36,7 @@ for subject in result:
     subject_dataset.extend(subject.subjects)
 
 
-subsubject_prompter = Prompter(
+subsubject_prompter = curator.Prompter(
     prompt_func=lambda subject: {
         "user_prompt": f"For the given subject {subject}. Generate 3 diverse subsubjects. No explanation."
     },
@@ -54,7 +53,7 @@ for subject, subsubjects in zip(subject_dataset, result):
         ]
     )
 
-qa_prompter = Prompter(
+qa_prompter = curator.Prompter(
     prompt_func=lambda subsubject: {
         "user_prompt": f"For the given subsubject {subsubject}. Generate 3 diverse questions and answers. No explanation."
     },
