@@ -2,7 +2,6 @@
 
 import os
 import sqlite3
-from datetime import datetime
 
 
 class MetadataDB:
@@ -55,7 +54,7 @@ class MetadataDB:
                     WHERE run_hash = ?
                     """,
                     (
-                        datetime.now().isoformat(),
+                        metadata["timestamp"],
                         metadata["run_hash"]
                     )
                 )
