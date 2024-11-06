@@ -43,7 +43,7 @@ class MetadataDB:
                 INSERT INTO runs (
                     timestamp, dataset_hash, prompt_func, model_name, response_format, run_hash
                 ) VALUES (?, ?, ?, ?, ?, ?)
-            """,
+                """,
                 (
                     metadata["timestamp"],
                     metadata["dataset_hash"],
