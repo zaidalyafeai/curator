@@ -60,9 +60,12 @@ class Dataset:
     def to_list(self) -> List[Dict[str, Any] | BaseModel]:
         return list(self)
 
-    def to_huggingface(self) -> None:
+    def to_huggingface(self, in_memory: bool = False) -> None:
         """
         Returns a HuggingFace Dataset
+
+        Args:
+            in_memory (bool): Whether to load the dataset into memory
 
         Returns:
             Dataset: Completed dataset
@@ -125,4 +128,4 @@ class Dataset:
             # TODO(Ryan): Look at what this file looks like before finalize. What happens during finalize?
             writer.finalize()
 
-        return HFDataset.from_file(dataset_file)
+        return HFDataset.from_file(dataset_file, in_memory=in_memory)
