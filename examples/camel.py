@@ -63,4 +63,6 @@ qa_prompter = curator.Prompter(
 )
 qa_dataset = qa_prompter(subsubject_dataset)
 
-print(pd.DataFrame.from_records(qa_dataset.to_list()))
+qa_hf_dataset = qa_dataset.to_huggingface()
+qa_hf_dataset.map(lambda row: {"answer": row["answer"].strip()}, num_proc=2)
+print(qa_hf_dataset)

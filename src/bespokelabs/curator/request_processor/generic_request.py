@@ -8,5 +8,4 @@ class GenericRequest(BaseModel):
     messages: List[Dict[str, Any]]
     row: Dict[str, Any] | str
     row_idx: int
-    metadata: Dict[str, Any]
     response_format: Optional[Type[BaseModel]] = None

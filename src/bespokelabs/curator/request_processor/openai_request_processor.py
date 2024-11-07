@@ -5,7 +5,7 @@ import os
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional, Set, Tuple, TypeVar, Union
+from typing import Any, Callable, Dict, Optional, Set, Tuple, TypeVar
 
 import aiohttp
 import requests
@@ -527,6 +527,7 @@ class APIRequest:
             data = get_generic_response(
                 {"response": response, "metadata": self.metadata}
             )
+            data.raw_response = response
             append_generic_response(data, save_filepath)
             status_tracker.num_tasks_in_progress -= 1
             status_tracker.num_tasks_succeeded += 1

@@ -8,3 +8,4 @@ class GenericResponse(BaseModel):
     errors: Optional[List[str]] = None
     row: Dict[str, Any]
     row_idx: int
+    raw_response: Optional[Dict[str, Any]] = None
