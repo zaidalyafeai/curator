@@ -4,10 +4,8 @@ version = "0.1.0"
 description = "Bespoke Labs Curator"
 authors = ["Bespoke Labs <company@bespokelabs.ai>"]
 readme = "README.md"
-packages = [
-    {include = "bespokelabs", from = "src"},
-    {exclude = "bespokelabs/curator/viewer/static"}
-]
+packages = [{include = "bespokelabs", from = "src"}]
+exclude = ["bespokelabs/curator/viewer/static"]
 license = "Apache-2.0"
 homepage = "https://github.com/bespokelabsai/curator"
 repository = "https://github.com/bespokelabsai/curator"
