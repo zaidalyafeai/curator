@@ -18,7 +18,7 @@ from bespokelabs.curator.db import MetadataDB
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.openai_batch_request_processor import (
-    OpenAIRequestProcessor,
+    OpenAIBatchRequestProcessor,
     OpenAIOnlineRequestProcessor,
 )
 from bespokelabs.curator.request_processor.base_request_processor import (
@@ -41,9 +41,6 @@ class Prompter:
             ]
         ] = None,
         response_format: Optional[Type[BaseModel]] = None,
-        request_processor: Optional[
-            BaseRequestProcessor
-        ] = OpenAIOnlineRequestProcessor,
     ):
         """Initialize a Prompter.
 
@@ -75,12 +72,23 @@ class Prompter:
 
         self.request_processor = request_processor
 
-    def __call__(self, dataset: Optional[Iterable] = None):
+    def __call__(
+        self,
+        dataset: Optional[Iterable] = None,
+        request_processor: Optional[
+            BaseRequestProcessor
+        ] = OpenAIOnlineRequestProcessor,
+    ):
         """Run completions on a dataset."""
-        return self._completions(dataset)
+        return self._completions(dataset, request_processor)
 
     def _completions(
-        self, dataset: Optional[Iterable] = None, name: Optional[str] = None
+        self,
+        dataset: Optional[Iterable] = None,
+        name: Optional[str] = None,
+        request_processor: Optional[
+            BaseRequestProcessor
+        ] = OpenAIOnlineRequestProcessor,
     ) -> "Dataset":
         """
         Apply structured completions in parallel to a dataset using specified model and
@@ -154,9 +162,15 @@ class Prompter:
         }
         metadata_db.store_metadata(metadata_dict)
 
-        return self.request_processor.run(
+        # TODO(Ryan): do the response processing, while context of original dataset is available and need random access via row_idx)
+        response_files = request_processor.run(
             dataset, f"{curator_cache_dir}/{fingerprint}", self.prompt_formatter
         )
+
+        # NOTE(Ryan): If we decide to allow user to provide any iterable as input dataset (and doens't have random access via row_idx), we can do it differently. This might be a little slower.
+        # https://huggingface.co/docs/datasets/v3.1.0/about_mapstyle_vs_iterable
+        # What we can do is sort the generic responses_i.jsonl files by row_idx (in parallel across patches), then just iterate over the dataset and create the new rows in order with the responses.
+        # To do this, we need to write generic responses instead API_specific responses. Requests can be api-specific, we don't care since we are not monitoring there.
 
 
 def _hash_chunk(chunks: list) -> list:

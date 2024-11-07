@@ -22,7 +22,7 @@ from bespokelabs.curator.request_processor.base_request_processor import (
 T = TypeVar("T")
 
 
-class OpenAIRequestProcessor(BaseRequestProcessor):
+class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
     model: str
     url: str = "https://api.openai.com/v1/chat/completions"
     api_key: str = os.getenv("OPENAI_API_KEY")
@@ -86,8 +86,7 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
                 "response_format": {
                     "type": "json_schema",
                     "json_schema": {
-                        # TODO(ryan): not sure if this should be something else.
-                        # TODO(ryan): also not sure if we should use strict: True
+                        # TODO(ryan): not sure if we should use strict: True or have name: be something else.
                         "name": "output_schema",
                         "schema": generic_request.response_format.model_json_schema(),
                     },
@@ -148,8 +147,8 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
         Returns:
             Dataset: Completed dataset
         """
-        requests_file = self.create_request_files(dataset, working_dir)
-        responses_file = f"{working_dir}/responses.jsonl"
+        requests_files = self.create_request_files(dataset, working_dir)
+        responses_files = []
 
         rate_limits = self.get_rate_limits()
         rpm = rate_limits["max_requests_per_minute"]
@@ -160,21 +159,20 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
         # NOTE(Ryan): If you wanted to do this on batches, you could run a for loop here about request_files. Although I don't recommend it because you are waiting for straggler requests to finish for each batch.
         # NOTE(Ryan): And if you wanted to do batches in parallel, you would have to divide rpm and tpm by the number of parallel batches.
         # TODO(Ryan): Can we abstract retries from process_api_requests_from_file so you can use it even if you use liteLLM.
-        i = 0
-        asyncio.run(
-            self.process_api_requests_from_file(
-                requests_filepath=requests_file,
-                save_filepath=responses_file,
-                request_url=self.url,
-                max_requests_per_minute=rpm,
-                max_tokens_per_minute=tpm,
-                token_encoding_name=token_encoding_name,
-                max_attempts=5,
-                resume=True,  # detects existing jobs and resume from there
+        for requests_file in requests_files:
+            asyncio.run(
+                self.process_api_requests_from_file(
+                    requests_filepath=requests_file,
+                    save_filepath=responses_file,
+                    request_url=self.url,
+                    max_requests_per_minute=rpm,
+                    max_tokens_per_minute=tpm,
+                    token_encoding_name=token_encoding_name,
+                    max_attempts=5,
+                    resume=True,  # detects existing jobs and resume from there
+                )
             )
-        )
-
-        return Dataset.from_working_dir(working_dir, self.prompt_formatter)
+        return responses_files
 
     async def process_api_requests_from_file(
         self,

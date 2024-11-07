@@ -22,15 +22,19 @@ from bespokelabs.curator.request_processor.base_request_processor import (
 T = TypeVar("T")
 
 
-class OpenAIRequestProcessor(BaseRequestProcessor):
+class OpenAIBatchRequestProcessor(BaseRequestProcessor):
     model: str
     url: str = "https://api.openai.com/v1/chat/completions"
     api_key: str = os.getenv("OPENAI_API_KEY")
+    batch_size: int = 1000
+    check_interval: int = 60
 
     def get_rate_limits(self) -> dict:
         """
-        Function to get rate limits for a given annotator. Makes a single request to openAI API
-        and gets the rate limits from the response headers. These rate limits vary per model
+        Function to get rate limits for a given annotator. Not available via response headers, so
+        the following is based on tier 5 limits on Nov 6th, 2024.
+
+        These rate limits vary per model
         and are determined by your organization's usage tier. View the following:
         https://platform.openai.com/docs/guides/rate-limits/usage-tiers
         https://platform.openai.com/settings/organization/limits
@@ -42,30 +46,30 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
         Returns:
             tuple[int, int]: A tuple containing the maximum number of requests and tokens per minute.
         """
-        # Send a dummy request to get rate limit information
-        response = requests.post(
-            self.url,
-            headers={"Authorization": f"Bearer {self.api_key}"},
-            json={"model": self.prompt_formatter.model_name, "messages": []},
+        model_tpd = {
+            "gpt-3.5-turbo": 5_000_000_000,
+            "gpt-3.5-turbo-0125": 5_000_000_000,
+            "gpt-3.5-turbo-1106": 5_000_000_000,
+            "gpt-3.5-turbo-16k": 5_000_000_000,
+            "gpt-3.5-turbo-instruct": 200_000,
+            "gpt-3.5-turbo-instruct-0914": 200_000,
+            "gpt-4": 150_000_000,
+            "gpt-4-0613": 150_000_000,
+            "gpt-4-turbo": 300_000_000,
+            "gpt-4o": 10_000_000_000,
+            "gpt-4o-mini": 15_000_000_000,
+        }
+
+        if self.model not in model_tpd:
+            tpd = 1_000_000_000
+        else:
+            tpd = model_tpd[self.model]
+
+        logging.info(
+            f"Automatically set max_tokens_per_day to {tpd}, model: {self.model} "
         )
 
-        rpm = int(response.headers.get("x-ratelimit-limit-requests", 0))
-        tpm = int(response.headers.get("x-ratelimit-limit-tokens", 0))
-
-        if not rpm or not tpm:
-            logging.warning(
-                "Failed to get rate limits from OpenAI API, using default values"
-            )
-            rpm = 30_000
-            tpm = 150_000_000
-
-        logging.info(f"Automatically set max_requests_per_minute to {rpm}")
-        logging.info(f"Automatically set max_tokens_per_minute to {tpm}")
-
-        rate_limits = {
-            "max_requests_per_minute": rpm,
-            "max_tokens_per_minute": tpm,
-        }
+        rate_limits = {"max_tokens_per_day": tpd}
 
         return rate_limits
 
@@ -79,8 +83,9 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
         Returns:
             dict: API specific request body
         """
+        # NOTE(Ryan): We can have a shared place that creates the body (since it is the same for both online and batch).
         if generic_request.response_format:
-            request = {
+            body = {
                 "model": generic_request.model,
                 "messages": generic_request.messages,
                 "response_format": {
@@ -92,20 +97,19 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
                         "schema": generic_request.response_format.model_json_schema(),
                     },
                 },
-                "metadata": {
-                    "request_idx": generic_request.row_idx,
-                    "sample": generic_request.row,
-                },
             }
         else:
-            request = {
+            body = {
                 "model": generic_request.model,
                 "messages": generic_request.messages,
-                "metadata": {
-                    "request_idx": generic_request.row_idx,
-                    "sample": generic_request.row,
-                },
             }
+
+        request = {
+            "custom_id": str(generic_request.row_idx),
+            "method": "POST",
+            "url": "/v1/chat/completions",
+            "body": body,
+        }
 
         return request
 
@@ -123,14 +127,28 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
         Returns:
             dict: Generic response body with an extra field "metadata" which contains the original dataset row or the index of the row in the original dataset
         """
-        content = response["response"]["choices"][0]["message"]["content"]
+
+        request_id = response["id"]
+        status_code = response["response"]["status_code"]
+
+        # TODO(Ryan): Add error handling
+        if status_code != 200:
+            logging.warning(
+                f"Request {request_id} failed with status code {status_code}"
+            )
+            return None
+
+        # NOTE(Ryan): can we actually parse the response into a an OpenAI ChatCompletions object? Easier to access fields?
+        # TODO(Ryan): if you add token tokens to generic response, we can parse that here too, similar to my comment above we can do that in the shared place.
+        content = response["response"]["body"]["choices"][0]["message"]["content"]
+
         if self.prompt_formatter.response_format:
             content = json.loads(content)
 
         return GenericResponse(
             response=content,
-            row=response["metadata"]["sample"],
-            row_idx=response["metadata"]["request_idx"],
+            row_idx=int(response["custom_id"]),
+            raw_response=response,
         )
 
     def run(
@@ -148,8 +166,10 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
         Returns:
             Dataset: Completed dataset
         """
-        requests_file = self.create_request_files(dataset, working_dir)
-        responses_file = f"{working_dir}/responses.jsonl"
+        requests_files = self.create_request_files(dataset, working_dir)
+        responses_files = [
+            f"{working_dir}/responses_{i}.jsonl" for i in range(len(requests_files))
+        ]
 
         rate_limits = self.get_rate_limits()
         rpm = rate_limits["max_requests_per_minute"]
@@ -160,19 +180,19 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
         # NOTE(Ryan): If you wanted to do this on batches, you could run a for loop here about request_files. Although I don't recommend it because you are waiting for straggler requests to finish for each batch.
         # NOTE(Ryan): And if you wanted to do batches in parallel, you would have to divide rpm and tpm by the number of parallel batches.
         # TODO(Ryan): Can we abstract retries from process_api_requests_from_file so you can use it even if you use liteLLM.
-        i = 0
-        asyncio.run(
-            self.process_api_requests_from_file(
-                requests_filepath=requests_file,
-                save_filepath=responses_file,
-                request_url=self.url,
-                max_requests_per_minute=rpm,
-                max_tokens_per_minute=tpm,
-                token_encoding_name=token_encoding_name,
-                max_attempts=5,
-                resume=True,  # detects existing jobs and resume from there
+        for i in range(len(requests_files)):
+            asyncio.run(
+                self.process_api_requests_from_file(
+                    requests_filepath=requests_files[i],
+                    save_filepath=responses_files[i],
+                    request_url=self.url,
+                    max_requests_per_minute=rpm,
+                    max_tokens_per_minute=tpm,
+                    token_encoding_name=token_encoding_name,
+                    max_attempts=5,
+                    resume=True,  # detects existing jobs and resume from there
+                )
             )
-        )
 
         return Dataset.from_working_dir(working_dir, self.prompt_formatter)
 
