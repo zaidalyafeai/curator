@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useCallback } from 'react'
-import { DndContext } from "@dnd-kit/core"
+import { DndContext, DragEndEvent } from "@dnd-kit/core"
 import { SortableContext, arrayMove } from "@dnd-kit/sortable"
 import {
   Table,
@@ -16,6 +16,14 @@ import { Tooltip } from "@/components/ui/tooltip"
 import { TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 
 export function SortableTable({
   columns,
@@ -23,15 +31,17 @@ export function SortableTable({
   getRowKey,
   getCellContent,
   onRowClick,
-  initialSortColumn = null,
+  initialSortColumn = "",
   initialSortDirection = "asc",
   truncateConfig = { enabled: false, maxLength: 100 },
-  rowProps
+  rowProps,
+  pageSize = 10,
 }: SortableTableProps) {
-  const [sortColumn, setSortColumn] = useState<string | null>(initialSortColumn)
+  const [sortColumn, setSortColumn] = useState<string>(initialSortColumn)
   const [sortDirection, setSortDirection] = useState<SortDirection>(initialSortDirection)
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [columnOrder, setColumnOrder] = useState(columns.map(col => col.key))
+  const [currentPage, setCurrentPage] = useState(1)
 
   const handleSort = useCallback((column: string) => {
     if (sortColumn === column) {
@@ -49,12 +59,12 @@ export function SortableTable({
     }))
   }, [])
 
-  const handleDragEnd = useCallback((event: any) => {
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event
-    if (active.id !== over.id) {
+    if (active.id !== over?.id) {
       setColumnOrder(items => {
-        const oldIndex = items.indexOf(active.id)
-        const newIndex = items.indexOf(over.id)
+        const oldIndex = items.indexOf(active.id.toString())
+        const newIndex = items.indexOf(over?.id.toString() ?? '')
         return arrayMove(items, oldIndex, newIndex)
       })
     }
@@ -86,6 +96,26 @@ export function SortableTable({
 
     return result
   }, [data, filters, sortColumn, sortDirection, getCellContent])
+
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize
+    const endIndex = startIndex + pageSize
+    return filteredAndSortedData.slice(startIndex, endIndex)
+  }, [filteredAndSortedData, currentPage, pageSize])
+
+  const totalPages = Math.ceil(filteredAndSortedData.length / pageSize)
+
+  const handlePrevPage = useCallback(() => {
+    setCurrentPage(prev => Math.max(1, prev - 1))
+  }, [])
+
+  const handleNextPage = useCallback(() => {
+    setCurrentPage(prev => Math.min(totalPages, prev + 1))
+  }, [totalPages])
+
+  const handlePageClick = useCallback((page: number) => {
+    setCurrentPage(page)
+  }, [])
 
   const orderedColumns = useMemo(() => 
     columnOrder.map(columnKey => 
@@ -145,7 +175,7 @@ export function SortableTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAndSortedData.map(row => (
+            {paginatedData.map(row => (
               <motion.tr
                 key={getRowKey(row)}
                 className={cn(
@@ -165,6 +195,39 @@ export function SortableTable({
           </TableBody>
         </Table>
       </DndContext>
+      
+      {totalPages > 1 && (
+        <div className="flex justify-center py-4 border-t">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={handlePrevPage}
+                  aria-disabled={currentPage === 1}
+                />
+              </PaginationItem>
+              
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <PaginationItem key={`page-${page}`}>
+                  <PaginationLink
+                    onClick={() => handlePageClick(page)}
+                    isActive={currentPage === page}
+                  >
+                    {page}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+              
+              <PaginationItem>
+                <PaginationNext
+                  onClick={handleNextPage}
+                  aria-disabled={currentPage === totalPages}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
     </div>
   )
 }

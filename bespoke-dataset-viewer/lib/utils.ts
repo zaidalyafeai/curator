@@ -28,7 +28,7 @@ export const getColumnValue = (item: DataItem, column: string): string => {
 }
 
 export function getDistributionData(data: DataItem[], column: string) {
-  // Extract token values from the nested structure
+  // Extract values from the nested structure
   const values = data.map(item => {
     const response = item[1];
     if (!response?.usage) return null;
@@ -47,55 +47,81 @@ export function getDistributionData(data: DataItem[], column: string) {
 
   if (values.length === 0) return [];
 
-  // Create distribution bins
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  // Get unique values
+  const uniqueValues = [...new Set(values)];
   
-  // Handle case where all values are the same
-  if (min === max) {
-    // Create a range around the single value
-    const padding = Math.ceil(min * 0.1); // Add 10% padding
-    return Array.from({ length: 3 }, (_, i) => ({
-      range: `${min + (i - 1) * padding}-${min + i * padding}`,
-      start: min + (i - 1) * padding,
-      end: min + i * padding,
-      count: i === 1 ? values.length : 0 // Only middle bin has the count
-    }));
+  // If there's only one unique value, return it directly
+  if (uniqueValues.length === 1) {
+    return [{
+      range: uniqueValues[0].toString(),
+      start: uniqueValues[0],
+      end: uniqueValues[0],
+      count: values.length
+    }];
   }
 
-  const binCount = 10;
-  // Round bin size to a nice number for better readability
-  let binSize = (max - min) / binCount;
-  const magnitude = Math.pow(10, Math.floor(Math.log10(binSize)));
-  binSize = Math.ceil(binSize / magnitude) * magnitude;
+  // Get unique values and check if they're all integers
+  const allIntegers = values.every(v => Number.isInteger(v));
 
-  // Adjust min and max to ensure even distribution
-  const adjustedMin = Math.floor(min / binSize) * binSize;
-  const adjustedMax = Math.ceil(max / binSize) * binSize;
-  const adjustedBinCount = Math.ceil((adjustedMax - adjustedMin) / binSize);
+  let min = Math.min(...values);
+  let max = Math.max(...values);
 
-  // Initialize bins with proper ranges
-  const bins = Array.from({ length: adjustedBinCount }, (_, i) => {
-    const start = adjustedMin + (i * binSize);
+  // Calculate data range and analyze distribution
+  const range = max - min;
+
+  // Determine appropriate bin size based on data characteristics
+  let binSize;
+  if (allIntegers && range <= 20) {
+    // For small ranges of integers, use 1 as bin size
+    binSize = 1;
+  } else if (range <= 100) {
+    // For small ranges, use approximately 10-15 bins
+    binSize = Math.ceil(range / 10);
+  } else {
+    // For larger ranges, use Freedman-Diaconis rule with some adjustments
+    const iqr = calculateIQR(values);
+    binSize = 2 * iqr * Math.pow(values.length, -1/3);
+    
+    // Round to a nice number
+    const magnitude = Math.pow(10, Math.floor(Math.log10(binSize)));
+    binSize = Math.ceil(binSize / magnitude) * magnitude;
+  }
+
+  // Adjust min and max to create nice boundaries
+  min = Math.floor(min / binSize) * binSize;
+  max = Math.ceil(max / binSize) * binSize;
+
+  // Create bins
+  const bins = [];
+  let start = min;
+  while (start < max) {
     const end = start + binSize;
-    return {
-      range: `${start}-${end}`,
+    bins.push({
+      range: allIntegers 
+        ? `${Math.floor(start)}-${Math.floor(end)}`
+        : `${start.toFixed(2)}-${end.toFixed(2)}`,
       start,
       end,
-      count: 0
-    };
-  });
+      count: values.filter(v => v >= start && v < end).length
+    });
+    start = end;
+  }
 
-  // Count values in each bin
-  values.forEach(value => {
-    const binIndex = Math.floor((value - adjustedMin) / binSize);
-    if (binIndex >= 0 && binIndex < bins.length) {
-      bins[binIndex].count++;
-    }
-  });
+  // Handle last bin edge case to include max value
+  if (bins.length > 0) {
+    const lastBin = bins[bins.length - 1];
+    lastBin.count += values.filter(v => v === lastBin.end).length;
+  }
 
-  // Return all bins to show gaps
   return bins;
+}
+
+// Helper function to calculate Interquartile Range
+function calculateIQR(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const q1 = sorted[Math.floor(sorted.length * 0.25)];
+  const q3 = sorted[Math.floor(sorted.length * 0.75)];
+  return q3 - q1;
 }
 
 export function cn(...inputs: ClassValue[]) {

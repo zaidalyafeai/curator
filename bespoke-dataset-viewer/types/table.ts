@@ -30,4 +30,6 @@ export interface SortableTableProps {
   truncateConfig?: TruncateConfig
   initialSortColumn?: string
   initialSortDirection?: SortDirection
+  pageSize?: number
+  rowProps?: (row: any) => { className?: string }
 } 

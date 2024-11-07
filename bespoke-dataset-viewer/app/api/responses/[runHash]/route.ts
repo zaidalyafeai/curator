@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { promises as fs } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
@@ -7,22 +7,19 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET(
-  request: Request,
-  { params }: { params: { hash: string } }
-) {
+  request: NextRequest,
+  { params }: { params: Promise<{ runHash: string }>  }
+): Promise<Response> {  // This is the key change
   try {
-    // In Next.js 14, params.hash is already a string, no need to await it
-    const hash = params.hash
-    const responsesPath = join(homedir(), '.cache', 'bella', hash, 'responses.jsonl')
+    const { runHash } = await params
+    const responsesPath = join(homedir(), '.cache', 'bella', runHash, 'responses.jsonl')
     
-    // Get the last line number from query params
-    const { searchParams } = new URL(request.url)
+    const searchParams = request.nextUrl.searchParams
     const lastLineNumber = parseInt(searchParams.get('lastLine') || '0')
 
     const content = await fs.readFile(responsesPath, 'utf-8')
     const lines = content.split('\n').filter(line => line.trim() !== '')
     
-    // Only return new lines after lastLineNumber
     const newLines = lines.slice(lastLineNumber)
     const jsonData = newLines.map(line => JSON.parse(line))
 
@@ -37,4 +34,4 @@ export async function GET(
       { status: 500 }
     )
   }
-} 
+}
