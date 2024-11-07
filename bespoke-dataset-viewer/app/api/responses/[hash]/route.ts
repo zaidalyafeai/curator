@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { promises as fs } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
@@ -7,16 +7,16 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { hash: string } }
 ) {
   try {
-    // In Next.js 14, params.hash is already a string, no need to await it
-    const hash = params.hash
+    // Await the params before accessing hash
+    const { hash } = await params
     const responsesPath = join(homedir(), '.cache', 'bella', hash, 'responses.jsonl')
     
     // Get the last line number from query params
-    const { searchParams } = new URL(request.url)
+    const searchParams = request.nextUrl.searchParams
     const lastLineNumber = parseInt(searchParams.get('lastLine') || '0')
 
     const content = await fs.readFile(responsesPath, 'utf-8')
@@ -37,4 +37,4 @@ export async function GET(
       { status: 500 }
     )
   }
-} 
+}

@@ -7,7 +7,6 @@ import { Column } from "@/types/table"
 import { Run } from "@/types/dataset"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Header } from "@/components/layout/Header"
 

@@ -1,8 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Copy, X } from "lucide-react"
 import { DataItem } from "@/types/dataset"

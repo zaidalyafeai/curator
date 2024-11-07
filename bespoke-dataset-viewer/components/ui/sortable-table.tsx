@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useCallback } from 'react'
-import { DndContext } from "@dnd-kit/core"
+import { DndContext, DragEndEvent } from "@dnd-kit/core"
 import { SortableContext, arrayMove } from "@dnd-kit/sortable"
 import {
   Table,
@@ -59,12 +59,12 @@ export function SortableTable({
     }))
   }, [])
 
-  const handleDragEnd = useCallback((event: any) => {
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event
-    if (active.id !== over.id) {
+    if (active.id !== over?.id) {
       setColumnOrder(items => {
-        const oldIndex = items.indexOf(active.id)
-        const newIndex = items.indexOf(over.id)
+        const oldIndex = items.indexOf(active.id.toString())
+        const newIndex = items.indexOf(over?.id.toString() ?? '')
         return arrayMove(items, oldIndex, newIndex)
       })
     }
@@ -105,9 +105,17 @@ export function SortableTable({
 
   const totalPages = Math.ceil(filteredAndSortedData.length / pageSize)
 
-  const handlePageChange = (page: number) => {
+  const handlePrevPage = useCallback(() => {
+    setCurrentPage(prev => Math.max(1, prev - 1))
+  }, [])
+
+  const handleNextPage = useCallback(() => {
+    setCurrentPage(prev => Math.min(totalPages, prev + 1))
+  }, [totalPages])
+
+  const handlePageClick = useCallback((page: number) => {
     setCurrentPage(page)
-  }
+  }, [])
 
   const orderedColumns = useMemo(() => 
     columnOrder.map(columnKey => 
@@ -194,15 +202,15 @@ export function SortableTable({
             <PaginationContent>
               <PaginationItem>
                 <PaginationPrevious 
-                  onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
+                  onClick={handlePrevPage}
+                  aria-disabled={currentPage === 1}
                 />
               </PaginationItem>
               
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <PaginationItem key={page}>
+                <PaginationItem key={`page-${page}`}>
                   <PaginationLink
-                    onClick={() => handlePageChange(page)}
+                    onClick={() => handlePageClick(page)}
                     isActive={currentPage === page}
                   >
                     {page}
@@ -212,8 +220,8 @@ export function SortableTable({
               
               <PaginationItem>
                 <PaginationNext
-                  onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
+                  onClick={handleNextPage}
+                  aria-disabled={currentPage === totalPages}
                 />
               </PaginationItem>
             </PaginationContent>

@@ -1,9 +1,8 @@
 "use client"
 
 import { useState, useCallback, useEffect, useMemo } from "react"
-import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Moon, Sun, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { DataItem } from "@/types/dataset"
 import { getColumnValue } from "@/lib/utils"
 import { DetailsSidebar } from "./DetailsSidebar"
@@ -14,7 +13,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu"
-import { useRouter } from "next/navigation"
 import { Column } from "@/types/table"
 import { SortableTable } from "@/components/ui/sortable-table"
 import { useToast } from "@/components/ui/use-toast"
@@ -34,11 +32,10 @@ interface DatasetViewerProps {
 }
 
 export function DatasetViewer({ runHash }: DatasetViewerProps) {
-  const router = useRouter()
   const [data, setData] = useState<DataItem[]>([])
-  const [sortColumn, setSortColumn] = useState<string | null>(null)
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
-  const [filters, setFilters] = useState<Record<string, string>>({})
+  const [sortColumn] = useState<string | null>(null)
+  const [sortDirection] = useState<"asc" | "desc">("asc")
+  const [filters] = useState<Record<string, string>>({})
   const [theme, setTheme] = useState<"light" | "dark">("light")
   const [mounted, setMounted] = useState(false)
   const [selectedDistribution, setSelectedDistribution] = useState<string | null>("total_tokens")
@@ -67,10 +64,6 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
     localStorage.setItem('theme', theme)
   }, [theme, mounted])
 
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light')
-  }
-
   const filteredData = useMemo(() => {
     const dataArray = Array.isArray(data) ? data : []
     
@@ -94,12 +87,6 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
       return sortDirection === "asc" ? comparison : -comparison
     })
   }, [filteredData, sortColumn, sortDirection])
-  
-  useEffect(() => {
-  console.log('Raw data:', data);
-  console.log('Filtered data:', filteredData);
-  console.log('Sorted data:', sortedData);
-  }, [data, filteredData, sortedData])
 
   const getCellContent = (item: DataItem, columnKey: string) => {
     const [requestData, responseData] = item;
@@ -221,9 +208,34 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
         />
 
         <main className="container mx-auto p-4 overflow-x-hidden">
-          <div className="mb-6">
-            <h2 className="text-2xl font-semibold text-foreground">Dataset Details</h2>
-            <p className="text-sm text-muted-foreground">View and analyze your dataset responses</p>
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-semibold text-foreground">Dataset Details</h2>
+              <p className="text-sm text-muted-foreground">View and analyze your dataset responses</p>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  {selectedDistribution 
+                    ? selectedDistribution.split('_').map(word => 
+                        word.charAt(0).toUpperCase() + word.slice(1)
+                      ).join(' ')
+                    : 'Select Metric'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setSelectedDistribution(null)}>
+                  None
+                </DropdownMenuItem>
+                {["total_tokens", "prompt_tokens", "completion_tokens"].map((column) => (
+                  <DropdownMenuItem key={column} onClick={() => setSelectedDistribution(column)}>
+                    {column === "total_tokens" ? "Total Tokens" : 
+                     column === "prompt_tokens" ? "Prompt Tokens" : 
+                     "Completion Tokens"}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {isInitialLoad ? (
@@ -236,40 +248,6 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
           ) : (
             <>
               <div className="mb-8 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <h3 className="text-lg font-medium">Metrics & Distribution</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedDistribution 
-                        ? `Showing distribution of ${selectedDistribution.replace('_', ' ')}`
-                        : 'Select a metric to view its distribution'}
-                    </p>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline">
-                        {selectedDistribution 
-                          ? selectedDistribution.split('_').map(word => 
-                              word.charAt(0).toUpperCase() + word.slice(1)
-                            ).join(' ')
-                          : 'Select Metric'}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setSelectedDistribution(null)}>
-                        None
-                      </DropdownMenuItem>
-                      {["total_tokens", "prompt_tokens", "completion_tokens"].map((column) => (
-                        <DropdownMenuItem key={column} onClick={() => setSelectedDistribution(column)}>
-                          {column === "total_tokens" ? "Total Tokens" : 
-                           column === "prompt_tokens" ? "Prompt Tokens" : 
-                           "Completion Tokens"}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-
                 {selectedDistribution && (
                   <div className="rounded-lg border bg-card p-4">
                     <DistributionChart
