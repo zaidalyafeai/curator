@@ -8,6 +8,9 @@ from contextlib import closing
 import socket
 import logging
 import time
+import platform
+import tempfile
+import shutil
 
 def get_viewer_path():
     return str(Path(__file__).parent)
@@ -40,6 +43,19 @@ def _setup_logging(level):
         datefmt='%Y-%m-%d %H:%M:%S'
     )
 
+def check_node_installed():
+    """Check if Node.js is installed and return version if found"""
+    try:
+        result = subprocess.run(
+            ["node", "--version"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
 def main():
     parser = ArgumentParser(description="Curator Viewer")
     parser.add_argument("--host", default="127.0.0.1", help="Host to run the server on (default: localhost)")
@@ -48,6 +64,18 @@ def main():
     args = parser.parse_args()
 
     _setup_logging(logging.DEBUG if args.verbose else logging.INFO)
+    
+    # Check if Node.js is installed
+    node_version = check_node_installed()
+    if not node_version:
+        print("\nNode.js is required but not found on your system.")
+        print("Please install Node.js from https://nodejs.org/")
+        print("\nAfter installing:")
+        print("1. Close and reopen your terminal")
+        print("2. Verify installation by running: node --version")
+        print("3. Run curator-viewer again")
+        sys.exit(1)
+        
     ensure_dependencies()
 
     # Set environment variables for the Next.js server
