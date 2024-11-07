@@ -3,7 +3,7 @@ import { DatasetViewer } from "@/components/dataset-viewer/DatasetViewer"
 export default async function DatasetPage({ 
   params 
 }: { 
-  params: { runHash: string } 
+  params: Promise<{ runHash: string }> 
 }) {
   const { runHash } = await params
   return (

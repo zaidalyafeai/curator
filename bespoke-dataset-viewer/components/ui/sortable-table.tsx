@@ -31,13 +31,13 @@ export function SortableTable({
   getRowKey,
   getCellContent,
   onRowClick,
-  initialSortColumn = null,
+  initialSortColumn = "",
   initialSortDirection = "asc",
   truncateConfig = { enabled: false, maxLength: 100 },
   rowProps,
   pageSize = 10,
 }: SortableTableProps) {
-  const [sortColumn, setSortColumn] = useState<string | null>(initialSortColumn)
+  const [sortColumn, setSortColumn] = useState<string>(initialSortColumn)
   const [sortDirection, setSortDirection] = useState<SortDirection>(initialSortDirection)
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [columnOrder, setColumnOrder] = useState(columns.map(col => col.key))

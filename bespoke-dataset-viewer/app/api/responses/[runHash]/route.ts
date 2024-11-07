@@ -8,21 +8,18 @@ export const runtime = 'nodejs'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { hash: string } }
-) {
+  { params }: { params: Promise<{ runHash: string }>  }
+): Promise<Response> {  // This is the key change
   try {
-    // Await the params before accessing hash
-    const { hash } = await params
-    const responsesPath = join(homedir(), '.cache', 'bella', hash, 'responses.jsonl')
+    const { runHash } = await params
+    const responsesPath = join(homedir(), '.cache', 'bella', runHash, 'responses.jsonl')
     
-    // Get the last line number from query params
     const searchParams = request.nextUrl.searchParams
     const lastLineNumber = parseInt(searchParams.get('lastLine') || '0')
 
     const content = await fs.readFile(responsesPath, 'utf-8')
     const lines = content.split('\n').filter(line => line.trim() !== '')
     
-    // Only return new lines after lastLineNumber
     const newLines = lines.slice(lastLineNumber)
     const jsonData = newLines.map(line => JSON.parse(line))
 

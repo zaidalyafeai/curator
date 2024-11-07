@@ -44,7 +44,7 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
   const [isPolling, setIsPolling] = useState(false)
   const [lastLineNumber, setLastLineNumber] = useState(0)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
-  const [newItemIds, setNewItemIds] = useState<Set<string>>(new Set())
+  const [newItemIds, setNewItemIds] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     const systemPreference = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
@@ -115,7 +115,7 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
       const { data: newData, totalLines } = await response.json()
       
       if (newData && newData.length > 0) {
-        setNewItemIds(new Set(newData.map((item: DataItem) => item.id)))
+        setNewItemIds(new Set(newData.map((item: DataItem) => item[1].id)))
 
         setData(prevData => [...newData.reverse(), ...prevData])
         setLastLineNumber(totalLines)
@@ -263,7 +263,7 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
                   <SortableTable
                     columns={COLUMNS}
                     data={sortedData}
-                    getRowKey={(item) => item.id}
+                    getRowKey={(item) => item[1].id}
                     getCellContent={getCellContent}
                     onRowClick={(item) => setSelectedItem(item)}
                     truncateConfig={{ 
@@ -273,7 +273,7 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
                     pageSize={10}
                     rowProps={(item) => ({
                       className: cn(
-                        newItemIds.has(item.id) && "bg-success/30 animate-highlight",
+                        newItemIds.has(item[1].id) && "bg-success/30 animate-highlight",
                         "transition-colors duration-300"
                       ),
                       layout: true,
