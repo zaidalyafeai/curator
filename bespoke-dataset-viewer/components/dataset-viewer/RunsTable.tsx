@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Header } from "@/components/layout/Header"
+import { AlertCircle } from "lucide-react"
 
 const COLUMNS: Column[] = [
   { key: "created_time", label: "Created" },
@@ -27,6 +28,7 @@ export function RunsTable() {
   const [newRunIds, setNewRunIds] = useState<Set<string>>(new Set())
   const router = useRouter()
   const { toast } = useToast()
+  const [noCacheFound, setNoCacheFound] = useState<{ message: string; path: string } | null>(null)
 
   const fetchRuns = useCallback(async (isInitial = false) => {
     try {
@@ -37,6 +39,13 @@ export function RunsTable() {
       const response = await fetch(`/api/runs${queryParams}`)
       const data = await response.json()
       
+      if (response.status === 404 && data.error === 'NO_CACHE_DB') {
+        setNoCacheFound({ message: data.message, path: data.path })
+        setIsPolling(false) // Stop polling if no cache exists
+        setIsLoading(false)
+        return
+      }
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
@@ -126,11 +135,28 @@ export function RunsTable() {
       
       <main className="container mx-auto p-4">
         <div className="mb-6">
-          <h2 className="text-2xl font-semibold text-foreground">Prompter Runs</h2>
-          <p className="text-sm text-muted-foreground">View your prompter runs</p>
+          <h2 className="text-2xl font-semibold text-foreground">LLM Runs History</h2>
+          <p className="text-sm text-muted-foreground">View and analyze your past LLM runs</p>
         </div>
 
-        {isLoading ? (
+        {noCacheFound ? (
+          <div className="rounded-lg border border-yellow-200 bg-yellow-50 dark:border-yellow-900/50 dark:bg-yellow-900/20 p-4 my-4">
+            <div className="flex items-start space-x-3">
+              <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5" />
+              <div>
+                <h3 className="font-medium text-yellow-600 dark:text-yellow-500">
+                  No Cache Database Found
+                </h3>
+                <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-1">
+                  {noCacheFound.message}
+                </p>
+                <p className="text-xs text-yellow-500 dark:text-yellow-400 mt-2 font-mono">
+                  Expected location: {noCacheFound.path}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : isLoading ? (
           <div className="flex items-center justify-center h-[calc(100vh-200px)]">
             <div className="flex flex-col items-center gap-4">
               <Loader2 className="h-8 w-8 animate-spin" />

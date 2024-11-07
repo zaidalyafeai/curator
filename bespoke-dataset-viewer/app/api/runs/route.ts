@@ -13,7 +13,14 @@ export async function GET(request: Request): Promise<Response>  {
     
     if (!existsSync(dbPath)) {
       console.error(`Database file not found at: ${dbPath}`)
-      resolve(NextResponse.json({ error: 'Database file not found' }, { status: 500 }))
+      resolve(NextResponse.json(
+        { 
+          error: 'NO_CACHE_DB',
+          message: 'No cache database found. Please run some prompts first.',
+          path: dbPath 
+        }, 
+        { status: 404 }
+      ))
       return
     }
 
