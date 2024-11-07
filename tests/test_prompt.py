@@ -1,11 +1,11 @@
-import pytest
-from pydantic import BaseModel
-from typing import Optional
 import os
+from typing import Optional
 
-from prompt import Prompter
+import pytest
 from datasets import Dataset
-import bespokelabs.curator.prompter.prompter as prompter
+from pydantic import BaseModel
+
+from bespokelabs.curator import Prompter
 
 
 class MockResponseFormat(BaseModel):
@@ -22,12 +22,14 @@ def prompter() -> Prompter:
     Returns:
         PromptCaller: A configured prompt caller instance.
     """
-    system_prompt = "You are a helpful assistant. Context: {{ context }}"
-    user_prompt = "Answer this question: {{ question }}"
+    def prompt_func(row):
+        return {
+            "user_prompt": f"Context: {row['context']} Answer this question: {row['question']}",
+            "system_prompt": "You are a helpful assistant.",
+        }
     return Prompter(
         model_name="gpt-4o-mini",
-        system_prompt=system_prompt,
-        user_prompt=user_prompt,
+        prompt_func=prompt_func,
         response_format=MockResponseFormat,
     )
 
@@ -50,20 +52,10 @@ def test_completions(prompter: Prompter, tmp_path):
     # Set up temporary cache directory
     os.environ["BELLA_CACHE_DIR"] = str(tmp_path)
 
-    # Run completions
-    result_dataset = prompter.completions(
-        dataset=dataset,
-        prompter=prompter,
-        output_column="response",
-        name="test_completions",
-    )
-
+    result_dataset = prompter(dataset)
+    result_dataset = result_dataset.to_huggingface()
+    
     # Assertions
     assert len(result_dataset) == len(dataset)
-    assert "response" in result_dataset.column_names
-
-    # Check first row's response format
-    first_response = result_dataset[0]["response"]
-    assert isinstance(first_response, dict)
-    assert "message" in first_response
-    assert "confidence" in first_response
+    assert "message" in result_dataset.column_names
+    assert "confidence" in result_dataset.column_names
