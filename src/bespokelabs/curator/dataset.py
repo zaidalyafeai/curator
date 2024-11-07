@@ -107,6 +107,8 @@ class Dataset:
                             dataset_rows = [response.response]
 
                         for row in dataset_rows:
+                            if isinstance(row, BaseModel):
+                                row = row.model_dump()
                             # NOTE(Ryan): This throws a strange error if there are null values in the row
                             writer.write(row)
 
