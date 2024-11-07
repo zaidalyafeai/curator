@@ -26,8 +26,6 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
 
   if (!item) return null
 
-  const [requestData, responseData] = item
-
   return (
     <Sheet open={!!item} onOpenChange={() => item && onClose()}>
       <SheetContent 
@@ -44,16 +42,16 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <h3 className="text-lg font-semibold">Model</h3>
-                <p className="text-sm text-muted-foreground">{requestData.model}</p>
+                <p className="text-sm text-muted-foreground">{item.request.model}</p>
               </div>
               <Separator />
               <div className="space-y-2">
                 <h3 className="text-lg font-semibold">User Message</h3>
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {requestData.messages.find(m => m.role === "user")?.content}
+                  {item.request.messages.find(m => m.role === "user")?.content}
                 </p>
                 <Button 
-                  onClick={() => copyToClipboard(requestData.messages.find(m => m.role === "user")?.content || "")} 
+                  onClick={() => copyToClipboard(item.request.messages.find(m => m.role === "user")?.content || "")} 
                   variant="outline" 
                   size="sm" 
                   className="mt-2"
@@ -66,10 +64,16 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
               <div className="space-y-2">
                 <h3 className="text-lg font-semibold">Assistant Message</h3>
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {responseData.choices[0]?.message?.content}
+                  {typeof item.response === 'object' 
+                    ? JSON.stringify(item.response, null, 2)
+                    : item.response}
                 </p>
                 <Button 
-                  onClick={() => copyToClipboard(responseData.choices[0]?.message?.content || "")} 
+                  onClick={() => copyToClipboard(
+                    typeof item.response === 'object' 
+                      ? JSON.stringify(item.response, null, 2)
+                      : item.response || ""
+                  )} 
                   variant="outline" 
                   size="sm" 
                   className="mt-2"
@@ -84,15 +88,15 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Total</p>
-                    <p className="text-2xl font-bold">{responseData.usage.total_tokens}</p>
+                    <p className="text-2xl font-bold">{item.raw_response.usage.total_tokens}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Prompt</p>
-                    <p className="text-2xl font-bold">{responseData.usage.prompt_tokens}</p>
+                    <p className="text-2xl font-bold">{item.raw_response.usage.prompt_tokens}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Completion</p>
-                    <p className="text-2xl font-bold">{responseData.usage.completion_tokens}</p>
+                    <p className="text-2xl font-bold">{item.raw_response.usage.completion_tokens}</p>
                   </div>
                 </div>
               </div>

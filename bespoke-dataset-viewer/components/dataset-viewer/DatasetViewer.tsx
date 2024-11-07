@@ -89,17 +89,18 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
   }, [filteredData, sortColumn, sortDirection])
 
   const getCellContent = (item: DataItem, columnKey: string) => {
-    const [requestData, responseData] = item;
-    
     switch (columnKey) {
       case "user_message":
-        return requestData.messages.find(m => m.role === "user")?.content || "N/A";
+        return item.request.messages.find(m => m.role === "user")?.content || "N/A";
       case "assistant_message":
-        return responseData.choices[0]?.message?.content || "N/A";
+        if (typeof item.response === 'object') {
+          return JSON.stringify(item.response, null, 2);
+        }
+        return item.response || "N/A";
       case "prompt_tokens":
-        return responseData.usage.prompt_tokens?.toString() || "N/A";
+        return item.raw_response.usage.prompt_tokens?.toString() || "N/A";
       case "completion_tokens":
-        return responseData.usage.completion_tokens?.toString() || "N/A";
+        return item.raw_response.usage.completion_tokens?.toString() || "N/A";
       default:
         return "N/A";
     }
@@ -115,7 +116,7 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
       const { data: newData, totalLines } = await response.json()
       
       if (newData && newData.length > 0) {
-        setNewItemIds(new Set(newData.map((item: DataItem) => item[1].id)))
+        setNewItemIds(new Set(newData.map((item: DataItem) => item.raw_response.id)))
 
         setData(prevData => [...newData.reverse(), ...prevData])
         setLastLineNumber(totalLines)
@@ -263,7 +264,7 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
                   <SortableTable
                     columns={COLUMNS}
                     data={sortedData}
-                    getRowKey={(item) => item[1].id}
+                    getRowKey={(item) => item.raw_response.id}
                     getCellContent={getCellContent}
                     onRowClick={(item) => setSelectedItem(item)}
                     truncateConfig={{ 
@@ -273,7 +274,7 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
                     pageSize={10}
                     rowProps={(item) => ({
                       className: cn(
-                        newItemIds.has(item[1].id) && "bg-success/30 animate-highlight",
+                        newItemIds.has(item.raw_response.id) && "bg-success/30 animate-highlight",
                         "transition-colors duration-300"
                       ),
                       layout: true,
