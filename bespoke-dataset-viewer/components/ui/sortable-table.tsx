@@ -16,6 +16,14 @@ import { Tooltip } from "@/components/ui/tooltip"
 import { TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 
 export function SortableTable({
   columns,
@@ -26,12 +34,14 @@ export function SortableTable({
   initialSortColumn = null,
   initialSortDirection = "asc",
   truncateConfig = { enabled: false, maxLength: 100 },
-  rowProps
+  rowProps,
+  pageSize = 10,
 }: SortableTableProps) {
   const [sortColumn, setSortColumn] = useState<string | null>(initialSortColumn)
   const [sortDirection, setSortDirection] = useState<SortDirection>(initialSortDirection)
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [columnOrder, setColumnOrder] = useState(columns.map(col => col.key))
+  const [currentPage, setCurrentPage] = useState(1)
 
   const handleSort = useCallback((column: string) => {
     if (sortColumn === column) {
@@ -86,6 +96,18 @@ export function SortableTable({
 
     return result
   }, [data, filters, sortColumn, sortDirection, getCellContent])
+
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize
+    const endIndex = startIndex + pageSize
+    return filteredAndSortedData.slice(startIndex, endIndex)
+  }, [filteredAndSortedData, currentPage, pageSize])
+
+  const totalPages = Math.ceil(filteredAndSortedData.length / pageSize)
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
 
   const orderedColumns = useMemo(() => 
     columnOrder.map(columnKey => 
@@ -145,7 +167,7 @@ export function SortableTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAndSortedData.map(row => (
+            {paginatedData.map(row => (
               <motion.tr
                 key={getRowKey(row)}
                 className={cn(
@@ -165,6 +187,39 @@ export function SortableTable({
           </TableBody>
         </Table>
       </DndContext>
+      
+      {totalPages > 1 && (
+        <div className="flex justify-center py-4 border-t">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                />
+              </PaginationItem>
+              
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <PaginationItem key={page}>
+                  <PaginationLink
+                    onClick={() => handlePageChange(page)}
+                    isActive={currentPage === page}
+                  >
+                    {page}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+              
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
     </div>
   )
 }

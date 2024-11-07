@@ -266,7 +266,7 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
             <div className="mb-4 flex space-x-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline">Show Distribution</Button>
+                  <Button variant="outline">Metrics</Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                   <DropdownMenuItem onClick={() => setSelectedDistribution(null)}>
@@ -302,6 +302,7 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
                     enabled: true, 
                     maxLength: 150
                   }}
+                  pageSize={10}
                   rowProps={(item) => ({
                     className: cn(
                       newItemIds.has(item.id) && "bg-success/30 animate-highlight",

@@ -144,6 +144,7 @@ export function RunsTable() {
         getCellContent={getCellContent}
         onRowClick={(run) => router.push(`/dataset/${run.run_hash}`)}
         truncateConfig={{ enabled: true, maxLength: 100 }}
+        pageSize={10}
         rowProps={(run) => ({
           className: cn(
             newRunIds.has(run.id) && "bg-success/30 animate-highlight",
