@@ -528,6 +528,7 @@ class APIRequest:
                 {"response": response, "metadata": self.metadata}
             )
             data.raw_response = response
+            data.request = self.request_json
             append_generic_response(data, save_filepath)
             status_tracker.num_tasks_in_progress -= 1
             status_tracker.num_tasks_succeeded += 1
