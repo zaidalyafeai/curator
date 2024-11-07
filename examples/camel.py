@@ -27,18 +27,17 @@ subject_prompter = curator.Prompter(
     prompt_func=lambda: {
         "user_prompt": f"Generate a diverse list of 3 subjects. Keep it high-level (e.g. Math, Science)."
     },
-    parse_func=lambda _, subjects: [subject.subject for subject in subjects.subjects],
+    parse_func=lambda _, subjects: [subject for subject in subjects.subjects],
     model_name="gpt-4o-mini",
     response_format=Subjects,
 )
 subject_dataset = subject_prompter()
-
 subsubject_prompter = curator.Prompter(
     prompt_func=lambda subject: {
         "user_prompt": f"For the given subject {subject}. Generate 3 diverse subsubjects. No explanation."
     },
     parse_func=lambda subject, subsubjects: [
-        {"subject": subject, "subsubject": subsubject.subject}
+        {"subject": subject["subject"], "subsubject": subsubject.subject}
         for subsubject in subsubjects.subjects
     ],
     model_name="gpt-4o-mini",
@@ -64,4 +63,4 @@ qa_prompter = curator.Prompter(
 )
 qa_dataset = qa_prompter(subsubject_dataset)
 
-print(pd.DataFrame.from_records(qa_dataset))
+print(pd.DataFrame.from_records(qa_dataset.to_list()))

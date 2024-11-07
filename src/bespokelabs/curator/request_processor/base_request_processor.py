@@ -2,12 +2,13 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import tqdm
+from tqdm import tqdm
 
 from bespokelabs.curator.dataset import Dataset
-from bespokelabs.curator.prompter import Prompter
+from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.generic_response import GenericResponse
 
@@ -17,8 +18,8 @@ class BaseRequestProcessor(ABC):
     Base class for all request processors.
     """
 
-    def __init__(self, prompter: Prompter):
-        self.prompter = prompter
+    def __init__(self, prompt_formatter: PromptFormatter):
+        self.prompt_formatter = prompt_formatter
 
     @abstractmethod
     def get_rate_limits(self) -> dict:
@@ -77,24 +78,20 @@ class BaseRequestProcessor(ABC):
         """
         pass
 
-    def create_request_files(self, dataset: Dataset, working_dir: str) -> str:
+    def create_request_files(self, dataset: Optional[Dataset], working_dir: str) -> str:
         """
         Creates a request file if they don't already exist or use existing.
 
         Args:
             dataset (Dataset): The dataset to be processed.
-            map (BaseMap): The map that defines how to convert the dataset into requests.
             working_dir (str): The directory where request files will be saved.
-            batch_size (int | None): The batch size to use for creating request files.
-                If None, a single request file is created.
 
         Returns:
-            list[str]: A list of request files that were created.
+            str: Path to the request file that was created.
         """
         os.makedirs(working_dir, exist_ok=True)
         requests_file = f"{working_dir}/requests.jsonl"
 
-        # TODO(Ryan): Add in support for batches here
         # By default use existing requests in working_dir
         if os.path.exists(requests_file):
             logging.info(
@@ -103,25 +100,39 @@ class BaseRequestProcessor(ABC):
             )
             # count existing jobs in file and print first job
             with open(requests_file, "r") as f:
-                num_jobs = sum(1 for _ in f)
-                f.seek(0)
-                first_job = json.loads(f.readline())
+                # Count lines and store first job
+                first_job = None
+                num_jobs = 0
+                for i, line in enumerate(f):
+                    if i == 0:
+                        first_job = json.loads(line)
+                    num_jobs = i + 1
 
-            logging.info(f"There are {num_jobs} existing requests in {requests_file}")
-            logging.info(f"Example request:\n{json.dumps(first_job, indent=2)}")
-            return [requests_file]
+                if num_jobs > 0:
+                    logging.info(
+                        f"There are {num_jobs} existing requests in {requests_file}"
+                    )
+                    logging.info(f"Example request:\n{json.dumps(first_job, indent=2)}")
+                    return requests_file
+                else:
+                    logging.warning(
+                        f"No requests found in {requests_file}. Will delete the file and start over."
+                    )
+                    os.remove(requests_file)
 
-        # NOTE(Ryan): For loops are used here so dataset can be an IterableDataset, if you want to process _very_ large datasets
+        # Create new requests file
         with open(requests_file, "w") as f:
-            for dataset_row_idx, dataset_row in tqdm(
-                enumerate(dataset),
-                desc=f"Creating requests from dataset and writing to {requests_file}",
-            ):
-                # Get the generic request from the map function
-                requests = self.prompter.prompt(dataset_row, dataset_row_idx)
-                for request in requests:
+            if dataset is None:
+                request = self.prompt_formatter.get_generic_request(dict(), 0)
+                api_request = self.create_api_specific_request(request)
+                f.write(json.dumps(api_request) + "\n")
+            else:
+                for dataset_row_idx, dataset_row in enumerate(dataset):
+                    request = self.prompt_formatter.get_generic_request(
+                        dataset_row, dataset_row_idx
+                    )
                     # Convert the generic request to an API-specific request
-                    api_request = self.create_request(request)
+                    api_request = self.create_api_specific_request(request)
                     # Write the API-specific request to file
                     f.write(json.dumps(api_request) + "\n")
         logging.info(f"Requests file {requests_file} written to disk.")

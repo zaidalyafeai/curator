@@ -1,10 +1,10 @@
-from typing import Dict, List, Any
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
 
 class GenericResponse(BaseModel):
-    response: Dict[str, Any] | BaseModel
-    errors: List[str]
+    response: Optional[Dict[str, Any]] | str = None
+    errors: Optional[List[str]] = None
     row: Dict[str, Any]
     row_idx: int

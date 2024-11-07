@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Optional, Set, Tuple, TypeVar, Union
@@ -9,10 +10,9 @@ from typing import Any, Callable, Dict, Optional, Set, Tuple, TypeVar, Union
 import aiohttp
 import requests
 import tiktoken
-import tqdm
-from datasets import Dataset
-from pydantic import BaseModel
+from tqdm import tqdm
 
+from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.request_processor.base_request_processor import (
     BaseRequestProcessor,
     GenericRequest,
@@ -46,7 +46,7 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
         response = requests.post(
             self.url,
             headers={"Authorization": f"Bearer {self.api_key}"},
-            json={"model": self.model, "messages": []},
+            json={"model": self.prompt_formatter.model_name, "messages": []},
         )
 
         rpm = int(response.headers.get("x-ratelimit-limit-requests", 0))
@@ -123,19 +123,19 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
         Returns:
             dict: Generic response body with an extra field "metadata" which contains the original dataset row or the index of the row in the original dataset
         """
-        response = response[1]["choices"][0]["message"]["content"]
-        if self.prompter.response_format:
-            response = self.prompter.response_format.model_validate_json(response)
+        content = response["response"]["choices"][0]["message"]["content"]
+        if self.prompt_formatter.response_format:
+            content = json.loads(content)
 
         return GenericResponse(
-            response=response,
-            row=response[2]["metadata"]["sample"],
-            row_idx=response[2]["metadata"]["request_idx"],
+            response=content,
+            row=response["metadata"]["sample"],
+            row_idx=response["metadata"]["request_idx"],
         )
 
     def run(
         self,
-        dataset: Dataset,
+        dataset: Optional[Dataset],
         working_dir: str,
     ) -> Dataset:
         """
@@ -143,24 +143,19 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
 
         Args:
             dataset (Dataset): Dataset that is being mapped over
-            map (BaseMap): Map that defines prompts (dataset -> requests) and parsing (requests -> dataset)s
             working_dir (str): Working directory to save files (requests.jsonl, responses.jsonl, dataset.arrow)
 
         Returns:
             Dataset: Completed dataset
         """
-        requests_files = self.create_request_files(dataset, map, working_dir)
-        responses_files = (
-            [f"{working_dir}/responses_{i}.jsonl" for i in range(len(requests_files))]
-            if len(requests_files) > 1
-            else [f"{working_dir}/responses.jsonl"]
-        )
+        requests_file = self.create_request_files(dataset, working_dir)
+        responses_file = f"{working_dir}/responses.jsonl"
 
         rate_limits = self.get_rate_limits()
         rpm = rate_limits["max_requests_per_minute"]
         tpm = rate_limits["max_tokens_per_minute"]
 
-        token_encoding_name = get_token_encoding_name(self.model)
+        token_encoding_name = get_token_encoding_name(self.prompt_formatter.model_name)
 
         # NOTE(Ryan): If you wanted to do this on batches, you could run a for loop here about request_files. Although I don't recommend it because you are waiting for straggler requests to finish for each batch.
         # NOTE(Ryan): And if you wanted to do batches in parallel, you would have to divide rpm and tpm by the number of parallel batches.
@@ -168,10 +163,9 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
         i = 0
         asyncio.run(
             self.process_api_requests_from_file(
-                requests_filepath=requests_files[i],
-                save_filepath=responses_files[i],
+                requests_filepath=requests_file,
+                save_filepath=responses_file,
                 request_url=self.url,
-                api_key=self.api_key,
                 max_requests_per_minute=rpm,
                 max_tokens_per_minute=tpm,
                 token_encoding_name=token_encoding_name,
@@ -180,7 +174,7 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
             )
         )
 
-        return Dataset(working_dir)
+        return Dataset.from_working_dir(working_dir, self.prompt_formatter)
 
     async def process_api_requests_from_file(
         self,
@@ -202,10 +196,10 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
         )
 
         # infer API endpoint and construct request header
-        api_endpoint = api_endpoint_from_url(request_url)
+        api_endpoint = api_endpoint_from_url(self.url)
         request_header = {"Authorization": f"Bearer {self.api_key}"}
         # use api-key header for Azure deployments
-        if "/deployments" in request_url:
+        if "/deployments" in self.url:
             request_header = {"api-key": f"{self.api_key}"}
 
         # initialize trackers
@@ -231,10 +225,8 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
         if os.path.exists(save_filepath):
             if resume:
                 # save all successfully completed requests to a temporary file, then overwrite the original file with the temporary file
-                logging.warning(
-                    f"Resuming progress from existing file: {save_filepath}"
-                )
-                logging.warning(
+                logging.debug(f"Resuming progress from existing file: {save_filepath}")
+                logging.debug(
                     f"Removing all failed requests from {save_filepath} so they can be retried"
                 )
                 temp_filepath = f"{save_filepath}.temp"
@@ -242,16 +234,16 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
                 with open(save_filepath, "r") as input_file, open(
                     temp_filepath, "w"
                 ) as output_file:
-                    for line in tqdm(input_file, desc="Processing existing requests"):
-                        data = json.loads(line)
-                        if isinstance(data[1], list):
+                    for line in input_file:
+                        response = GenericResponse.model_validate_json(line)
+                        if response.errors:
                             # this means that the request failed and we have a list of errors
                             logging.debug(
-                                f"Request {data[2].get('request_idx')} previously failed due to errors: {data[1]}, removing from output and will retry"
+                                f"Request {response.row_idx} previously failed due to errors: {response.errors}, removing from output and will retry"
                             )
                             num_previously_failed_requests += 1
                         else:
-                            completed_request_ids.add(data[2].get("request_idx"))
+                            completed_request_ids.add(response.row_idx)
                             output_file.write(line)
                 logging.info(
                     f"Found {len(completed_request_ids)} completed requests and {num_previously_failed_requests} previously failed requests"
@@ -297,6 +289,11 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
 
             # Count total number of requests
             total_requests = sum(1 for _ in open(requests_filepath))
+            if total_requests == len(completed_request_ids):
+                logging.debug(
+                    "All requests have already been completed so will just reuse cache."
+                )
+                return
 
             # Create progress bar
             pbar = tqdm(
@@ -381,6 +378,7 @@ class OpenAIRequestProcessor(BaseRequestProcessor):
                                     retry_queue=queue_of_requests_to_retry,
                                     save_filepath=save_filepath,
                                     status_tracker=status_tracker,
+                                    get_generic_response=self.get_generic_response,
                                 )
                             )
                             next_request = None  # reset next_request to empty
@@ -519,15 +517,17 @@ class APIRequest:
                 data = GenericResponse(
                     request=self.request_json,
                     errors=[str(e) for e in self.result],
-                    row=self.request_json["metadata"]["sample"],
-                    row_idx=self.request_json["metadata"]["request_idx"],
+                    row=self.metadata["sample"],
+                    row_idx=self.metadata["request_idx"],
                 )
-                append_to_jsonl(data, save_filepath)
+                append_generic_response(data, save_filepath)
                 status_tracker.num_tasks_in_progress -= 1
                 status_tracker.num_tasks_failed += 1
         else:
-            response = get_generic_response(response)
-            append_to_jsonl(data, save_filepath)
+            data = get_generic_response(
+                {"response": response, "metadata": self.metadata}
+            )
+            append_generic_response(data, save_filepath)
             status_tracker.num_tasks_in_progress -= 1
             status_tracker.num_tasks_succeeded += 1
             logging.debug(f"Request {self.task_id} saved to {save_filepath}")
@@ -621,9 +621,9 @@ def api_endpoint_from_url(request_url: str) -> str:
         )
 
 
-def append_to_jsonl(data: list, filename: str) -> None:
+def append_generic_response(data: GenericResponse, filename: str) -> None:
     """Append a json payload to the end of a jsonl file."""
-    json_string = json.dumps(data)
+    json_string = json.dumps(data.model_dump())
     with open(filename, "a") as f:
         f.write(json_string + "\n")
 

@@ -1,33 +1,38 @@
 import json
 import logging
 import os
-import traceback
-from typing import Any, Callable, Dict, Iterable, List, Optional, TypeVar
+from typing import Any, Dict, Iterable, Iterator, List, TypeVar
 
+import pandas as pd
 from datasets import Dataset as HFDataset
 from datasets.arrow_writer import ArrowWriter
 from pydantic import BaseModel
-from tqdm import tqdm
 
-from bespokelabs.curator.prompter import Prompter
+from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.generic_response import GenericResponse
 
 T = TypeVar("T")
 
 
 class Dataset:
-    def __init__(self, working_dir: str, prompter: Prompter):
-        self.working_dir = working_dir
-        self.prompter = prompter
-
     def __init__(
-        self, iterable: Iterable[Dict[str, Any] | BaseModel], prompter: Prompter
+        self,
+        iterable: Iterable[Dict[str, Any] | BaseModel] | None = None,
+        working_dir: str | None = None,
+        prompt_formatter: PromptFormatter | None = None,
     ):
+        self.working_dir = working_dir
+        self.prompt_formatter = prompt_formatter
         self.iterable = iterable
-        self.prompter = prompter
 
-    def __iter__(self):
-        if self.iterable:
+    def from_iterable(iterable: Iterable[Dict[str, Any] | BaseModel]):
+        return Dataset(iterable=iterable)
+
+    def from_working_dir(working_dir: str, prompt_formatter: PromptFormatter):
+        return Dataset(working_dir=working_dir, prompt_formatter=prompt_formatter)
+
+    def __iter__(self) -> Iterator[Dict[str, Any] | BaseModel]:
+        if self.iterable is not None:
             yield from self.iterable
             return
 
@@ -35,8 +40,25 @@ class Dataset:
             response_file = f"{self.working_dir}/responses.jsonl"
 
             for line in open(response_file, "r"):
-                response = GenericResponse.model_validate_json(json.loads(line))
-                yield self.prompter.parse_func(response.row, response.response)
+                response = GenericResponse.model_validate_json(line)
+                if self.prompt_formatter.response_format:
+                    response.response = self.prompt_formatter.response_format(
+                        **response.response
+                    )
+                if self.prompt_formatter.parse_func:
+                    response = self.prompt_formatter.parse_func(
+                        response.row, response.response
+                    )
+                else:
+                    response = [response.response]
+
+                if isinstance(response, list):
+                    yield from response
+                else:
+                    yield response
+
+    def to_list(self) -> List[Dict[str, Any] | BaseModel]:
+        return list(self)
 
     def to_huggingface(self) -> None:
         """
@@ -63,17 +85,24 @@ class Dataset:
                 for line in f_in:
                     total_responses_count += 1
                     try:
-                        response = GenericResponse.model_validate_json(json.loads(line))
-
+                        response = GenericResponse.model_validate_json(line)
+                        if self.prompt_formatter.response_format:
+                            response.response = self.prompt_formatter.response_format(
+                                **response.response
+                            )
+                            
                         # TODO(Ryan): We can make this more sophisticated by making response_generic a class
                         if response is None:
                             failed_responses_count += 1
                             continue
 
-                        # TODO(Ryan): Error handling on the parse function
-                        dataset_rows = self.prompter.parse_func(
-                            response.row, response.response
-                        )
+                        if self.prompt_formatter.parse_func:
+                            dataset_rows = self.prompt_formatter.parse_func(
+                                response.row, response.response
+                            )
+                        else:
+                            dataset_rows = [response.response]
+
                         for row in dataset_rows:
                             # NOTE(Ryan): This throws a strange error if there are null values in the row
                             writer.write(row)
@@ -97,65 +126,3 @@ class Dataset:
             writer.finalize()
 
         return HFDataset.from_file(dataset_file)
-
-    def _parse_responses_file(prompter: Prompter, responses_file):
-        total_count = 0
-        failed_count = 0
-        samples = []
-        with open(responses_file, "r") as f_in:
-            for line in f_in:
-                total_count += 1
-                try:
-                    # Each response is a tuple of (request, response, metadata) where:
-                    # - request is the original request object
-                    # - response is the response from the API
-                    # - metadata is a dictionary of metadata about the request (such as the request index)
-                    response = json.loads(line)
-                    if isinstance(response[1], list):
-                        # A failed requests contains a list of all the errors before max_retries
-                        logging.info(
-                            f"Request {response[2].get('request_idx')} failed due to errors: {response[1]}"
-                        )
-                        failed_count += 1
-                        continue
-
-                    response_message = response[1]["choices"][0]["message"]["content"]
-                    metadata = response[2]
-
-                    if prompter.response_format:
-                        response = prompter.response_format.model_validate_json(
-                            response_message
-                        )
-                    else:
-                        response = response_message
-
-                    if prompter.parse_func:
-                        parsed_output = prompter.parse_func(
-                            metadata["sample"], response
-                        )
-                    else:
-                        parsed_output = response
-
-                    if isinstance(parsed_output, list):
-                        samples.extend(
-                            [
-                                (metadata["request_idx"], output)
-                                for output in parsed_output
-                            ]
-                        )
-                    else:
-                        samples.append((metadata["request_idx"], parsed_output))
-
-                except Exception as e:
-                    logging.warning(
-                        f"Error: {e}. Full traceback: {traceback.format_exc()}. Full response: {response}"
-                    )
-                    continue
-
-        logging.debug(f"Read {total_count} responses, {failed_count} failed")
-        # Sort by idx then return only the responses
-        samples.sort(key=lambda x: x[0])
-        samples = [sample[1] for sample in samples]
-        if failed_count == total_count:
-            raise ValueError("All requests failed")
-        return samples
