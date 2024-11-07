@@ -10,25 +10,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-
-interface SortableHeaderProps {
-  column: string
-  onSort: (column: string) => void
-  sortColumn: string | null
-  sortDirection: "asc" | "desc"
-  onFilter: (column: string, value: string) => void
-  filterValue: string
-}
+import { SortableHeaderProps } from "@/types/table"
 
 export function SortableHeader({ 
-  column, 
+  column,
   onSort, 
   sortColumn, 
   sortDirection,
   onFilter,
   filterValue,
 }: SortableHeaderProps) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: column })
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ 
+    id: column.key 
+  })
   
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -38,15 +32,12 @@ export function SortableHeader({
   return (
     <TableHead ref={setNodeRef} style={style} className="whitespace-nowrap">
       <div className="flex items-center space-x-2">
-        {/* Drag handle */}
         <div {...attributes} {...listeners}>
           <GripVertical className="h-4 w-4 cursor-grab" />
         </div>
 
-        {/* Column name */}
-        <span>{column}</span>
+        <span>{column.label}</span>
 
-        {/* Filter and sort buttons */}
         <div className="flex items-center space-x-1" onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -60,9 +51,9 @@ export function SortableHeader({
             <DropdownMenuContent>
               <div className="p-2">
                 <Input
-                  placeholder={`Filter ${column}`}
+                  placeholder={`Filter ${column.label}`}
                   value={filterValue}
-                  onChange={(e) => onFilter(column, e.target.value)}
+                  onChange={(e) => onFilter(column.key, e.target.value)}
                   onClick={(e) => e.stopPropagation()}
                 />
               </div>
@@ -72,11 +63,11 @@ export function SortableHeader({
           <button
             onClick={(e) => {
               e.stopPropagation()
-              onSort(column)
+              onSort(column.key)
             }}
             className="hover:bg-muted rounded p-1"
           >
-            {sortColumn === column ? (
+            {sortColumn === column.key ? (
               sortDirection === "asc" ? (
                 <ChevronUp className="h-4 w-4" />
               ) : (
@@ -90,4 +81,4 @@ export function SortableHeader({
       </div>
     </TableHead>
   )
-}
+} 
