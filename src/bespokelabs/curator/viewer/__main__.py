@@ -6,6 +6,27 @@ from pathlib import Path
 def get_viewer_path():
     return str(Path(__file__).parent)
 
+def ensure_dependencies():
+    """Ensure npm dependencies are installed"""
+    static_dir = os.path.join(get_viewer_path(), 'static')
+    node_modules = os.path.join(static_dir, 'node_modules')
+    
+    if not os.path.exists(node_modules):
+        print("First run: Installing Node.js dependencies...")
+        try:
+            subprocess.run(
+                ["npm", "install"],
+                cwd=static_dir,
+                check=True
+            )
+            print("Dependencies installed successfully.")
+        except subprocess.CalledProcessError as e:
+            print(f"Error installing dependencies: {e}")
+            sys.exit(1)
+        except FileNotFoundError:
+            print("Error: Node.js and npm are required. Please install them first.")
+            sys.exit(1)
+
 def start_nextjs_server():
     viewer_path = get_viewer_path()
     static_dir = os.path.join(viewer_path, 'static')
@@ -16,7 +37,6 @@ def start_nextjs_server():
         sys.exit(1)
     
     try:
-        # Run the server.js directly with node
         env = os.environ.copy()
         env["NODE_ENV"] = "production"
         
@@ -34,6 +54,7 @@ def start_nextjs_server():
         sys.exit(1)
 
 def main():
+    ensure_dependencies()
     start_nextjs_server()
 
 if __name__ == "__main__":

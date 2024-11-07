@@ -26,21 +26,7 @@ def nextjs_build():
         shutil.rmtree(target_base)
     target_base.mkdir(parents=True, exist_ok=True)
 
-    # First, copy node_modules
-    node_modules_source = source_base / "node_modules"
-    node_modules_target = target_base / "node_modules"
-    if node_modules_source.exists():
-        print("Copying node_modules")
-        shutil.copytree(node_modules_source, node_modules_target)
-
-    # Copy package files first to ensure they're in place
-    for pkg_file in ['package.json', 'package-lock.json']:
-        source = source_base / pkg_file
-        if source.exists():
-            shutil.copy2(source, target_base / pkg_file)
-            print(f"Copied {pkg_file}")
-
-    # Copy the rest of the files
+    # Copy only the necessary files, excluding node_modules
     files_to_copy = [
         '.next',
         'app',
@@ -48,6 +34,8 @@ def nextjs_build():
         'lib',
         'public',
         'types',
+        'package.json',
+        'package-lock.json',
         'next.config.ts',
         'next-env.d.ts',
         'tsconfig.json',
@@ -83,7 +71,7 @@ def run_pytest():
 def main():
     npm_install()
     nextjs_build()
-    # run_pytest()
+    run_pytest()
     print("Build completed successfully.")
 
 if __name__ == "__main__":
