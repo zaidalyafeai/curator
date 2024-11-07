@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { Header } from "@/components/layout/Header"
 
 const COLUMNS: Column[] = [
   { key: "created_time", label: "Created" },
@@ -112,46 +113,55 @@ export function RunsTable() {
     }
   }
 
-  if (isLoading) return <div>Loading...</div>
   if (error) return <div>Error: {error}</div>
-  if (runs.length === 0) return <div>No runs found</div>
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold"/>
-        <div className="flex items-center gap-4">
-          {isPolling && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Polling for updates...</span>
-            </div>
-          )}
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setIsPolling(prev => !prev)}
-          >
-            {isPolling ? 'Stop' : 'Start'} Updates
-          </Button>
-        </div>
-      </div>
-      
-      <SortableTable
-        columns={COLUMNS}
-        data={runs}
-        getRowKey={(run) => run.id}
-        getCellContent={getCellContent}
-        onRowClick={(run) => router.push(`/dataset/${run.run_hash}`)}
-        truncateConfig={{ enabled: true, maxLength: 100 }}
-        pageSize={10}
-        rowProps={(run) => ({
-          className: cn(
-            newRunIds.has(run.id) && "bg-success/30 animate-highlight",
-            "transition-colors duration-300"
-          )
-        })}
+    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+      <Header 
+        isLoading={isLoading}
+        isPolling={isPolling}
+        onTogglePolling={() => setIsPolling(prev => !prev)}
+        pollingText="Polling for updates..."
+        loadingText="Loading runs..."
       />
+      
+      <main className="container mx-auto p-4">
+        <div className="mb-6">
+          <h2 className="text-2xl font-semibold text-foreground">Prompter Runs</h2>
+          <p className="text-sm text-muted-foreground">View your prompter runs</p>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <p className="text-muted-foreground">Loading runs...</p>
+            </div>
+          </div>
+        ) : runs.length === 0 ? (
+          <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+            <p className="text-muted-foreground">No runs found</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <SortableTable
+              columns={COLUMNS}
+              data={runs}
+              getRowKey={(run) => run.id}
+              getCellContent={getCellContent}
+              onRowClick={(run) => router.push(`/dataset/${run.run_hash}`)}
+              truncateConfig={{ enabled: true, maxLength: 100 }}
+              pageSize={10}
+              rowProps={(run) => ({
+                className: cn(
+                  newRunIds.has(run.id) && "bg-success/30 animate-highlight",
+                  "transition-colors duration-300"
+                )
+              })}
+            />
+          </div>
+        )}
+      </main>
     </div>
   )
 }

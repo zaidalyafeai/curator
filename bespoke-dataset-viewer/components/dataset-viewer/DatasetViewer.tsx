@@ -20,6 +20,7 @@ import { SortableTable } from "@/components/ui/sortable-table"
 import { useToast } from "@/components/ui/use-toast"
 import { AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
+import { Header } from "@/components/layout/Header"
 
 const COLUMNS: Column[] = [
   { key: "user_message", label: "User Message" },
@@ -208,130 +209,119 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
-      <header className="border-b sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => router.push('/')}>
-            <Image
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-sN2O0LK0cVw6NesKNPlJCoWAu7xfOm.png"
-              alt="Bespoke Logo"
-              width={32}
-              height={32}
-              className="object-contain"
-            />
-            <h1 className="text-2xl font-bold">Bespoke Dataset Viewer</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            {isInitialLoad ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Loading dataset...</span>
-              </div>
-            ) : isPolling ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Polling for updates...</span>
-              </div>
-            ) : null}
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setIsPolling(prev => !prev)}
-              disabled={isInitialLoad}
-            >
-              {isPolling ? 'Stop' : 'Start'} Updates
-            </Button>
-            <Button variant="ghost" size="icon" onClick={toggleTheme}>
-              {theme === 'light' ? (
-                <Moon className="h-5 w-5" />
-              ) : (
-                <Sun className="h-5 w-5" />
-              )}
-              <span className="sr-only">Toggle theme</span>
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto p-4 overflow-x-hidden">
-        {isInitialLoad ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="flex flex-col items-center gap-4">
-              <Loader2 className="h-8 w-8 animate-spin" />
-              <p className="text-muted-foreground">Loading dataset...</p>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="mb-4 flex space-x-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline">Metrics</Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => setSelectedDistribution(null)}>
-                    None
-                  </DropdownMenuItem>
-                  {["total_tokens", "prompt_tokens", "completion_tokens"].map((column) => (
-                    <DropdownMenuItem key={column} onClick={() => setSelectedDistribution(column)}>
-                      {column === "total_tokens" ? "Total Tokens" : 
-                       column === "prompt_tokens" ? "Prompt Tokens" : 
-                       "Completion Tokens"}
-                      </DropdownMenuItem>
-                    ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            {selectedDistribution && (
-              <DistributionChart
-                data={sortedData}
-                column={selectedDistribution}
-              />
-            )}
-
-            <div className="rounded-lg border bg-card">
-              <AnimatePresence>
-                <SortableTable
-                  columns={COLUMNS}
-                  data={sortedData}
-                  getRowKey={(item) => item.id}
-                  getCellContent={getCellContent}
-                  onRowClick={(item) => setSelectedItem(item)}
-                  truncateConfig={{ 
-                    enabled: true, 
-                    maxLength: 150
-                  }}
-                  pageSize={10}
-                  rowProps={(item) => ({
-                    className: cn(
-                      newItemIds.has(item.id) && "bg-success/30 animate-highlight",
-                      "transition-colors duration-300"
-                    ),
-                    layout: true,
-                    initial: { opacity: 0, y: -20 },
-                    animate: { 
-                      opacity: 1, 
-                      y: 0,
-                      transition: {
-                        duration: 0.2
-                      }
-                    },
-                    exit: { 
-                      opacity: 0,
-                      y: -20,
-                      transition: {
-                        duration: 0.2
-                      }
-                    },
-                  })}
-                />
-              </AnimatePresence>
-            </div>
-          </>
-        )}
-      </main>
+    <>
       <DetailsSidebar item={selectedItem} onClose={() => setSelectedItem(null)} />
-    </div>
+      <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+        <Header 
+          isLoading={isInitialLoad}
+          isPolling={isPolling}
+          onTogglePolling={() => setIsPolling(prev => !prev)}
+          loadingText="Loading dataset..."
+          pollingText="Polling for updates..."
+        />
+
+        <main className="container mx-auto p-4 overflow-x-hidden">
+          <div className="mb-6">
+            <h2 className="text-2xl font-semibold text-foreground">Dataset Details</h2>
+            <p className="text-sm text-muted-foreground">View and analyze your dataset responses</p>
+          </div>
+
+          {isInitialLoad ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <p className="text-muted-foreground">Loading dataset...</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="mb-8 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-medium">Metrics & Distribution</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedDistribution 
+                        ? `Showing distribution of ${selectedDistribution.replace('_', ' ')}`
+                        : 'Select a metric to view its distribution'}
+                    </p>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline">
+                        {selectedDistribution 
+                          ? selectedDistribution.split('_').map(word => 
+                              word.charAt(0).toUpperCase() + word.slice(1)
+                            ).join(' ')
+                          : 'Select Metric'}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setSelectedDistribution(null)}>
+                        None
+                      </DropdownMenuItem>
+                      {["total_tokens", "prompt_tokens", "completion_tokens"].map((column) => (
+                        <DropdownMenuItem key={column} onClick={() => setSelectedDistribution(column)}>
+                          {column === "total_tokens" ? "Total Tokens" : 
+                           column === "prompt_tokens" ? "Prompt Tokens" : 
+                           "Completion Tokens"}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                {selectedDistribution && (
+                  <div className="rounded-lg border bg-card p-4">
+                    <DistributionChart
+                      data={sortedData}
+                      column={selectedDistribution}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-lg border bg-card">
+                <AnimatePresence>
+                  <SortableTable
+                    columns={COLUMNS}
+                    data={sortedData}
+                    getRowKey={(item) => item.id}
+                    getCellContent={getCellContent}
+                    onRowClick={(item) => setSelectedItem(item)}
+                    truncateConfig={{ 
+                      enabled: true, 
+                      maxLength: 150
+                    }}
+                    pageSize={10}
+                    rowProps={(item) => ({
+                      className: cn(
+                        newItemIds.has(item.id) && "bg-success/30 animate-highlight",
+                        "transition-colors duration-300"
+                      ),
+                      layout: true,
+                      initial: { opacity: 0, y: -20 },
+                      animate: { 
+                        opacity: 1, 
+                        y: 0,
+                        transition: {
+                          duration: 0.2
+                        }
+                      },
+                      exit: { 
+                        opacity: 0,
+                        y: -20,
+                        transition: {
+                          duration: 0.2
+                        }
+                      },
+                    })}
+                  />
+                </AnimatePresence>
+              </div>
+            </>
+          )}
+        </main>
+      </div>
+    </>
   )
 }
