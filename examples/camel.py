@@ -27,31 +27,23 @@ subject_prompter = curator.Prompter(
     prompt_func=lambda: {
         "user_prompt": f"Generate a diverse list of 3 subjects. Keep it high-level (e.g. Math, Science)."
     },
+    parse_func=lambda _, subjects: [subject for subject in subjects.subjects],
     model_name="gpt-4o-mini",
     response_format=Subjects,
 )
-result = subject_prompter()
-subject_dataset = []
-for subject in result:
-    subject_dataset.extend(subject.subjects)
-
-
+subject_dataset = subject_prompter()
 subsubject_prompter = curator.Prompter(
     prompt_func=lambda subject: {
         "user_prompt": f"For the given subject {subject}. Generate 3 diverse subsubjects. No explanation."
     },
+    parse_func=lambda subject, subsubjects: [
+        {"subject": subject["subject"], "subsubject": subsubject.subject}
+        for subsubject in subsubjects.subjects
+    ],
     model_name="gpt-4o-mini",
     response_format=Subjects,
 )
-result = subsubject_prompter(subject_dataset)
-subsubject_dataset = []
-for subject, subsubjects in zip(subject_dataset, result):
-    subsubject_dataset.extend(
-        [
-            {"subject": subject.subject, "subsubject": subsubject.subject}
-            for subsubject in subsubjects.subjects
-        ]
-    )
+subsubject_dataset = subsubject_prompter(subject_dataset)
 
 qa_prompter = curator.Prompter(
     prompt_func=lambda subsubject: {
@@ -59,20 +51,18 @@ qa_prompter = curator.Prompter(
     },
     model_name="gpt-4o-mini",
     response_format=QAs,
+    parse_func=lambda subsubject, qas: [
+        {
+            "subject": subsubject["subject"],
+            "subsubject": subsubject["subsubject"],
+            "question": qa.question,
+            "answer": qa.answer,
+        }
+        for qa in qas.qas
+    ],
 )
-result = qa_prompter(subsubject_dataset)
+qa_dataset = qa_prompter(subsubject_dataset)
 
-qa_dataset = []
-for subsubject, qas in zip(subsubject_dataset, result):
-    qa_dataset.extend(
-        [
-            {
-                "subject": subsubject["subject"],
-                "subsubject": subsubject["subsubject"],
-                "question": qa.question,
-                "answer": qa.answer,
-            }
-            for qa in qas.qas
-        ]
-    )
-print(pd.DataFrame.from_records(qa_dataset))
+qa_hf_dataset = qa_dataset.to_huggingface()
+qa_hf_dataset.map(lambda row: {"answer": row["answer"].strip()}, num_proc=2)
+print(qa_hf_dataset)
