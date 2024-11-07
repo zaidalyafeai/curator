@@ -12,7 +12,7 @@ class MetadataDB:
 
     def store_metadata(self, metadata: dict):
         """Store metadata about a Bella run in the database.
-        
+
         Args:
             metadata: Dictionary containing run metadata with keys:
                 - timestamp: ISO format timestamp
@@ -28,29 +28,54 @@ class MetadataDB:
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS runs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TEXT,
-                    dataset_hash TEXT, 
+                    run_hash TEXT PRIMARY KEY,
+                    dataset_hash TEXT,
                     prompt_func TEXT,
                     model_name TEXT,
                     response_format TEXT,
-                    run_hash TEXT
+                    created_time TEXT,
+                    last_edited_time TEXT
                 )
                 """
             )
+
+            # Check if run_hash exists
             cursor.execute(
-                """
-                INSERT INTO runs (
-                    timestamp, dataset_hash, prompt_func, model_name, response_format, run_hash
-                ) VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    metadata["timestamp"],
-                    metadata["dataset_hash"],
-                    metadata["prompt_func"],
-                    metadata["model_name"],
-                    metadata["response_format"],
-                    metadata["run_hash"],
-                ),
+                "SELECT run_hash FROM runs WHERE run_hash = ?", 
+                (metadata["run_hash"],)
             )
+            existing_run = cursor.fetchone()
+
+            if existing_run:
+                # Update last_edited_time for existing entry
+                cursor.execute(
+                    """
+                    UPDATE runs 
+                    SET last_edited_time = ?
+                    WHERE run_hash = ?
+                    """,
+                    (
+                        metadata["timestamp"],
+                        metadata["run_hash"]
+                    )
+                )
+            else:
+                # Insert new entry
+                cursor.execute(
+                    """
+                    INSERT INTO runs (
+                        run_hash, dataset_hash, prompt_func, model_name, 
+                        response_format, created_time, last_edited_time
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        metadata["run_hash"],
+                        metadata["dataset_hash"],
+                        metadata["prompt_func"],
+                        metadata["model_name"],
+                        metadata["response_format"],
+                        metadata["timestamp"],
+                        '-'
+                    )
+                )
             conn.commit()

@@ -5,7 +5,7 @@ import os
 
 from prompt import Prompter
 from datasets import Dataset
-import bespokelabs.curator.prompter as prompter
+import bespokelabs.curator.prompter.prompter as prompter
 
 
 class MockResponseFormat(BaseModel):
