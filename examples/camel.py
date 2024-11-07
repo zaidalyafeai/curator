@@ -65,4 +65,4 @@ qa_dataset = qa_prompter(subsubject_dataset)
 
 qa_hf_dataset = qa_dataset.to_huggingface()
 qa_hf_dataset.map(lambda row: {"answer": row["answer"].strip()}, num_proc=2)
-print(qa_hf_dataset)
+print(qa_hf_dataset.to_pandas())
