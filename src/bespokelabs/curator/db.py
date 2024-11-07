@@ -41,8 +41,7 @@ class MetadataDB:
 
             # Check if run_hash exists
             cursor.execute(
-                "SELECT run_hash FROM runs WHERE run_hash = ?", 
-                (metadata["run_hash"],)
+                "SELECT run_hash FROM runs WHERE run_hash = ?", (metadata["run_hash"],)
             )
             existing_run = cursor.fetchone()
 
@@ -54,10 +53,7 @@ class MetadataDB:
                     SET last_edited_time = ?
                     WHERE run_hash = ?
                     """,
-                    (
-                        metadata["timestamp"],
-                        metadata["run_hash"]
-                    )
+                    (metadata["timestamp"], metadata["run_hash"]),
                 )
             else:
                 # Insert new entry
@@ -75,7 +71,7 @@ class MetadataDB:
                         metadata["model_name"],
                         metadata["response_format"],
                         metadata["timestamp"],
-                        '-'
-                    )
+                        "-",
+                    ),
                 )
             conn.commit()

@@ -17,8 +17,12 @@ from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.db import MetadataDB
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
-from bespokelabs.curator.request_processor.openai_request_processor import (
+from bespokelabs.curator.request_processor.openai_batch_request_processor import (
     OpenAIRequestProcessor,
+    OpenAIOnlineRequestProcessor,
+)
+from bespokelabs.curator.request_processor.base_request_processor import (
+    BaseRequestProcessor,
 )
 
 T = TypeVar("T")
@@ -37,6 +41,9 @@ class Prompter:
             ]
         ] = None,
         response_format: Optional[Type[BaseModel]] = None,
+        request_processor: Optional[
+            BaseRequestProcessor
+        ] = OpenAIOnlineRequestProcessor,
     ):
         """Initialize a Prompter.
 
@@ -65,6 +72,8 @@ class Prompter:
         self.prompt_formatter = PromptFormatter(
             model_name, prompt_func, parse_func, response_format
         )
+
+        self.request_processor = request_processor
 
     def __call__(self, dataset: Optional[Iterable] = None):
         """Run completions on a dataset."""
@@ -145,8 +154,9 @@ class Prompter:
         }
         metadata_db.store_metadata(metadata_dict)
 
-        request_processor = OpenAIRequestProcessor(self.prompt_formatter)
-        return request_processor.run(dataset, f"{curator_cache_dir}/{fingerprint}")
+        return self.request_processor.run(
+            dataset, f"{curator_cache_dir}/{fingerprint}", self.prompt_formatter
+        )
 
 
 def _hash_chunk(chunks: list) -> list:

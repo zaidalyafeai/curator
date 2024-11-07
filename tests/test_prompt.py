@@ -22,11 +22,13 @@ def prompter() -> Prompter:
     Returns:
         PromptCaller: A configured prompt caller instance.
     """
+
     def prompt_func(row):
         return {
             "user_prompt": f"Context: {row['context']} Answer this question: {row['question']}",
             "system_prompt": "You are a helpful assistant.",
         }
+
     return Prompter(
         model_name="gpt-4o-mini",
         prompt_func=prompt_func,
@@ -54,7 +56,7 @@ def test_completions(prompter: Prompter, tmp_path):
 
     result_dataset = prompter(dataset)
     result_dataset = result_dataset.to_huggingface()
-    
+
     # Assertions
     assert len(result_dataset) == len(dataset)
     assert "message" in result_dataset.column_names

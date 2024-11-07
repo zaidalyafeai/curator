@@ -93,7 +93,7 @@ class Dataset:
                             response.response = self.prompt_formatter.response_format(
                                 **response.response
                             )
-                            
+
                         # TODO(Ryan): We can make this more sophisticated by making response_generic a class
                         if response is None:
                             failed_responses_count += 1

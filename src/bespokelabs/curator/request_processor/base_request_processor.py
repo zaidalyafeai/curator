@@ -64,7 +64,9 @@ class BaseRequestProcessor(ABC):
         pass
 
     @abstractmethod
-    def run(self, dataset: Dataset, working_dir: str) -> Dataset:
+    def run(
+        self, dataset: Dataset, working_dir: str, prompt_formatter: PromptFormatter
+    ) -> Dataset:
         """
         Uses the API to completing the specific map by calling the LLM.
 
@@ -77,7 +79,13 @@ class BaseRequestProcessor(ABC):
         """
         pass
 
-    def create_request_files(self, dataset: Optional[Dataset], working_dir: str, prompt_formatter: PromptFormatter) -> str:
+    def create_request_files(
+        self,
+        dataset: Optional[Dataset],
+        working_dir: str,
+        prompt_formatter: PromptFormatter,
+        batch_size: Optional[int] = None,
+    ) -> str:
         """
         Creates a request file if they don't already exist or use existing.
 
@@ -89,16 +97,16 @@ class BaseRequestProcessor(ABC):
             str: Path to the request file that was created.
         """
         os.makedirs(working_dir, exist_ok=True)
-        requests_file = f"{working_dir}/requests.jsonl"
+        requests_files = glob.glob(f"{working_dir}/requests_*.jsonl")
 
         # By default use existing requests in working_dir
-        if os.path.exists(requests_file):
+        if len(requests_files) > 0:
             logging.info(
-                f"Using existing requests in {working_dir} by default. "
+                f"Using existing requests in {working_dir} by default. Found {len(requests_files)} request files."
                 f"If this is not what you want, delete the directory or specify a new one and re-run."
             )
             # count existing jobs in file and print first job
-            with open(requests_file, "r") as f:
+            with open(requests_files[0], "r") as f:
                 # Count lines and store first job
                 first_job = None
                 num_jobs = 0
@@ -109,16 +117,30 @@ class BaseRequestProcessor(ABC):
 
                 if num_jobs > 0:
                     logging.info(
-                        f"There are {num_jobs} existing requests in {requests_file}"
+                        f"There are {num_jobs} existing requests in {requests_files[0]}"
                     )
-                    logging.info(f"Example request:\n{json.dumps(first_job, indent=2)}")
-                    return requests_file
-                else:
-                    logging.warning(
-                        f"No requests found in {requests_file}. Will delete the file and start over."
+                    logging.info(
+                        f"Example request in {requests_files[0]}:\n{json.dumps(first_job, indent=2)}"
                     )
-                    os.remove(requests_file)
 
+                    # Some simple sanity checks for the user
+                    if batch_size is not None:
+                        if batch_size != num_jobs:
+                            logging.warning(
+                                f"Batch size is {batch_size}, but there are {num_jobs} requests in {requests_files[0]}. "
+                                f"If you want to run with new batch size, you will have to delete the working directory and re-run (looses progress)"
+                            )
+                        if len(requests_files) == 1 and len(dataset) > batch_size:
+                            logging.warning(
+                                f"Only one request file was found, but batch size is specified and dataset is larger than batch size."
+                                f"You might be resuming from a different dataset or weren't using batching before."
+                                f"If you want to run with batching, you will have to delete working directory and re-run (looses progress)"
+                            )
+                    return requests_files
+
+        request_count = 0
+        request_file_idx = 0
+        requests_file = f"{working_dir}/requests_{request_file_idx}.jsonl"
         # Create new requests file
         with open(requests_file, "w") as f:
             if dataset is None:
@@ -134,5 +156,18 @@ class BaseRequestProcessor(ABC):
                     api_request = self.create_api_specific_request(request)
                     # Write the API-specific request to file
                     f.write(json.dumps(api_request) + "\n")
-        logging.info(f"Requests file {requests_file} written to disk.")
+                    request_count += 1
+
+                    # Batches could be created in parallel, but dataset is iterated sequentially
+                    if batch_size is not None and request_count == batch_size:
+                        request_count = 0
+                        request_file_idx += 1
+                        requests_file = (
+                            f"{working_dir}/requests_{request_file_idx}.jsonl"
+                        )
+                        logging.info(
+                            f"Wrote {request_count:,} requests to {requests_file}."
+                        )
+        if request_count > 0:
+            logging.info(f"Wrote {request_count:,} requests to {requests_file}.")
         return requests_file
