@@ -47,6 +47,19 @@ export function getDistributionData(data: DataItem[], column: string) {
 
   if (values.length === 0) return [];
 
+  // Get unique values
+  const uniqueValues = [...new Set(values)];
+  
+  // If there's only one unique value, return it directly
+  if (uniqueValues.length === 1) {
+    return [{
+      range: uniqueValues[0].toString(),
+      start: uniqueValues[0],
+      end: uniqueValues[0],
+      count: values.length
+    }];
+  }
+
   // Get unique values and check if they're all integers
   const allIntegers = values.every(v => Number.isInteger(v));
 
