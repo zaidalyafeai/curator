@@ -135,8 +135,8 @@ export function RunsTable() {
       
       <main className="container mx-auto p-4">
         <div className="mb-6">
-          <h2 className="text-2xl font-semibold text-foreground">LLM Runs History</h2>
-          <p className="text-sm text-muted-foreground">View and analyze your past LLM runs</p>
+          <h2 className="text-2xl font-semibold text-foreground">Curator Runs History</h2>
+          <p className="text-sm text-muted-foreground">View and analyze your past Bespoke Curator runs</p>
         </div>
 
         {noCacheFound ? (
