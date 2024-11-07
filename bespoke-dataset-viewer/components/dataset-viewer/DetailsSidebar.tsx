@@ -3,10 +3,10 @@
 import { Button } from "@/components/ui/button"
 import { CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { Copy, X } from "lucide-react"
+import { Copy } from "lucide-react"
 import { DataItem } from "@/types/dataset"
 import { useCallback } from "react"
-import { Sheet, SheetContent, SheetClose } from "@/components/ui/sheet"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
 
 interface DetailsSidebarProps {
   item: DataItem | null
@@ -38,11 +38,6 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
         <div className="h-full flex flex-col">
           <div className="p-6 border-b flex items-center justify-between">
             <h2 className="text-lg font-semibold">Response Details</h2>
-            <SheetClose asChild>
-              <Button variant="ghost" size="icon">
-                <X className="h-4 w-4" />
-              </Button>
-            </SheetClose>
           </div>
           
           <div className="flex-1 overflow-y-auto p-6">
