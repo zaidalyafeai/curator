@@ -3,25 +3,23 @@ import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
 export const getColumnValue = (item: DataItem, column: string): string => {
-  if (!item || item.length < 2) return "N/A"
-
-  const [requestData, responseData] = item
+  if (!item) return "N/A"
 
   switch (column) {
     case "Model":
-      return requestData.model || "N/A"
+      return item.request.model || "N/A"
     case "System Message":
-      return requestData.messages.find(m => m.role === "system")?.content || "N/A"
+      return item.request.messages.find((m: { role: string }) => m.role === "system")?.content || "N/A"
     case "User Message":
-      return requestData.messages.find(m => m.role === "user")?.content || "N/A"
+      return item.request.messages.find((m: { role: string }) => m.role === "user")?.content || "N/A"
     case "Assistant Message":
-      return responseData.choices[0]?.message?.content || "N/A"
+      return item.raw_response.choices[0]?.message?.content || "N/A"
     case "Total Tokens":
-      return responseData.usage.total_tokens.toString() || "N/A"
+      return item.raw_response.usage.total_tokens.toString() || "N/A"
     case "Prompt Tokens":
-      return responseData.usage.prompt_tokens.toString() || "N/A"
+      return item.raw_response.usage.prompt_tokens.toString() || "N/A"
     case "Completion Tokens":
-      return responseData.usage.completion_tokens.toString() || "N/A"
+      return item.raw_response.usage.completion_tokens.toString() || "N/A"
     default:
       return "N/A"
   }
@@ -30,16 +28,13 @@ export const getColumnValue = (item: DataItem, column: string): string => {
 export function getDistributionData(data: DataItem[], column: string) {
   // Extract values from the nested structure
   const values = data.map(item => {
-    const response = item[1];
-    if (!response?.usage) return null;
-    
     switch (column) {
       case "total_tokens":
-        return response.usage.total_tokens;
+        return item.raw_response.usage.total_tokens;
       case "prompt_tokens":
-        return response.usage.prompt_tokens;
+        return item.raw_response.usage.prompt_tokens;
       case "completion_tokens":
-        return response.usage.completion_tokens;
+        return item.raw_response.usage.completion_tokens;
       default:
         return null;
     }
