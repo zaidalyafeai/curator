@@ -9,7 +9,7 @@ export async function GET(request: Request): Promise<Response>  {
     const { searchParams } = new URL(request.url)
     const lastCreatedTime = searchParams.get('lastCreatedTime')
     
-    const dbPath = join(homedir(), '.cache', 'bella', 'metadata.db')
+    const dbPath = join(homedir(), '.cache', 'curator', 'metadata.db')
     
     if (!existsSync(dbPath)) {
       console.error(`Database file not found at: ${dbPath}`)
