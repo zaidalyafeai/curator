@@ -31,4 +31,4 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-bespoke-dataset-viewer = "bespokelabs.curator.viewer.__main__:main"
+curator-viewer = "bespokelabs.curator.viewer.__main__:main"
