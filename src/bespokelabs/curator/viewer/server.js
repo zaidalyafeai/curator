@@ -11,8 +11,9 @@ require('module').Module._initPaths();
 const next = require(path.join(staticDir, 'node_modules/next'));
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
-const port = 3000;
+// Get host and port from environment variables set by __main__.py
+const hostname = process.env.HOST || 'localhost';
+const port = parseInt(process.env.PORT, 10) || 3000;
 
 // Configure Next.js
 const app = next({
@@ -39,7 +40,7 @@ app.prepare().then(() => {
         console.error(err);
         process.exit(1);
     })
-    .listen(port, () => {
+    .listen(port, hostname, () => {
         console.log(`> Ready on http://${hostname}:${port}`);
     });
 });
