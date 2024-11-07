@@ -1,11 +1,13 @@
 import json
 import logging
 import os
+import asyncio
+import glob
+import aiofiles
+
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
-
-import tqdm
-from tqdm import tqdm
+from math import ceil
 
 from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
@@ -17,9 +19,6 @@ class BaseRequestProcessor(ABC):
     """
     Base class for all request processors.
     """
-
-    def __init__(self, prompt_formatter: PromptFormatter):
-        self.prompt_formatter = prompt_formatter
 
     @abstractmethod
     def get_rate_limits(self) -> dict:
@@ -78,7 +77,7 @@ class BaseRequestProcessor(ABC):
         """
         pass
 
-    def create_request_files(self, dataset: Optional[Dataset], working_dir: str) -> str:
+    def create_request_files(self, dataset: Optional[Dataset], working_dir: str, prompt_formatter: PromptFormatter) -> str:
         """
         Creates a request file if they don't already exist or use existing.
 
@@ -123,12 +122,12 @@ class BaseRequestProcessor(ABC):
         # Create new requests file
         with open(requests_file, "w") as f:
             if dataset is None:
-                request = self.prompt_formatter.get_generic_request(dict(), 0)
+                request = prompt_formatter.get_generic_request(dict(), 0)
                 api_request = self.create_api_specific_request(request)
                 f.write(json.dumps(api_request) + "\n")
             else:
                 for dataset_row_idx, dataset_row in enumerate(dataset):
-                    request = self.prompt_formatter.get_generic_request(
+                    request = prompt_formatter.get_generic_request(
                         dataset_row, dataset_row_idx
                     )
                     # Convert the generic request to an API-specific request
