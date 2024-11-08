@@ -1,24 +1,25 @@
 """Curator: Bespoke Labs Synthetic Data Generation Library."""
 
 import inspect
-import json
-import logging
-import math
 import os
-import time
-from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from typing import Any, Callable, Dict, Iterable, Optional, Type, TypeVar, Union
 
+from datasets import Dataset
 from pydantic import BaseModel
 from xxhash import xxh64
 
-from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.db import MetadataDB
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
+from bespokelabs.curator.request_processor.base_request_processor import (
+    BaseRequestProcessor,
+)
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
-from bespokelabs.curator.request_processor.openai_request_processor import (
-    OpenAIRequestProcessor,
+from bespokelabs.curator.request_processor.openai_batch_request_processor import (
+    OpenAIBatchRequestProcessor,
+)
+from bespokelabs.curator.request_processor.openai_online_request_processor import (
+    OpenAIOnlineRequestProcessor,
 )
 
 T = TypeVar("T")
@@ -37,13 +38,14 @@ class Prompter:
             ]
         ] = None,
         response_format: Optional[Type[BaseModel]] = None,
+        batch: bool = False,
     ):
         """Initialize a Prompter.
 
         Args:
             model_name (str): The name of the LLM to use
-            prompt_func (Callable[[Dict[str, Any]], Dict[str, str]]): A function that takes a single row
-                and returns a dict with "system_prompt" and "user_prompt"
+            prompt_func (Callable[[Dict[str, Any]], Union[str, List[Dict[str, Any]]]]): A function that takes a single row
+                and returns either a string (assumed to be a user prompt) or messages list
             parse_func (Callable[[Dict[str, Any], Any], T]): A function that takes the input row and
                 response object and returns the parsed output
             response_format (Optional[Type[BaseModel]]): A Pydantic model specifying the
@@ -66,13 +68,20 @@ class Prompter:
             model_name, prompt_func, parse_func, response_format
         )
 
-    def __call__(self, dataset: Optional[Iterable] = None):
+        if batch:
+            self._request_processor = OpenAIBatchRequestProcessor(model=model_name)
+        else:
+            self._request_processor = OpenAIOnlineRequestProcessor(model=model_name)
+
+    def __call__(self, dataset: Optional[Iterable] = None) -> Dataset:
         """Run completions on a dataset."""
-        return self._completions(dataset)
+        return self._completions(self._request_processor, dataset)
 
     def _completions(
-        self, dataset: Optional[Iterable] = None, name: Optional[str] = None
-    ) -> "Dataset":
+        self,
+        request_processor: BaseRequestProcessor,
+        dataset: Optional[Iterable] = None,
+    ) -> Dataset:
         """
         Apply structured completions in parallel to a dataset using specified model and
         prompts.
@@ -81,7 +90,6 @@ class Prompter:
             dataset (Iterable): A dataset consisting of a list of items to apply completions
             prompter (Prompter): A Prompter that contains the logic for formatting each
                 item in the dataset
-            name (str): Name of the task
             resume (bool): Whether to resume from the previous completions run. If True,
                 we use a fingerprint from the input dataset and the prompter to resume
                 from a previous run that matches the same fingerprint.
@@ -89,8 +97,9 @@ class Prompter:
         Returns:
             Iterable: A list of structured outputs from the completions
         """
-        if dataset is not None:
-            dataset = Dataset.from_iterable(dataset)
+        # NOTE(Ryan): We convert from iterable to Dataset because Dataset has random access via row_idx
+        if not isinstance(dataset, Dataset) and dataset is not None:
+            dataset = Dataset.from_generator(dataset)
 
         if self is None:
             raise ValueError("Prompter must be provided")
@@ -99,7 +108,10 @@ class Prompter:
             "CURATOR_CACHE_DIR", os.path.expanduser("~/.cache/curator")
         )
 
-        dataset_hash = _hash_dataset(dataset)
+        dataset_hash = (
+            dataset._fingerprint if dataset is not None else xxh64("").hexdigest()
+        )
+
         prompt_func_hash = _get_function_hash(self.prompt_formatter.prompt_func)
         parse_func_hash = _get_function_hash(self.prompt_formatter.parse_func)
 
@@ -118,8 +130,6 @@ class Prompter:
         )
 
         fingerprint = xxh64(fingerprint_str.encode("utf-8")).hexdigest()
-
-        name = f"{name.replace(' ', '-')}--{fingerprint}" if name else fingerprint
         metadata_db_path = os.path.join(curator_cache_dir, "metadata.db")
         metadata_db = MetadataDB(metadata_db_path)
 
@@ -145,52 +155,12 @@ class Prompter:
         }
         metadata_db.store_metadata(metadata_dict)
 
-        request_processor = OpenAIRequestProcessor(self.prompt_formatter)
-        return request_processor.run(dataset, f"{curator_cache_dir}/{fingerprint}")
+        # TODO(Ryan): do the response processing, while context of original dataset is available and need random access via row_idx)
+        dataset = request_processor.run(
+            dataset, f"{curator_cache_dir}/{fingerprint}", self.prompt_formatter
+        )
 
-
-def _hash_chunk(chunks: list) -> list:
-    """Hash a chunk of data."""
-
-    def _json_dumps_row(row):
-        if isinstance(row, BaseModel):
-            row = row.model_dump()
-        return json.dumps(row, sort_keys=True)
-
-    chunks = [_json_dumps_row(row) for row in chunks]
-    chunk_str = "|||".join(chunks)
-    return xxh64(chunk_str).hexdigest()
-
-
-def _hash_dataset(dataset: Optional[Iterable]):
-    """Hash a dataset to a consistent value using parallel processing."""
-    start = time.perf_counter_ns()
-    if dataset is None:
-        return xxh64("").hexdigest()
-
-    # Convert to list and determine chunking parameters
-    dataset_list = list(dataset)
-    if len(dataset_list) == 0:
-        return xxh64("").hexdigest()
-
-    num_cores = 4
-    total_size = len(dataset_list)
-    chunk_size = math.ceil(total_size / (num_cores * 4))  # 4 chunks per core
-
-    chunks = [
-        dataset_list[i : i + chunk_size] for i in range(0, total_size, chunk_size)
-    ]
-
-    # Process chunks in parallel
-    with ProcessPoolExecutor(max_workers=num_cores) as executor:
-        chunk_hash = list(executor.map(_hash_chunk, chunks))
-        chunk_hash_str = "|||".join(chunk_hash)
-        hash_value = xxh64(chunk_hash_str).hexdigest()
-
-    logging.debug(
-        f"Dataset hash time: {(time.perf_counter_ns() - start) / 1e6:.6f} milliseconds"
-    )
-    return hash_value
+        return dataset
 
 
 def _get_function_hash(func) -> str:

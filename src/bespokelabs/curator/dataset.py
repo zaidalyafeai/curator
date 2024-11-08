@@ -1,12 +1,14 @@
 import json
 import logging
 import os
-from typing import Any, Dict, Iterable, Iterator, List, TypeVar
+import glob
 
 import pandas as pd
-from datasets import Dataset as HFDataset
-from datasets.arrow_writer import ArrowWriter
+
 from pydantic import BaseModel
+from datasets import Dataset as HFDataset
+from datasets.arrow_writer import ArrowWriter, SchemaInferenceError
+from typing import Any, Dict, Iterable, Iterator, List, TypeVar
 
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.generic_response import GenericResponse
@@ -77,24 +79,24 @@ class Dataset:
         os.makedirs(self.working_dir, exist_ok=True)
 
         dataset_file = f"{self.working_dir}/dataset.arrow"
-        response_file = f"{self.working_dir}/responses.jsonl"
+        responses_files = glob.glob(f"{self.working_dir}/responses_*.jsonl")
+        if len(responses_files) == 0:
+            raise ValueError(
+                f"No responses files found in {self.working_dir}, can't construct dataset"
+            )
 
         # Process all response files
         with ArrowWriter(path=dataset_file) as writer:
-            if not os.path.exists(response_file):
-                raise ValueError(f"Responses file {response_file} does not exist")
-
-            with open(response_file, "r") as f_in:
-                for line in f_in:
-                    total_responses_count += 1
-                    try:
+            for responses_file in responses_files:
+                with open(responses_file, "r") as f_in:
+                    for line in f_in:
+                        total_responses_count += 1
                         response = GenericResponse.model_validate_json(line)
                         if self.prompt_formatter.response_format:
                             response.response = self.prompt_formatter.response_format(
                                 **response.response
                             )
-                            
-                        # TODO(Ryan): We can make this more sophisticated by making response_generic a class
+
                         if response is None:
                             failed_responses_count += 1
                             continue
@@ -109,14 +111,7 @@ class Dataset:
                         for row in dataset_rows:
                             if isinstance(row, BaseModel):
                                 row = row.model_dump()
-                            # NOTE(Ryan): This throws a strange error if there are null values in the row
                             writer.write(row)
-
-                    # NOTE(Ryan): Catching naked exceptions is bad practice, but this prevents the program from crashing
-                    # TODO(Ryan): Add in handling for specific exceptions as they come up
-                    except Exception as e:
-                        logging.warning(f"Error: {e}\nFull response: {response}")
-                        continue
 
             logging.info(
                 f"Read {total_responses_count} responses, {failed_responses_count} failed"
@@ -126,8 +121,12 @@ class Dataset:
             if failed_responses_count == total_responses_count:
                 raise ValueError("All requests failed")
 
-            # NOTE(Ryan): This throws an error if all rows were None
             # TODO(Ryan): Look at what this file looks like before finalize. What happens during finalize?
-            writer.finalize()
+            try:
+                writer.finalize()
+            except SchemaInferenceError as e:
+                raise ValueError(
+                    "Arrow writer is complaining about the schema: likely all of your parsed rows were None and writer.write only wrote None objects."
+                ) from e
 
         return HFDataset.from_file(dataset_file, in_memory=in_memory)
