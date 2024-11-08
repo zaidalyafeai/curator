@@ -103,14 +103,13 @@ if __name__ == "__main__":
     )
 
     # To set internal variables
-    # request_processor = OpenAIBatchRequestProcessor(
-    #     model="gpt-4o-mini",
-    #     batch_size=args.batch_size,
-    #     check_interval=args.check_interval,
-    # )
+    request_processor = OpenAIBatchRequestProcessor(
+        model="gpt-4o-mini",
+        batch_size=args.batch_size,
+        check_interval=args.check_interval,
+    )
 
-    # reannotate_prompter._processor = request_processor
-
+    reannotate_prompter._request_processor = request_processor
     reannotated_dataset = reannotate_prompter(dataset)
 
     # Upload dataset to Hugging Face

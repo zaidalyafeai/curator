@@ -195,7 +195,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             Dataset: Completed dataset
         """
         requests_files = self.create_request_files(
-            dataset, working_dir, prompt_formatter, self.batch_size
+            dataset, working_dir, prompt_formatter
         )
         batch_objects_file = f"{working_dir}/batch_objects.jsonl"
 

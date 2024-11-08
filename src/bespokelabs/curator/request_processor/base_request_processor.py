@@ -89,7 +89,6 @@ class BaseRequestProcessor(ABC):
         dataset: Optional[Dataset],
         working_dir: str,
         prompt_formatter: PromptFormatter,
-        batch_size: Optional[int] = None,
     ) -> list[str]:
         """
         Creates a request file if they don't already exist or use existing.
@@ -129,13 +128,13 @@ class BaseRequestProcessor(ABC):
                     )
 
                     # Some simple sanity checks for the user
-                    if batch_size is not None:
-                        if batch_size != num_jobs:
+                    if self.batch_size is not None:
+                        if self.batch_size != num_jobs:
                             logging.warning(
-                                f"Batch size is {batch_size}, but there are {num_jobs} requests in {requests_files[0]}. "
+                                f"Batch size is {self.batch_size}, but there are {num_jobs} requests in {requests_files[0]}. "
                                 f"If you want to run with new batch size, you will have to delete the working directory and re-run (looses progress)"
                             )
-                        if len(requests_files) == 1 and len(dataset) > batch_size:
+                        if len(requests_files) == 1 and len(dataset) > self.batch_size:
                             logging.warning(
                                 f"Only one request file was found, but batch size is specified and dataset is larger than batch size."
                                 f"You might be resuming from a different dataset or weren't using batching before."
@@ -155,8 +154,8 @@ class BaseRequestProcessor(ABC):
                 api_request = self.create_api_specific_request(request)
                 f.write(json.dumps(api_request) + "\n")
             else:
-                if batch_size:
-                    num_batches = ceil(len(dataset) / batch_size)
+                if self.batch_size:
+                    num_batches = ceil(len(dataset) / self.batch_size)
                     requests_files = [
                         f"{working_dir}/requests_{i}.jsonl" for i in range(num_batches)
                     ]
@@ -167,8 +166,7 @@ class BaseRequestProcessor(ABC):
                                 dataset,
                                 prompt_formatter,
                                 requests_files[i],
-                                i * batch_size,
-                                batch_size,
+                                start_idx=i * self.batch_size,
                             )
                             for i in range(num_batches)
                         ]
@@ -195,10 +193,9 @@ class BaseRequestProcessor(ABC):
         prompt_formatter: PromptFormatter,
         request_file: str,
         start_idx: int = 0,
-        batch_size: int = None,
     ) -> str:
-        if batch_size is not None:
-            end_idx = min(start_idx + batch_size, len(dataset))
+        if self.batch_size is not None:
+            end_idx = min(start_idx + self.batch_size, len(dataset))
             dataset = dataset.select(range(start_idx, end_idx))
 
         # NOTE(Ryan): For loops only for IterableDataset which allows for _very_ large datasets, when start_idx and batch_size are not specified
@@ -213,7 +210,7 @@ class BaseRequestProcessor(ABC):
                 api_request = self.create_api_specific_request(request)
                 # Write the API-specific request to file
                 await f.write(json.dumps(api_request) + "\n")
-        logging.info(f"Requests file {request_file} written to disk.")
+        logging.info(f"Wrote {end_idx - start_idx} requests to {request_file}.")
 
     def create_dataset_files(
         self,
