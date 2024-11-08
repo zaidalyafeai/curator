@@ -34,28 +34,6 @@ You can see more examples in the [examples](examples) directory.
 
 ## Bespoke Curator Viewer
 
-### Setup
-The only setup required for running `curator-viewer` is to install node. You can install them by following the instructions [here](https://nodejs.org/en/download/package-manager).
-
-For example, to check if you have node installed, you can run:
-
-```bash
-node -v
-```
-
-If it's not installed, installing latest node on MacOS, you can run:
-
-```bash
-# installs nvm (Node Version Manager)
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
-# download and install Node.js (you may need to restart the terminal)
-nvm install 22
-# verifies the right Node.js version is in the environment
-node -v # should print `v22.11.0`
-# verifies the right npm version is in the environment
-npm -v # should print `10.9.0`
-```
-
 To run the bespoke dataset viewer:
 
 ```bash
@@ -77,4 +55,25 @@ options:
   --host HOST    Host to run the server on (default: localhost)
   --port PORT    Port to run the server on (default: 3000)
   --verbose, -v  Enables debug logging for more verbose output
+```
+
+The only requirement for running `curator-viewer` is to install node. You can install them by following the instructions [here](https://nodejs.org/en/download/package-manager).
+
+For example, to check if you have node installed, you can run:
+
+```bash
+node -v
+```
+
+If it's not installed, installing latest node on MacOS, you can run:
+
+```bash
+# installs nvm (Node Version Manager)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
+# download and install Node.js (you may need to restart the terminal)
+nvm install 22
+# verifies the right Node.js version is in the environment
+node -v # should print `v22.11.0`
+# verifies the right npm version is in the environment
+npm -v # should print `10.9.0`
 ```
