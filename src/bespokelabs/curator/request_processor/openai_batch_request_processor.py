@@ -23,7 +23,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         self,
         batch_size: int = 1000,
         model: str = "gpt-4o-mini",
-        check_interval: int = 60,
+        check_interval: int = 10,
         api_key: str = os.getenv("OPENAI_API_KEY"),
         url: str = "https://api.openai.com/v1/chat/completions",
     ):
@@ -247,7 +247,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
 
 class BatchWatcher:
-    def __init__(self, working_dir: str, check_interval: int = 60) -> None:
+    def __init__(self, working_dir: str, check_interval) -> None:
         """Initialize BatchWatcher with batch objects file and check interval.
 
         Args:
