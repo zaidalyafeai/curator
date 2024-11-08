@@ -25,7 +25,7 @@ print(poem.to_list()[0])
 ```
 
 
-> ake sure to set your OpenAI API key in the environment variable `OPENAI_API_KEY` by doing 
+> Make sure to set your OpenAI API key in the environment variable `OPENAI_API_KEY` by doing 
 > ```bash
 > export OPENAI_API_KEY=your-api-key
 > ```
@@ -40,7 +40,7 @@ To run the bespoke dataset viewer:
 curator-viewer
 ```
 
-This will pop up a browser window with the viewer running on `127:0.0.1:3000` by default if you haven't specified a different host and port.
+This will pop up a browser window with the viewer running on `127.0.0.1:3000` by default if you haven't specified a different host and port.
 
 
 Optional parameters to run the viewer on a different host and port:
