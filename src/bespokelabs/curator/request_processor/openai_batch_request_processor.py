@@ -291,16 +291,24 @@ class BatchWatcher:
 
         completed_batches = {}
         pbar = tqdm(
-            total=len(self.batch_ids),
-            desc="Completed Batches from OpenAI",
-            unit="batch",
+            total=len(dataset),
+            desc="Completed OpenAI requests in batches",
+            unit="request",
         )
 
         while len(completed_batches) < len(self.batch_ids):
+            pbar.n = 0
             status_tasks = []
             for batch_id in self.batch_ids:
                 if batch_id not in completed_batches:
                     status_tasks.append(self.check_batch_status(batch_id))
+                else:
+                    breakpoint()
+                    pbar.n = (
+                        pbar.n
+                        + completed_batches[batch_id].request_counts.completed
+                        + completed_batches[batch_id].request_counts.failed
+                    )
 
             batches = await asyncio.gather(*status_tasks)
             newly_completed_batches = []
@@ -311,7 +319,14 @@ class BatchWatcher:
                     )
                     completed_batches[batch_id] = batch
                     newly_completed_batches.append(batch)
-                    pbar.update(1)
+
+                pbar.n = (
+                    pbar.n
+                    + batch.request_counts.completed
+                    + batch.request_counts.failed
+                )
+
+            pbar.refresh()
 
             # NOTE(Ryan): Now downloading after each check, instead of waiting until all are completed
             tasks = [
