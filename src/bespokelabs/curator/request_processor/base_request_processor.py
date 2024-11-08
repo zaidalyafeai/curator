@@ -6,16 +6,21 @@ import glob
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from bespokelabs.curator.dataset import Dataset
+from datasets import Dataset
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.generic_response import GenericResponse
+from datasets.arrow_writer import ArrowWriter, SchemaInferenceError
+from pydantic import BaseModel
 
 
 class BaseRequestProcessor(ABC):
     """
     Base class for all request processors.
     """
+
+    def __init__(self, batch_size: int = 1000):
+        self.batch_size = batch_size
 
     @abstractmethod
     def get_rate_limits(self) -> dict:
@@ -167,4 +172,85 @@ class BaseRequestProcessor(ABC):
                         )
         if request_count > 0:
             logging.info(f"Wrote {request_count:,} requests to {requests_file}.")
-        return requests_file
+        return requests_files
+
+    def create_dataset_files(
+        self,
+        dataset: Dataset,
+        working_dir: str,
+        prompt_formatter: PromptFormatter,
+    ) -> None:
+        """
+        Creates the request files if they don't already exist or use existing.
+        A single request file (requests_0.jsonl) or multiple request files
+        (requests_0.jsonl, requests_1.jsonl, etc.) are created depending on
+        batch_size.
+
+        Args:
+            dataset (Dataset): The dataset to be processed.
+            working_dir (str): The directory where request files will be saved.
+            prompt_formatter (PromptFormatter): The prompt formatter to use for parsing the responses.
+
+        Returns:
+            Dataset: Completed dataset
+        """
+        total_responses_count = 0
+        failed_responses_count = 0
+
+        responses_files = glob.glob(f"{working_dir}/responses_*.jsonl")
+        if len(responses_files) == 0:
+            raise ValueError(f"No responses files found in {working_dir}")
+        dataset_file = f"{working_dir}/dataset.arrow"
+
+        # Process all response files
+        with ArrowWriter(path=dataset_file) as writer:
+            for responses_file in responses_files:
+                with open(responses_file, "r") as f_in:
+                    for generic_response_string in f_in:
+                        total_responses_count += 1
+                        response = GenericResponse.model_validate_json(
+                            generic_response_string
+                        )
+                        if prompt_formatter.response_format:
+                            response.response = prompt_formatter.response_format(
+                                **response.response
+                            )
+
+                        if response is None:
+                            failed_responses_count += 1
+                            continue
+
+                        # Requires dataset to be Dataset object with random access
+                        if response.row is None:
+                            response.row = dataset[response.row_idx]
+
+                        # parse_func can return a single row or a list of rows
+                        if prompt_formatter.parse_func:
+                            dataset_rows = prompt_formatter.parse_func(
+                                response.row, response.response
+                            )
+                            if not isinstance(dataset_rows, list):
+                                dataset_rows = [dataset_rows]
+                        else:
+                            dataset_rows = [response.response]
+
+                        for row in dataset_rows:
+                            if isinstance(row, BaseModel):
+                                row = row.model_dump()
+                            writer.write(row)
+
+            logging.info(
+                f"Read {total_responses_count} responses, {failed_responses_count} failed"
+            )
+            if failed_responses_count == total_responses_count:
+                raise ValueError("All requests failed")
+
+            logging.info("Finalizing writer")
+            try:
+                writer.finalize()
+            except SchemaInferenceError as e:
+                raise ValueError(
+                    "Arrow writer is complaining about the schema: likely all of your parsed rows were None and writer.write only wrote None objects."
+                ) from e
+
+        return Dataset.from_file(dataset_file)

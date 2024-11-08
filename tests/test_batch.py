@@ -1,5 +1,7 @@
 from bespokelabs import curator
-from bespokelabs.curator import OpenAIBatchRequestProcessor
+from bespokelabs.curator.request_processor.openai_batch_request_processor import (
+    OpenAIBatchRequestProcessor,
+)
 from datasets import load_dataset, Dataset
 import argparse
 
@@ -18,7 +20,7 @@ def convert_ShareGPT_to_IT_format(dataset: Dataset) -> Dataset:
             raise ValueError("Invalid conversation format")
         return {"instruction": instruction, "original_response": response}
 
-    dataset = dataset.map(it_from_sharegpt)
+    dataset = dataset.map(it_from_sharegpt, num_proc=8)
     dataset = dataset.remove_columns(["conversations"])
     dataset = dataset.select_columns(["instruction", "original_response"])
     return dataset
@@ -34,12 +36,6 @@ def load_ShareGPT_dataset_as_IT(dataset_name: str, truncate: int = None) -> Data
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--working_dir",
-        type=str,
-        required=True,
-        help="Where requests, responses, and dataset will be locally written to save intermediate results",
-    )
-    parser.add_argument(
         "--num_samples",
         type=int,
         default=10,
@@ -52,10 +48,10 @@ if __name__ == "__main__":
         help="The number of samples to use per batch",
     )
     parser.add_argument(
-        "--type",
-        type=str,
-        default="online",
-        help="The type of API to use",
+        "--batch",
+        type=bool,
+        default=False,
+        help="Whether to use batch processing",
     )
     parser.add_argument(
         "--check_interval",
@@ -71,28 +67,49 @@ if __name__ == "__main__":
 
     dataset = dataset.select(range(args.num_samples))
 
+    # python tests/test_batch.py --num_samples 10
+
     # if args.type == "online":
     #     api = OpenAIOnlineAPI(model="gpt-4o-mini")
     # elif args.type == "batch":
     #     api = OpenAIBatchAPI(model="gpt-4o-mini", check_interval=args.check_interval)
+
+    # TODO(Ryan) messages as prompt_func output or if string default to user_prompt instruction
+    # def prompt_func(row):
+    #     messages = [
+    #         {"role": "user", "content": row["instruction"]}
+    #     ]
+    #     return messages
+
+    # def parse_func(row, response):
+    #     row["model_response"] = response
+    #     return row
+
+    # reannotate_prompter = curator.Prompter(
+    #     prompt_func=prompt_func,
+    #     parse_func=parse_func,
+    #     model_name="gpt-4o-mini",
+    # )
+
     reannotate_prompter = curator.Prompter(
         prompt_func=lambda row: {"user_prompt": row["instruction"]},
         parse_func=lambda row, response: {**row, "model_response": response},
         model_name="gpt-4o-mini",
     )
 
-    request_processor = OpenAIBatchRequestProcessor(
-        model="gpt-4o-mini",
-        batch_size=args.batch_size,
-        check_interval=args.check_interval,
-    )
+    # To set internal variables
+    # request_processor = OpenAIBatchRequestProcessor(
+    #     model="gpt-4o-mini",
+    #     batch_size=args.batch_size,
+    #     check_interval=args.check_interval,
+    # )
 
-    reannotated_dataset = reannotate_prompter(dataset, request_processor)
+    # reannotate_prompter._processor = request_processor
 
-    dataset = reannotated_dataset.to_huggingface()
+    reannotated_dataset = reannotate_prompter(dataset)
 
     # Upload dataset to Hugging Face
-    print(dataset)
+    print(reannotated_dataset)
     dataset_name = "mlfoundations-dev/rewrite-test-gpt-4o-mini"
-    dataset.push_to_hub(dataset_name)
+    reannotated_dataset.push_to_hub(dataset_name)
     print(f"https://huggingface.co/datasets/{dataset_name}")

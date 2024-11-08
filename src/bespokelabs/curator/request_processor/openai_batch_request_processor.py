@@ -19,11 +19,18 @@ T = TypeVar("T")
 
 
 class OpenAIBatchRequestProcessor(BaseRequestProcessor):
-    model: str
-    url: str = "https://api.openai.com/v1/chat/completions"
-    api_key: str = os.getenv("OPENAI_API_KEY")
-    batch_size: int = 1000
-    check_interval: int = 60
+    def __init__(
+        self,
+        batch_size: int = 1000,
+        model: str = "gpt-4o-mini",
+        check_interval: int = 60,
+        api_key: str = os.getenv("OPENAI_API_KEY"),
+        url: str = "https://api.openai.com/v1/chat/completions",
+    ):
+        super().__init__(batch_size)
+        self.url: str = url
+        self.api_key: str = api_key
+        self.check_interval: int = check_interval
 
     def get_rate_limits(self) -> dict:
         """
@@ -127,7 +134,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         request_id = response["id"]
         status_code = response["response"]["status_code"]
 
-        # TODO(Ryan): Add error handling
+        # TODO(Ryan): Add error handling. This should handle error files from BatchAPI.
         if status_code != 200:
             logging.warning(
                 f"Request {request_id} failed with status code {status_code}"
@@ -206,7 +213,6 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
         asyncio.run(batch_watcher.watch())
 
-        # TODO(Ryan): Add back in here the dataset creation
         return dataset
 
 
@@ -279,7 +285,9 @@ class BatchWatcher:
 
         self.batches = completed_batches.values()
 
-    async def download_batch_result_file(self, batch) -> str:
+    async def download_batch_result_file(
+        self, batch, OpenAIBatchRequestProcessor
+    ) -> str:
         """Download the result of a completed batch to file.
 
         Args:
@@ -297,63 +305,17 @@ class BatchWatcher:
             return None
 
         # NOTE(Ryan): This is so the naming is consistent with the request file naming
-        request_file_id = (
+        request_file_idx = (
             self.batch_id_to_request_file_name[batch.id].split("/")[-1].split("_", 1)[1]
         )
-        output_path = f"{self.working_dir}/responses_{request_file_id}"
+        output_path = f"{self.working_dir}/responses_{request_file_idx}"
         with open(output_path, "wb") as f:
-            f.write(file_content.content)
+            for raw_response in file_content.text.splitlines():
+                generic_response = OpenAIBatchRequestProcessor.get_generic_response(
+                    raw_response
+                )
+                f.write(json.dumps(generic_response.model_dump()) + "\n")
         return output_path
-
-    # NOTE(Ryan): This could be useful for very small batches and overall total requests not too large
-    async def download_batch_result_in_memory(self, batch) -> list[str]:
-        """Download the result of a completed batch.
-
-        Args:
-            batch: The batch object to download results from.
-
-        Returns:
-            list[str]: Lines of the downloaded result.
-        """
-        if batch.status == "completed" and batch.output_file_id:
-            file_content = await self.client.files.content(batch.output_file_id)
-            return file_content.text.splitlines()
-        return []
-
-    # NOTE(Ryan): This could be useful for very small batches and overall total requests not too large
-    async def download_results_in_memory(self, output_path: str) -> None:
-        """Download results of all batches and save to a specified path.
-
-        Args:
-            output_path (str): Path to save the downloaded results.
-        """
-        tasks = [self.download_batch_result(batch) for batch in self.batches]
-        results = await asyncio.gather(*tasks)
-
-        all_results = [
-            item for sublist in results for item in sublist
-        ]  # Flatten the list of lists
-
-        with open(output_path, "w") as f:
-            for result in all_results:
-                f.write(result + "\n")
-        logging.info(f"All batch results downloaded and saved to: {output_path}")
-
-    async def download_errors(self, error_path: str, batch_id: str) -> None:
-        """Download error file for a specific batch if available.
-
-        Args:
-            error_path (str): Path to save the error file.
-            batch_id (str): The ID of the batch to download errors from.
-        """
-        batch = await self.client.batches.retrieve(batch_id)
-        if batch.error_file_id:
-            file_content = await self.client.files.content(batch.error_file_id)
-            with open(error_path, "wb") as f:
-                f.write(file_content.content)
-            logging.info(f"Batch errors downloaded and saved to: {error_path}")
-        else:
-            logging.info(f"No error file available for batch {batch_id}.")
 
     async def plot_completion_data(self, output_dir: str) -> None:
         """Save plots visualizing completion times for the batches.

@@ -11,6 +11,7 @@ import aiohttp
 import requests
 import tiktoken
 from tqdm import tqdm
+from functools import partial
 
 from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.request_processor.base_request_processor import (
@@ -18,14 +19,23 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     GenericRequest,
     GenericResponse,
 )
+from bespokelabs.curator.prompter.prompter import PromptFormatter
 
 T = TypeVar("T")
 
 
 class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
-    model: str
-    url: str = "https://api.openai.com/v1/chat/completions"
-    api_key: str = os.getenv("OPENAI_API_KEY")
+    def __init__(
+        self,
+        batch_size: int = 1000,
+        model: str = "gpt-4o-mini",
+        api_key: str = os.getenv("OPENAI_API_KEY"),
+        url: str = "https://api.openai.com/v1/chat/completions",
+    ):
+        super().__init__(batch_size)
+        self.model: str = model
+        self.url: str = url
+        self.api_key: str = api_key
 
     def get_rate_limits(self) -> dict:
         """
@@ -46,7 +56,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         response = requests.post(
             self.url,
             headers={"Authorization": f"Bearer {self.api_key}"},
-            json={"model": self.prompt_formatter.model_name, "messages": []},
+            json={"model": self.model, "messages": []},
         )
 
         rpm = int(response.headers.get("x-ratelimit-limit-requests", 0))
@@ -108,7 +118,9 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
 
         return request
 
-    def get_generic_response(self, response: Dict) -> GenericResponse:
+    def get_generic_response(
+        self, response: Dict, prompt_formatter: PromptFormatter
+    ) -> GenericResponse:
         """
         Parses a API-specific response into a generic response body.
         Does error handling on the response.
@@ -123,7 +135,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
             dict: Generic response body with an extra field "metadata" which contains the original dataset row or the index of the row in the original dataset
         """
         content = response["response"]["choices"][0]["message"]["content"]
-        if self.prompt_formatter.response_format:
+        if prompt_formatter.response_format:
             content = json.loads(content)
 
         return GenericResponse(
@@ -136,6 +148,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         self,
         dataset: Optional[Dataset],
         working_dir: str,
+        prompt_formatter: PromptFormatter,
     ) -> Dataset:
         """
         Uses the API to completing the specific map by calling the LLM.
@@ -147,19 +160,23 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         Returns:
             Dataset: Completed dataset
         """
-        requests_files = self.create_request_files(dataset, working_dir)
-        responses_files = []
+        requests_files = self.create_request_files(
+            dataset, working_dir, prompt_formatter
+        )
+        responses_files = [
+            f"{working_dir}/responses_{i}.jsonl" for i in range(len(requests_files))
+        ]
 
         rate_limits = self.get_rate_limits()
         rpm = rate_limits["max_requests_per_minute"]
         tpm = rate_limits["max_tokens_per_minute"]
 
-        token_encoding_name = get_token_encoding_name(self.prompt_formatter.model_name)
+        token_encoding_name = get_token_encoding_name(prompt_formatter.model_name)
 
         # NOTE(Ryan): If you wanted to do this on batches, you could run a for loop here about request_files. Although I don't recommend it because you are waiting for straggler requests to finish for each batch.
         # NOTE(Ryan): And if you wanted to do batches in parallel, you would have to divide rpm and tpm by the number of parallel batches.
         # TODO(Ryan): Can we abstract retries from process_api_requests_from_file so you can use it even if you use liteLLM.
-        for requests_file in requests_files:
+        for requests_file, responses_file in zip(requests_files, responses_files):
             asyncio.run(
                 self.process_api_requests_from_file(
                     requests_filepath=requests_file,
@@ -170,9 +187,12 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                     token_encoding_name=token_encoding_name,
                     max_attempts=5,
                     resume=True,  # detects existing jobs and resume from there
+                    prompt_formatter=prompt_formatter,
                 )
             )
-        return responses_files
+
+        dataset = self.create_dataset_files(dataset, working_dir, prompt_formatter)
+        return dataset
 
     async def process_api_requests_from_file(
         self,
@@ -184,6 +204,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         token_encoding_name: str,
         max_attempts: int,
         resume: bool,
+        prompt_formatter: PromptFormatter,
         resume_no_retry: bool = False,
     ) -> None:
         """Processes API requests in parallel, throttling to stay under rate limits."""
@@ -376,7 +397,10 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                                     retry_queue=queue_of_requests_to_retry,
                                     save_filepath=save_filepath,
                                     status_tracker=status_tracker,
-                                    get_generic_response=self.get_generic_response,
+                                    get_generic_response=partial(
+                                        self.get_generic_response,
+                                        prompt_formatter=prompt_formatter,
+                                    ),
                                 )
                             )
                             next_request = None  # reset next_request to empty
