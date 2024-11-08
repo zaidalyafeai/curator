@@ -40,7 +40,7 @@ To run the bespoke dataset viewer:
 curator-viewer
 ```
 
-This will pop up a browser window with the viewer running on `127:0.0.1:3000` by default if you haven't specified a different host and port.
+This will pop up a browser window with the viewer running on `127.0.0.1:3000` by default if you haven't specified a different host and port.
 
 
 Optional parameters to run the viewer on a different host and port:
