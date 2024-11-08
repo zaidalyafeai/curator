@@ -48,13 +48,11 @@ class PromptFormatter:
                 f"Prompting function {self.prompt_func} must have 0 or 1 arguments."
             )
 
-        messages = []
-        system_prompt = prompts.get("system_prompt", "You are a helpful AI assistant.")
-        messages.append({"role": "system", "content": system_prompt})
-
-        if "user_prompt" not in prompts:
-            raise ValueError("user_prompt is required")
-        messages.append({"role": "user", "content": prompts["user_prompt"]})
+        if isinstance(prompts, str):
+            messages = [{"role": "user", "content": prompts}]
+        else:
+            # TODO(Ryan): Add validation here
+            messages = prompts
 
         # Convert BaseModel to dict for serialization
         if isinstance(row, BaseModel):

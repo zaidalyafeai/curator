@@ -49,8 +49,8 @@ class Prompter:
 
         Args:
             model_name (str): The name of the LLM to use
-            prompt_func (Callable[[Dict[str, Any]], Dict[str, str]]): A function that takes a single row
-                and returns a dict with "system_prompt" and "user_prompt"
+            prompt_func (Callable[[Dict[str, Any]], Union[str, List[Dict[str, Any]]]]): A function that takes a single row
+                and returns either a string (assumed to be a user prompt) or messages list
             parse_func (Callable[[Dict[str, Any], Any], T]): A function that takes the input row and
                 response object and returns the parsed output
             response_format (Optional[Type[BaseModel]]): A Pydantic model specifying the
@@ -113,7 +113,7 @@ class Prompter:
             "CURATOR_CACHE_DIR", os.path.expanduser("~/.cache/curator")
         )
 
-        dataset_hash = _hash_dataset(dataset)
+        dataset_hash = dataset._fingerprint
         prompt_func_hash = _get_function_hash(self.prompt_formatter.prompt_func)
         parse_func_hash = _get_function_hash(self.prompt_formatter.parse_func)
 
@@ -163,50 +163,6 @@ class Prompter:
         )
 
         return dataset
-
-
-def _hash_chunk(chunks: list) -> list:
-    """Hash a chunk of data."""
-
-    def _json_dumps_row(row):
-        if isinstance(row, BaseModel):
-            row = row.model_dump()
-        return json.dumps(row, sort_keys=True)
-
-    chunks = [_json_dumps_row(row) for row in chunks]
-    chunk_str = "|||".join(chunks)
-    return xxh64(chunk_str).hexdigest()
-
-
-def _hash_dataset(dataset: Optional[Iterable]):
-    """Hash a dataset to a consistent value using parallel processing."""
-    start = time.perf_counter_ns()
-    if dataset is None:
-        return xxh64("").hexdigest()
-
-    # Convert to list and determine chunking parameters
-    dataset_list = list(dataset)
-    if len(dataset_list) == 0:
-        return xxh64("").hexdigest()
-
-    num_cores = 4
-    total_size = len(dataset_list)
-    chunk_size = math.ceil(total_size / (num_cores * 4))  # 4 chunks per core
-
-    chunks = [
-        dataset_list[i : i + chunk_size] for i in range(0, total_size, chunk_size)
-    ]
-
-    # Process chunks in parallel
-    with ProcessPoolExecutor(max_workers=num_cores) as executor:
-        chunk_hash = list(executor.map(_hash_chunk, chunks))
-        chunk_hash_str = "|||".join(chunk_hash)
-        hash_value = xxh64(chunk_hash_str).hexdigest()
-
-    logging.debug(
-        f"Dataset hash time: {(time.perf_counter_ns() - start) / 1e6:.6f} milliseconds"
-    )
-    return hash_value
 
 
 def _get_function_hash(func) -> str:
