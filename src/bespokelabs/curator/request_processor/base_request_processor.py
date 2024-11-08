@@ -1,20 +1,20 @@
+import asyncio
+import glob
 import json
 import logging
 import os
-import glob
-
 from abc import ABC, abstractmethod
+from math import ceil
 from typing import Optional
 
+import aiofiles
 from datasets import Dataset
+from datasets.arrow_writer import ArrowWriter, SchemaInferenceError
+from pydantic import BaseModel
+
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.generic_response import GenericResponse
-from datasets.arrow_writer import ArrowWriter, SchemaInferenceError
-from pydantic import BaseModel
-from math import ceil
-import asyncio
-import aiofiles
 
 
 class BaseRequestProcessor(ABC):
@@ -238,6 +238,9 @@ class BaseRequestProcessor(ABC):
         if len(responses_files) == 0:
             raise ValueError(f"No responses files found in {working_dir}")
         dataset_file = f"{working_dir}/dataset.arrow"
+        if os.path.exists(dataset_file):
+            logging.info(f"Using existing dataset file {dataset_file}")
+            return Dataset.from_file(dataset_file)
 
         # Process all response files
         with ArrowWriter(path=dataset_file) as writer:
