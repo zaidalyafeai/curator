@@ -1,10 +1,18 @@
 [tool.poetry]
 name = "bespokelabs-curator"
-version = "0.1.0"
+version = "0.1.6rc8"
 description = "Bespoke Labs Curator"
 authors = ["Bespoke Labs <company@bespokelabs.ai>"]
 readme = "README.md"
-packages = [{include = "bespokelabs", from = "src"}]
+packages = [
+    {include = "bespokelabs", from = "src"},
+]
+include = [
+    "src/bespokelabs/curator/viewer/static/**/*"
+]
+exclude = [
+    "src/bespokelabs/curator/viewer/static/.next/cache/**/*"
+]
 license = "Apache-2.0"
 homepage = "https://github.com/bespokelabsai/curator"
 repository = "https://github.com/bespokelabsai/curator"
@@ -32,3 +40,6 @@ twine = "^5.0.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+curator-viewer = "bespokelabs.curator.viewer.__main__:main"
