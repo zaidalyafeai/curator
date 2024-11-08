@@ -22,7 +22,7 @@ class BaseRequestProcessor(ABC):
     Base class for all request processors.
     """
 
-    def __init__(self, batch_size: int = 1000):
+    def __init__(self, batch_size: Optional[int] = None):
         self.batch_size = batch_size
 
     @abstractmethod
@@ -272,7 +272,7 @@ class BaseRequestProcessor(ABC):
                             if not isinstance(dataset_rows, list):
                                 dataset_rows = [dataset_rows]
                         else:
-                            dataset_rows = [response.response]
+                            dataset_rows = [{"response": response.response}]
 
                         for row in dataset_rows:
                             if isinstance(row, BaseModel):

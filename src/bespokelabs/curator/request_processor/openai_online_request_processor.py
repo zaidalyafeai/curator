@@ -27,7 +27,7 @@ T = TypeVar("T")
 class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
     def __init__(
         self,
-        batch_size: int = 1000,
+        batch_size: Optional[int] = None,
         model: str = "gpt-4o-mini",
         api_key: str = os.getenv("OPENAI_API_KEY"),
         url: str = "https://api.openai.com/v1/chat/completions",
@@ -119,7 +119,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         return request
 
     def get_generic_response(
-        self, response: Dict, prompt_formatter: PromptFormatter, dataset: Dataset
+        self, response: Dict, prompt_formatter: PromptFormatter
     ) -> GenericResponse:
         """
         Parses a API-specific response into a generic response body.

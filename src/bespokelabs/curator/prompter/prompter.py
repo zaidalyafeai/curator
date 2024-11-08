@@ -103,7 +103,7 @@ class Prompter:
             Iterable: A list of structured outputs from the completions
         """
         # NOTE(Ryan): We convert from iterable to Dataset because Dataset has random access via row_idx
-        if not isinstance(dataset, Dataset):
+        if not isinstance(dataset, Dataset) and dataset is not None:
             dataset = Dataset.from_generator(dataset)
 
         if self is None:
@@ -113,7 +113,9 @@ class Prompter:
             "CURATOR_CACHE_DIR", os.path.expanduser("~/.cache/curator")
         )
 
-        dataset_hash = dataset._fingerprint
+        dataset_hash = (
+            dataset._fingerprint if dataset is not None else xxh64("").hexdigest()
+        )
         prompt_func_hash = _get_function_hash(self.prompt_formatter.prompt_func)
         parse_func_hash = _get_function_hash(self.prompt_formatter.parse_func)
 
