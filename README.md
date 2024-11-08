@@ -25,7 +25,7 @@ print(poem.to_list()[0])
 ```
 
 
-> ake sure to set your OpenAI API key in the environment variable `OPENAI_API_KEY` by doing 
+> Make sure to set your OpenAI API key in the environment variable `OPENAI_API_KEY` by doing 
 > ```bash
 > export OPENAI_API_KEY=your-api-key
 > ```
