@@ -10,19 +10,6 @@ pip install bespokelabs-curator
 
 ### Usage
 
-To run the camel example:
-
-```bash
-python examples/camel.py
-python examples/openhermesv3.py
-```
-
-Example
-> Make sure to set your OpenAI API key in the environment variable `OPENAI_API_KEY` by doing 
-> ```bash
-> export OPENAI_API_KEY=your-api-key
-> ```
-
 ```python
 from bespokelabs import curator
 
@@ -37,6 +24,13 @@ poem = poet()
 print(poem.to_list()[0])
 ```
 
+
+> ake sure to set your OpenAI API key in the environment variable `OPENAI_API_KEY` by doing 
+> ```bash
+> export OPENAI_API_KEY=your-api-key
+> ```
+
+You can see more examples in the [examples](examples) directory.
 
 ## Bespoke Curator Viewer
 
