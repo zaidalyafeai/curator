@@ -2,15 +2,11 @@ import asyncio
 import json
 import logging
 import os
-import re
-import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Optional, Set, Tuple, TypeVar
-
-import aiohttp
-import requests
-import tiktoken
-from tqdm import tqdm
+from openai import AsyncOpenAI
+import pandas as pd
+import matplotlib.pyplot as plt
 
 from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.request_processor.base_request_processor import (
@@ -166,552 +162,250 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         Returns:
             Dataset: Completed dataset
         """
-        requests_files = self.create_request_files(dataset, working_dir)
-        responses_files = [
-            f"{working_dir}/responses_{i}.jsonl" for i in range(len(requests_files))
-        ]
-
-        rate_limits = self.get_rate_limits()
-        rpm = rate_limits["max_requests_per_minute"]
-        tpm = rate_limits["max_tokens_per_minute"]
-
-        token_encoding_name = get_token_encoding_name(self.prompt_formatter.model_name)
-
-        # NOTE(Ryan): If you wanted to do this on batches, you could run a for loop here about request_files. Although I don't recommend it because you are waiting for straggler requests to finish for each batch.
-        # NOTE(Ryan): And if you wanted to do batches in parallel, you would have to divide rpm and tpm by the number of parallel batches.
-        # TODO(Ryan): Can we abstract retries from process_api_requests_from_file so you can use it even if you use liteLLM.
-        for i in range(len(requests_files)):
-            asyncio.run(
-                self.process_api_requests_from_file(
-                    requests_filepath=requests_files[i],
-                    save_filepath=responses_files[i],
-                    request_url=self.url,
-                    max_requests_per_minute=rpm,
-                    max_tokens_per_minute=tpm,
-                    token_encoding_name=token_encoding_name,
-                    max_attempts=5,
-                    resume=True,  # detects existing jobs and resume from there
-                )
-            )
-
-        return Dataset.from_working_dir(working_dir, self.prompt_formatter)
-
-    async def process_api_requests_from_file(
-        self,
-        requests_filepath: str,
-        save_filepath: str,
-        request_url: str,
-        max_requests_per_minute: float,
-        max_tokens_per_minute: float,
-        token_encoding_name: str,
-        max_attempts: int,
-        resume: bool,
-        resume_no_retry: bool = False,
-    ) -> None:
-        """Processes API requests in parallel, throttling to stay under rate limits."""
-        # constants
-        seconds_to_pause_after_rate_limit_error = 15
-        seconds_to_sleep_each_loop = (
-            0.001  # 1 ms limits max throughput to 1,000 requests per second
+        requests_files = self.create_request_files(
+            dataset, map, working_dir, batch_size
         )
+        batch_objects_file = f"{working_dir}/batch_objects.jsonl"
 
-        # infer API endpoint and construct request header
-        api_endpoint = api_endpoint_from_url(self.url)
-        request_header = {"Authorization": f"Bearer {self.api_key}"}
-        # use api-key header for Azure deployments
-        if "/deployments" in self.url:
-            request_header = {"api-key": f"{self.api_key}"}
-
-        # initialize trackers
-        queue_of_requests_to_retry = asyncio.Queue()
-        task_id_generator = (
-            task_id_generator_function()
-        )  # generates integer IDs of 0, 1, 2, ...
-        status_tracker = (
-            StatusTracker()
-        )  # single instance to track a collection of variables
-        next_request = None  # variable to hold the next request to call
-
-        # initialize available capacity counts
-        available_request_capacity = max_requests_per_minute
-        available_token_capacity = max_tokens_per_minute
-        last_update_time = time.time()
-
-        # initialize flags
-        file_not_finished = True  # after file is empty, we'll skip reading it
-        logging.debug(f"Initialization complete.")
-
-        completed_request_ids: Set[int] = set()
-        if os.path.exists(save_filepath):
-            if resume:
-                # save all successfully completed requests to a temporary file, then overwrite the original file with the temporary file
-                logging.debug(f"Resuming progress from existing file: {save_filepath}")
-                logging.debug(
-                    f"Removing all failed requests from {save_filepath} so they can be retried"
-                )
-                temp_filepath = f"{save_filepath}.temp"
-                num_previously_failed_requests = 0
-                with open(save_filepath, "r") as input_file, open(
-                    temp_filepath, "w"
-                ) as output_file:
-                    for line in input_file:
-                        response = GenericResponse.model_validate_json(line)
-                        if response.errors:
-                            # this means that the request failed and we have a list of errors
-                            logging.debug(
-                                f"Request {response.row_idx} previously failed due to errors: {response.errors}, removing from output and will retry"
-                            )
-                            num_previously_failed_requests += 1
-                        else:
-                            completed_request_ids.add(response.row_idx)
-                            output_file.write(line)
-                logging.info(
-                    f"Found {len(completed_request_ids)} completed requests and {num_previously_failed_requests} previously failed requests"
-                )
-                logging.info(
-                    "Failed requests and remaining requests will now be processed."
-                )
-                os.replace(temp_filepath, save_filepath)
-            elif resume_no_retry:
-                logging.warning(
-                    f"Resuming progress from existing file: {save_filepath}, without retrying failed requests"
-                )
-                num_previously_failed_requests = 0
-                with open(save_filepath, "r") as input_file, open(
-                    temp_filepath, "w"
-                ) as output_file:
-                    for line in tqdm(input_file, desc="Processing existing requests"):
-                        data = json.loads(line)
-                        if isinstance(data[1], list):
-                            # this means that the request failed and we have a list of errors
-                            logging.debug(
-                                f"Request {data[2].get('request_idx')} previously failed due to errors: {data[1]}, will NOT retry"
-                            )
-                            num_previously_failed_requests += 1
-                        completed_request_ids.add(data[2].get("request_idx"))
-                logging.info(
-                    f"Found {len(completed_request_ids)} total requests and {num_previously_failed_requests} previously failed requests"
-                )
-                logging.info("Remaining requests will now be processed.")
-            else:
-                user_input = input(
-                    f"File {save_filepath} already exists.\nTo resume if there are remaining requests without responses, run with --resume flag.\nOverwrite? (Y/n): "
-                )
-                if user_input.lower() != "y" and user_input.lower() != "":
-                    logging.info("Aborting operation.")
-                    return
-
-        # initialize file reading
-        with open(requests_filepath) as file:
-            # `requests` will provide requests one at a time
-            requests = file.__iter__()
-            logging.debug(f"File opened. Entering main loop")
-
-            # Count total number of requests
-            total_requests = sum(1 for _ in open(requests_filepath))
-            if total_requests == len(completed_request_ids):
-                logging.debug(
-                    "All requests have already been completed so will just reuse cache."
-                )
-                return
-
-            # Create progress bar
-            pbar = tqdm(
-                total=total_requests, desc="Processing parallel requests to OpenAI"
-            )
-
-            connector = aiohttp.TCPConnector(limit=10 * max_requests_per_minute)
-            async with aiohttp.ClientSession(
-                connector=connector
-            ) as session:  # Initialize ClientSession here
-                while True:
-                    # get next request (if one is not already waiting for capacity)
-                    if next_request is None:
-                        if not queue_of_requests_to_retry.empty():
-                            next_request = queue_of_requests_to_retry.get_nowait()
-                            logging.debug(
-                                f"Retrying request {next_request.task_id}: {next_request}"
-                            )
-                        elif file_not_finished:
-                            try:
-                                # get new request
-                                request_json = json.loads(next(requests))
-                                request_idx = request_json["metadata"]["request_idx"]
-                                if resume and request_idx in completed_request_ids:
-                                    logging.debug(
-                                        f"Skipping already completed request {request_idx}"
-                                    )
-                                    status_tracker.num_tasks_already_completed += 1
-                                    continue
-                                next_request = APIRequest(
-                                    task_id=next(task_id_generator),
-                                    request_json=request_json,
-                                    token_consumption=num_tokens_consumed_from_request(
-                                        request_json, api_endpoint, token_encoding_name
-                                    ),
-                                    attempts_left=max_attempts,
-                                    metadata=request_json.pop("metadata", None),
-                                )
-                                status_tracker.num_tasks_started += 1
-                                status_tracker.num_tasks_in_progress += 1
-                                logging.debug(
-                                    f"Reading request {next_request.task_id}: {next_request}"
-                                )
-                            except StopIteration:
-                                # if file runs out, set flag to stop reading it
-                                logging.debug("Read file exhausted")
-                                file_not_finished = False
-
-                    # update available capacity
-                    current_time = time.time()
-                    seconds_since_update = current_time - last_update_time
-                    available_request_capacity = min(
-                        available_request_capacity
-                        + max_requests_per_minute * seconds_since_update / 60.0,
-                        max_requests_per_minute,
-                    )
-                    available_token_capacity = min(
-                        available_token_capacity
-                        + max_tokens_per_minute * seconds_since_update / 60.0,
-                        max_tokens_per_minute,
-                    )
-                    last_update_time = current_time
-
-                    # if enough capacity available, call API
-                    if next_request:
-                        next_request_tokens = next_request.token_consumption
-                        if (
-                            available_request_capacity >= 1
-                            and available_token_capacity >= next_request_tokens
-                        ):
-                            # update counters
-                            available_request_capacity -= 1
-                            available_token_capacity -= next_request_tokens
-                            next_request.attempts_left -= 1
-
-                            # call API
-                            asyncio.create_task(
-                                next_request.call_api(
-                                    session=session,
-                                    request_url=request_url,
-                                    request_header=request_header,
-                                    retry_queue=queue_of_requests_to_retry,
-                                    save_filepath=save_filepath,
-                                    status_tracker=status_tracker,
-                                    get_generic_response=self.get_generic_response,
-                                )
-                            )
-                            next_request = None  # reset next_request to empty
-                        else:
-                            logging.debug(
-                                f"Not Enough Capacity: Request tokens: {next_request_tokens}, Available request capacity: {available_request_capacity}, Available token capacity: {available_token_capacity}"
-                            )
-
-                    # Update progress bar when a task is completed
-                    total_completed = (
-                        status_tracker.num_tasks_succeeded
-                        + status_tracker.num_tasks_failed
-                        + status_tracker.num_tasks_already_completed
-                    )
-                    if total_completed > pbar.n:
-                        pbar.update(total_completed - pbar.n)
-
-                    # if all tasks are finished, break
-                    if status_tracker.num_tasks_in_progress == 0:
-                        break
-
-                    # main loop sleeps briefly so concurrent tasks can run
-                    await asyncio.sleep(seconds_to_sleep_each_loop)
-
-                    # if a rate limit error was hit recently, pause to cool down
-                    seconds_since_rate_limit_error = (
-                        time.time() - status_tracker.time_of_last_rate_limit_error
-                    )
-                    if (
-                        seconds_since_rate_limit_error
-                        < seconds_to_pause_after_rate_limit_error
-                    ):
-                        remaining_seconds_to_pause = (
-                            seconds_to_pause_after_rate_limit_error
-                            - seconds_since_rate_limit_error
-                        )
-                        await asyncio.sleep(remaining_seconds_to_pause)
-                        # ^e.g., if pause is 15 seconds and final limit was hit 5 seconds ago
-                        logging.warn(
-                            f"Pausing to cool down until {time.ctime(status_tracker.time_of_last_rate_limit_error + seconds_to_pause_after_rate_limit_error)}"
-                        )
-
-            # Close the progress bar
-            pbar.close()
-
-            # after finishing, log final status
-            logging.info(
-                f"""Parallel processing complete. Results saved to {save_filepath}"""
-            )
-
-            logging.info(f"Status tracker: {status_tracker}")
-
-            if status_tracker.num_tasks_failed > 0:
-                logging.warning(
-                    f"{status_tracker.num_tasks_failed} / {status_tracker.num_tasks_started} requests failed. Errors logged to {save_filepath}."
-                )
-            if status_tracker.num_rate_limit_errors > 0:
-                logging.warning(
-                    f"{status_tracker.num_rate_limit_errors} rate limit errors received. Consider running at a lower rate."
-                )
-
-
-@dataclass
-class StatusTracker:
-    """Stores metadata about the script's progress. Only one instance is created."""
-
-    num_tasks_already_completed: int = 0
-    num_tasks_started: int = 0
-    num_tasks_in_progress: int = 0  # script ends when this reaches 0
-    num_tasks_succeeded: int = 0
-    num_tasks_failed: int = 0
-    num_rate_limit_errors: int = 0
-    num_api_errors: int = 0  # excluding rate limit errors, counted above
-    num_other_errors: int = 0
-    time_of_last_rate_limit_error: int = 0  # used to cool off after hitting rate limits
-
-
-@dataclass
-class APIRequest:
-    """Stores an API request's inputs, outputs, and other metadata. Contains a method to make an API call."""
-
-    task_id: int
-    request_json: dict
-    token_consumption: int
-    attempts_left: int
-    metadata: dict
-    result: list = field(default_factory=list)
-
-    async def call_api(
-        self,
-        session: aiohttp.ClientSession,
-        request_url: str,
-        request_header: dict,
-        retry_queue: asyncio.Queue,
-        save_filepath: str,
-        status_tracker: StatusTracker,
-        get_generic_response: Callable[[list], dict],
-    ) -> None:
-        """Calls the OpenAI API and saves results."""
-        logging.debug(f"Starting request #{self.task_id}")
-        error = None
-        try:
-            async with session.post(
-                url=request_url, headers=request_header, json=self.request_json
-            ) as response:
-                response = await response.json()
-            if "error" in response:
-                logging.warning(
-                    f"Request {self.task_id} failed with error {response['error']}"
-                )
-                status_tracker.num_api_errors += 1
-                error = response
-                if "rate limit" in response["error"].get("message", "").lower():
-                    status_tracker.time_of_last_rate_limit_error = time.time()
-                    status_tracker.num_rate_limit_errors += 1
-                    status_tracker.num_api_errors -= (
-                        1  # rate limit errors are counted separately
-                    )
-
-        except (
-            Exception
-        ) as e:  # catching naked exceptions is bad practice, but in this case we'll log & save them
+        # TODO(Ryan): we should have an easy way to cancel all batches in batch_objects.jsonl if the user realized they made a mistake
+        if os.path.exists(batch_objects_file):
             logging.warning(
-                f"Request {self.task_id} failed with Exception {e}, attempts left {self.attempts_left}"
+                f"Batch objects file already exists, skipping batch submission and resuming: {batch_objects_file}"
             )
-            status_tracker.num_other_errors += 1
-            error = e
-        if error:
-            self.result.append(error)
-            if self.attempts_left:
-                retry_queue.put_nowait(self)
-            else:
-                logging.error(
-                    f"Request {self.request_json} failed after all attempts. Saving errors: {self.result}"
-                )
-                data = GenericResponse(
-                    request=self.request_json,
-                    errors=[str(e) for e in self.result],
-                    row=self.metadata["sample"],
-                    row_idx=self.metadata["request_idx"],
-                )
-                append_generic_response(data, save_filepath)
-                status_tracker.num_tasks_in_progress -= 1
-                status_tracker.num_tasks_failed += 1
         else:
-            data = get_generic_response(
-                {"response": response, "metadata": self.metadata}
-            )
-            data.raw_response = response
-            data.request = self.request_json
-            append_generic_response(data, save_filepath)
-            status_tracker.num_tasks_in_progress -= 1
-            status_tracker.num_tasks_succeeded += 1
-            logging.debug(f"Request {self.task_id} saved to {save_filepath}")
+            # upload requests files and submit batches
+            self.async_client = AsyncOpenAI()
+
+            # asyncio gather preserves order
+            async def submit_all_batches():
+                tasks = [
+                    self.asubmit_batch(requests_files[i])
+                    for i in range(len(requests_files))
+                ]
+                return await asyncio.gather(*tasks)
+
+            batch_objects = asyncio.run(submit_all_batches())
+
+            with open(batch_objects_file, "w") as f:
+                # NOTE(Ryan): we can also store the request_file_name in this object here, instead of in the metadata during batch submission. Can find a nice abstraction across other batch APIs (e.g. claude)
+                for obj in batch_objects:
+                    f.write(json.dumps(obj.model_dump()) + "\n")
+            logging.info(f"Batch objects written to {batch_objects_file}")
+
+        # TODO(Ryan): Actually do accounting for tokens, so rate limits enforced locally.
+        # NOTE(Ryan): Although this isn't really practical since the limits are for an entire day and an entire organization. Maybe skip this and just recognize what a rate limit error for batching looks like (need to try this on a low tier account).
+        # rate_limits = self.get_rate_limits()
+        # tpd = rate_limits["max_tokens_per_day"]
+        # token_encoding_name = get_token_encoding_name(self.model)
+
+        # TODO(Ryan): based on the files that are downloaded, update completed_ids. If any are errors, try to resubmit (depending on error type).
+        # TODO(Ryan): This creates responses_0.jsonl, responses_1.jsonl, etc. errors named same way? or errors_0.jsonl, errors_1.jsonl?
+        # TODO(Ryan): retries, resubmits on lagging batches - need to study this a little closer
+        # TODO(Ryan): likely can add some logic for smarter check_interval based on batch size and if the batch has started or not, fine to do a dumb ping for now
+        batch_watcher = BatchWatcher(working_dir, check_interval=self.check_interval)
+
+        asyncio.run(batch_watcher.watch())
+
+        # TODO(Ryan): Add back in here the dataset creation
+        return dataset
 
 
-def get_token_encoding_name(model: str) -> str:
-    """Get the token encoding name for a given model."""
-    if "gpt" in model:
-        return tiktoken.encoding_for_model(model).name
-    else:
-        logging.warning(
-            f'Token encoding name for model "{model}" not implemented, using cl100k_base for token counting'
+@Dataset
+class BatchWatcher:
+    def __init__(self, working_dir: str, check_interval: int = 60) -> None:
+        """Initialize BatchWatcher with batch objects file and check interval.
+
+        Args:
+            batch_objects_file (str): Path to the batch objects JSON file.
+            check_interval (int): Time interval (in seconds) to check batch status.
+        """
+        self.client = AsyncOpenAI()
+        with open(f"{working_dir}/batch_objects.jsonl", "r") as f:
+            self.batch_objects = [json.loads(line) for line in f]
+        self.batch_ids = [obj["id"] for obj in self.batch_objects]
+        self.batch_id_to_request_file_name = {
+            obj["id"]: obj["metadata"]["request_file_name"]
+            for obj in self.batch_objects
+        }
+        self.batches = []
+
+    async def check_batch_status(self, batch_id: str) -> tuple[str, str]:
+        """Check the status of a batch by its ID.
+
+        Args:
+            batch_id (str): The ID of the batch to check.
+
+        Returns:
+            tuple[str, str]: The batch ID and its status.
+        """
+        batch = await self.client.batches.retrieve(batch_id)
+        logging.info(
+            f"Batch {batch_id} status: {batch.status} requests: {batch.request_counts.completed}/{batch.request_counts.failed}/{batch.request_counts.total} completed/failed/total"
         )
-        return "cl100k_base"
+        return batch_id, batch
 
+    async def watch(self) -> None:
+        """Monitor the status of batches until all are completed (includes successfully, failed, expired or cancelled)."""
+        completed_batches = {}
+        while len(completed_batches) < len(self.batch_ids):
+            status_tasks = []
+            for batch_id in self.batch_ids:
+                if batch_id not in completed_batches:
+                    status_tasks.append(self.check_batch_status(batch_id))
 
-def get_rate_limits(model: str, request_url: str, api_key: str) -> Tuple[int, int]:
-    """
-    Function to get rate limits for a given annotator. Makes a single request to openAI API
-    and gets the rate limits from the response headers. These rate limits vary per model
-    and are determined by your organization's usage tier. View the following:
-    https://platform.openai.com/docs/guides/rate-limits/usage-tiers
-    https://platform.openai.com/settings/organization/limits
+            batches = await asyncio.gather(*status_tasks)
+            newly_completed_batches = []
+            for batch_id, batch in batches:
+                if batch.status in ["completed", "failed", "expired", "cancelled"]:
+                    logging.info(
+                        f"Batch {batch_id} processing finished with status: {batch.status}"
+                    )
+                    completed_batches[batch_id] = batch
+                    newly_completed_batches.append(batch)
 
-    Args:
-        model (str): The model for which to get the rate limits.
-        request_url (str): The request URL for which to get the rate limits.
+            # NOTE(Ryan): Now downloading after each check, instead of waiting until all are completed
+            tasks = [
+                self.download_batch_result_file(batch)
+                for batch in newly_completed_batches
+            ]
+            await asyncio.gather(*tasks)
 
-    Returns:
-        Tuple[int, int]: The maximum number of requests and tokens per minute.
-    """
-    if "api.openai.com" in request_url:
-        # Send a dummy request to get rate limit information
-        response = requests.post(
-            request_url,
-            headers={"Authorization": f"Bearer {api_key}"},
-            json={"model": model, "messages": []},
-        )
-        # Extract rate limit information from headers
-        max_requests = int(response.headers.get("x-ratelimit-limit-requests", 30_000))
-        max_tokens = int(response.headers.get("x-ratelimit-limit-tokens", 150_000_000))
-    elif "api.sambanova.ai" in request_url:
-        # Send a dummy request to get rate limit information
-        max_requests = 50
-        max_tokens = 100_000_000
-    else:
-        raise NotImplementedError(
-            f'Rate limits for API endpoint "{request_url}" not implemented'
-        )
-
-    return max_requests, max_tokens
-
-
-def get_api_key(request_url: str) -> str:
-    """Get the API key for a given request URL."""
-    if "api.openai.com" in request_url:
-        return os.getenv("OPENAI_API_KEY")
-    elif "api.sambanova.ai" in request_url:
-        return os.getenv("SAMBANOVA_API_KEY")
-    else:
-        raise NotImplementedError(
-            f'Default API key environment variable for API endpoint "{request_url}" not implemented'
-        )
-
-
-def api_endpoint_from_url(request_url: str) -> str:
-    """Extract the API endpoint from the request URL.
-    This is used to determine the number of tokens consumed by the request.
-    """
-
-    # OpenAI API
-    match = re.search("^https://[^/]+/v\\d+/(.+)$", request_url)
-    if match:
-        return match[1]
-
-    # for Azure OpenAI deployment urls
-    match = re.search(
-        r"^https://[^/]+/openai/deployments/[^/]+/(.+?)(\?|$)", request_url
-    )
-    if match:
-        return match[1]
-
-    # Catch all for other API endpoints using OpenAI OpenAPI format
-    if "chat/completions" in request_url:
-        return "chat/completions"
-    elif "completions" in request_url:
-        return "completions"
-    else:
-        raise NotImplementedError(
-            f'API endpoint "{request_url}" not implemented in this script'
-        )
-
-
-def append_generic_response(data: GenericResponse, filename: str) -> None:
-    """Append a json payload to the end of a jsonl file."""
-    json_string = json.dumps(data.model_dump())
-    with open(filename, "a") as f:
-        f.write(json_string + "\n")
-
-
-def num_tokens_consumed_from_request(
-    request_json: dict,
-    api_endpoint: str,
-    token_encoding_name: str,
-):
-    """Count the number of tokens in the request. Only supports completion and embedding requests."""
-    encoding = tiktoken.get_encoding(token_encoding_name)
-    # if completions request, tokens = prompt + n * max_tokens
-    if api_endpoint.endswith("completions"):
-        max_tokens = request_json.get("max_tokens", 15)
-        n = request_json.get("n", 1)
-        completion_tokens = n * max_tokens
-
-        # chat completions
-        if api_endpoint.startswith("chat/"):
-            num_tokens = 0
-            for message in request_json["messages"]:
-                num_tokens += 4  # every message follows <im_start>{role/name}\n{content}<im_end>\n
-                for key, value in message.items():
-                    num_tokens += len(encoding.encode(value))
-                    if key == "name":  # if there's a name, the role is omitted
-                        num_tokens -= 1  # role is always required and always 1 token
-            num_tokens += 2  # every reply is primed with <im_start>assistant
-            return num_tokens + completion_tokens
-        # normal completions
-        else:
-            prompt = request_json["prompt"]
-            if isinstance(prompt, str):  # single prompt
-                prompt_tokens = len(encoding.encode(prompt))
-                num_tokens = prompt_tokens + completion_tokens
-                return num_tokens
-            elif isinstance(prompt, list):  # multiple prompts
-                prompt_tokens = sum([len(encoding.encode(p)) for p in prompt])
-                num_tokens = prompt_tokens + completion_tokens * len(prompt)
-                return num_tokens
-            else:
-                raise TypeError(
-                    'Expecting either string or list of strings for "prompt" field in completion request'
+            if len(completed_batches) < len(self.batch_ids):
+                logging.info(
+                    f"Remaining batches processing {len(self.batch_ids) - len(completed_batches)}/{len(self.batch_ids)}"
                 )
-    # if embeddings request, tokens = input tokens
-    elif api_endpoint == "embeddings":
-        input = request_json["input"]
-        if isinstance(input, str):  # single input
-            num_tokens = len(encoding.encode(input))
-            return num_tokens
-        elif isinstance(input, list):  # multiple inputs
-            num_tokens = sum([len(encoding.encode(i)) for i in input])
-            return num_tokens
+                logging.info(f"Sleeping for {self.check_interval} seconds...")
+                await asyncio.sleep(self.check_interval)
+
+        self.batches = completed_batches.values()
+
+    async def download_batch_result_file(self, batch) -> str:
+        """Download the result of a completed batch to file.
+
+        Args:
+            batch: The batch object to download results from.
+
+        Returns:
+            str: Path to the downloaded result file.
+        """
+        if batch.status == "completed" and batch.output_file_id:
+            file_content = await self.client.files.content(batch.output_file_id)
+        elif batch.status == "failed" and batch.error_file_id:
+            file_content = await self.client.files.content(batch.error_file_id)
+        elif batch.status == "cancelled" or batch.status == "expired":
+            logging.warning(f"Batch {batch.id} was cancelled or expired")
+            return None
+
+        # NOTE(Ryan): This is so the naming is consistent with the request file naming
+        request_file_id = (
+            self.batch_id_to_request_file_name[batch.id].split("/")[-1].split("_", 1)[1]
+        )
+        output_path = f"{self.working_dir}/responses_{request_file_id}"
+        with open(output_path, "wb") as f:
+            f.write(file_content.content)
+        return output_path
+
+    # NOTE(Ryan): This could be useful for very small batches and overall total requests not too large
+    async def download_batch_result_in_memory(self, batch) -> list[str]:
+        """Download the result of a completed batch.
+
+        Args:
+            batch: The batch object to download results from.
+
+        Returns:
+            list[str]: Lines of the downloaded result.
+        """
+        if batch.status == "completed" and batch.output_file_id:
+            file_content = await self.client.files.content(batch.output_file_id)
+            return file_content.text.splitlines()
+        return []
+
+    # NOTE(Ryan): This could be useful for very small batches and overall total requests not too large
+    async def download_results_in_memory(self, output_path: str) -> None:
+        """Download results of all batches and save to a specified path.
+
+        Args:
+            output_path (str): Path to save the downloaded results.
+        """
+        tasks = [self.download_batch_result(batch) for batch in self.batches]
+        results = await asyncio.gather(*tasks)
+
+        all_results = [
+            item for sublist in results for item in sublist
+        ]  # Flatten the list of lists
+
+        with open(output_path, "w") as f:
+            for result in all_results:
+                f.write(result + "\n")
+        logging.info(f"All batch results downloaded and saved to: {output_path}")
+
+    async def download_errors(self, error_path: str, batch_id: str) -> None:
+        """Download error file for a specific batch if available.
+
+        Args:
+            error_path (str): Path to save the error file.
+            batch_id (str): The ID of the batch to download errors from.
+        """
+        batch = await self.client.batches.retrieve(batch_id)
+        if batch.error_file_id:
+            file_content = await self.client.files.content(batch.error_file_id)
+            with open(error_path, "wb") as f:
+                f.write(file_content.content)
+            logging.info(f"Batch errors downloaded and saved to: {error_path}")
         else:
-            raise TypeError(
-                'Expecting either string or list of strings for "inputs" field in embedding request'
-            )
-    # more logic needed to support other API calls (e.g., edits, inserts, DALL-E)
-    else:
-        raise NotImplementedError(
-            f'API endpoint "{api_endpoint}" not implemented in this script'
+            logging.info(f"No error file available for batch {batch_id}.")
+
+    async def plot_completion_data(self, output_dir: str) -> None:
+        """Save plots visualizing completion times for the batches.
+
+        Args:
+            output_dir (str): Directory to save the plots.
+        """
+        completion_times = []
+        completion_dates = []
+
+        for batch_id in self.batch_ids:
+            batch = await self.client.batches.retrieve(batch_id)
+            if batch.status == "completed":
+                duration = (
+                    batch.completed_at - batch.created_at
+                ) / 60  # Convert to minutes
+                completion_times.append(duration)
+                completion_dates.append(batch.completed_at)
+
+        # Create a DataFrame for plotting
+        df = pd.DataFrame(
+            {
+                "Completion Time (min)": completion_times,  # Update label to minutes
+                "Completion Date": pd.to_datetime(completion_dates, unit="s"),
+            }
         )
 
+        # Histogram of completion durations
+        plt.figure(figsize=(12, 6))
+        plt.hist(df["Completion Time (min)"], bins=20, color="blue", alpha=0.7)
+        plt.title("Histogram of Completion Durations")
+        plt.xlabel("Duration (minutes)")  # Update label to minutes
+        plt.ylabel("Frequency")
+        plt.grid(axis="y")
+        plt.savefig(
+            os.path.join(output_dir, "completion_durations_histogram.png")
+        )  # Save the histogram
+        plt.close()  # Close the plot
 
-def task_id_generator_function():
-    """Generate integers 0, 1, 2, and so on."""
-    task_id = 0
-    while True:
-        yield task_id
-        task_id += 1
+        # Cumulative plot of completed jobs over time
+        df.sort_values("Completion Date", inplace=True)
+        df["Cumulative Completed"] = range(1, len(df) + 1)
+
+        plt.figure(figsize=(12, 6))
+        plt.plot(
+            df["Completion Date"], df["Cumulative Completed"], marker="o", color="green"
+        )
+        plt.title("Cumulative Completed Jobs Over Time")
+        plt.xlabel("Completion Date")
+        plt.ylabel("Cumulative Completed Jobs")
+        plt.grid()
+        plt.savefig(
+            os.path.join(output_dir, "cumulative_completed_jobs.png")
+        )  # Save the cumulative plot
+        plt.close()  # Close the plot

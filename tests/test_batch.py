@@ -86,6 +86,7 @@ if __name__ == "__main__":
         batch_size=args.batch_size,
         check_interval=args.check_interval,
     )
+
     reannotated_dataset = reannotate_prompter(dataset, request_processor)
 
     dataset = reannotated_dataset.to_huggingface()
