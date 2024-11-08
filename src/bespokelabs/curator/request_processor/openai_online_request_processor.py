@@ -119,7 +119,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         return request
 
     def get_generic_response(
-        self, response: Dict, prompt_formatter: PromptFormatter
+        self, response: Dict, prompt_formatter: PromptFormatter, dataset: Dataset
     ) -> GenericResponse:
         """
         Parses a API-specific response into a generic response body.
@@ -140,7 +140,9 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
 
         return GenericResponse(
             response=content,
-            row=response["metadata"]["sample"],
+            row=response["metadata"][
+                "sample"
+            ],  # Or can do dataset[response["metadata"]["request_idx"]]
             row_idx=response["metadata"]["request_idx"],
         )
 

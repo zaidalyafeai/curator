@@ -52,7 +52,9 @@ class BaseRequestProcessor(ABC):
         pass
 
     @abstractmethod
-    def get_generic_response(self, response: dict) -> GenericResponse:
+    def get_generic_response(
+        self, response: dict, prompt_formatter: PromptFormatter, dataset: Dataset
+    ) -> GenericResponse:
         """
         Parses a API-specific response into a generic response body.
         Does error handling on the response.

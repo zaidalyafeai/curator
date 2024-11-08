@@ -8,7 +8,7 @@ from openai import AsyncOpenAI
 import pandas as pd
 import matplotlib.pyplot as plt
 import aiofiles
-
+import io
 from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.request_processor.base_request_processor import (
     BaseRequestProcessor,
@@ -16,6 +16,7 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     GenericResponse,
 )
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
+from io import BytesIO
 
 T = TypeVar("T")
 
@@ -119,7 +120,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         return request
 
     def get_generic_response(
-        self, response: Dict, prompt_formatter: PromptFormatter
+        self, response: Dict, prompt_formatter: PromptFormatter, dataset: Dataset
     ) -> GenericResponse:
         """
         Parses a API-specific response into a generic response body.
@@ -147,13 +148,17 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         # NOTE(Ryan): can we actually parse the response into a an OpenAI ChatCompletions object? Easier to access fields?
         # TODO(Ryan): if you add token tokens to generic response, we can parse that here too, similar to my comment above we can do that in the shared place.
         content = response["response"]["body"]["choices"][0]["message"]["content"]
+        row_idx = int(response["custom_id"])
 
         if prompt_formatter.response_format:
             content = json.loads(content)
 
+        # NOTE(Ryan): So dicts that have objects that are not JSON serializable will be converted to strings.
+
         return GenericResponse(
             response=content,
-            row_idx=int(response["custom_id"]),
+            row_idx=row_idx,
+            row=dataset[row_idx],
             raw_response=response,
         )
 
@@ -236,7 +241,9 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         # TODO(Ryan): likely can add some logic for smarter check_interval based on batch size and if the batch has started or not, fine to do a dumb ping for now
         batch_watcher = BatchWatcher(working_dir, check_interval=self.check_interval)
 
-        asyncio.run(batch_watcher.watch(prompt_formatter, self.get_generic_response))
+        asyncio.run(
+            batch_watcher.watch(prompt_formatter, self.get_generic_response, dataset)
+        )
 
         dataset = self.create_dataset_files(dataset, working_dir, prompt_formatter)
         return dataset
@@ -281,6 +288,7 @@ class BatchWatcher:
         self,
         prompt_formatter: PromptFormatter,
         get_generic_response: Callable[[Dict], GenericResponse],
+        dataset: Dataset,
     ) -> None:
         """Monitor the status of batches until all are completed (includes successfully, failed, expired or cancelled)."""
         completed_batches = {}
@@ -303,7 +311,7 @@ class BatchWatcher:
             # NOTE(Ryan): Now downloading after each check, instead of waiting until all are completed
             tasks = [
                 self.download_batch_result_file(
-                    batch, prompt_formatter, get_generic_response
+                    batch, prompt_formatter, get_generic_response, dataset
                 )
                 for batch in newly_completed_batches
             ]
@@ -323,6 +331,7 @@ class BatchWatcher:
         batch,
         prompt_formatter: PromptFormatter,
         get_generic_response: Callable[[Dict], GenericResponse],
+        dataset: Dataset,
     ) -> str:
         """Download the result of a completed batch to file.
 
@@ -349,9 +358,9 @@ class BatchWatcher:
             for raw_response in file_content.text.splitlines():
                 # TODO(Ryan): We should abstract this out
                 generic_response = get_generic_response(
-                    json.loads(raw_response), prompt_formatter
+                    json.loads(raw_response), prompt_formatter, dataset
                 )
-                f.write(json.dumps(generic_response.model_dump()) + "\n")
+                f.write(json.dumps(generic_response.model_dump(), default=str) + "\n")
         return output_path
 
     async def plot_completion_data(self, output_dir: str) -> None:
