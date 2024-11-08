@@ -2,10 +2,12 @@ from bespokelabs import curator
 from datasets import load_dataset
 import logging
 
-logging.basicConfig(level=logging.INFO)
-
 dataset = load_dataset("allenai/WildChat", split="train")
 dataset = dataset.select(range(3_000))
+
+# To see more detail about how batches are being processed
+# logger = logging.getLogger("bespokelabs.curator")
+# logger.setLevel(logging.INFO)
 
 
 def prompt_func(row):

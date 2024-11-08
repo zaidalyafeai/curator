@@ -22,6 +22,7 @@ from bespokelabs.curator.request_processor.base_request_processor import (
 from bespokelabs.curator.prompter.prompter import PromptFormatter
 
 T = TypeVar("T")
+logger = logging.getLogger(__name__)
 
 
 class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
@@ -63,14 +64,14 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         tpm = int(response.headers.get("x-ratelimit-limit-tokens", 0))
 
         if not rpm or not tpm:
-            logging.warning(
+            logger.warning(
                 "Failed to get rate limits from OpenAI API, using default values"
             )
             rpm = 30_000
             tpm = 150_000_000
 
-        logging.info(f"Automatically set max_requests_per_minute to {rpm}")
-        logging.info(f"Automatically set max_tokens_per_minute to {tpm}")
+        logger.info(f"Automatically set max_requests_per_minute to {rpm}")
+        logger.info(f"Automatically set max_tokens_per_minute to {tpm}")
 
         rate_limits = {
             "max_requests_per_minute": rpm,
@@ -240,14 +241,14 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
 
         # initialize flags
         file_not_finished = True  # after file is empty, we'll skip reading it
-        logging.debug(f"Initialization complete.")
+        logger.debug(f"Initialization complete.")
 
         completed_request_ids: Set[int] = set()
         if os.path.exists(save_filepath):
             if resume:
                 # save all successfully completed requests to a temporary file, then overwrite the original file with the temporary file
-                logging.debug(f"Resuming progress from existing file: {save_filepath}")
-                logging.debug(
+                logger.debug(f"Resuming progress from existing file: {save_filepath}")
+                logger.debug(
                     f"Removing all failed requests from {save_filepath} so they can be retried"
                 )
                 temp_filepath = f"{save_filepath}.temp"
@@ -259,22 +260,22 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                         response = GenericResponse.model_validate_json(line)
                         if response.errors:
                             # this means that the request failed and we have a list of errors
-                            logging.debug(
+                            logger.debug(
                                 f"Request {response.row_idx} previously failed due to errors: {response.errors}, removing from output and will retry"
                             )
                             num_previously_failed_requests += 1
                         else:
                             completed_request_ids.add(response.row_idx)
                             output_file.write(line)
-                logging.info(
+                logger.info(
                     f"Found {len(completed_request_ids)} completed requests and {num_previously_failed_requests} previously failed requests"
                 )
-                logging.info(
+                logger.info(
                     "Failed requests and remaining requests will now be processed."
                 )
                 os.replace(temp_filepath, save_filepath)
             elif resume_no_retry:
-                logging.warning(
+                logger.warning(
                     f"Resuming progress from existing file: {save_filepath}, without retrying failed requests"
                 )
                 num_previously_failed_requests = 0
@@ -285,33 +286,33 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                         data = json.loads(line)
                         if isinstance(data[1], list):
                             # this means that the request failed and we have a list of errors
-                            logging.debug(
+                            logger.debug(
                                 f"Request {data[2].get('request_idx')} previously failed due to errors: {data[1]}, will NOT retry"
                             )
                             num_previously_failed_requests += 1
                         completed_request_ids.add(data[2].get("request_idx"))
-                logging.info(
+                logger.info(
                     f"Found {len(completed_request_ids)} total requests and {num_previously_failed_requests} previously failed requests"
                 )
-                logging.info("Remaining requests will now be processed.")
+                logger.info("Remaining requests will now be processed.")
             else:
                 user_input = input(
                     f"File {save_filepath} already exists.\nTo resume if there are remaining requests without responses, run with --resume flag.\nOverwrite? (Y/n): "
                 )
                 if user_input.lower() != "y" and user_input.lower() != "":
-                    logging.info("Aborting operation.")
+                    logger.info("Aborting operation.")
                     return
 
         # initialize file reading
         with open(requests_filepath) as file:
             # `requests` will provide requests one at a time
             requests = file.__iter__()
-            logging.debug(f"File opened. Entering main loop")
+            logger.debug(f"File opened. Entering main loop")
 
             # Count total number of requests
             total_requests = sum(1 for _ in open(requests_filepath))
             if total_requests == len(completed_request_ids):
-                logging.debug(
+                logger.debug(
                     "All requests have already been completed so will just reuse cache."
                 )
                 return
@@ -330,7 +331,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                     if next_request is None:
                         if not queue_of_requests_to_retry.empty():
                             next_request = queue_of_requests_to_retry.get_nowait()
-                            logging.debug(
+                            logger.debug(
                                 f"Retrying request {next_request.task_id}: {next_request}"
                             )
                         elif file_not_finished:
@@ -339,7 +340,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                                 request_json = json.loads(next(requests))
                                 request_idx = request_json["metadata"]["request_idx"]
                                 if resume and request_idx in completed_request_ids:
-                                    logging.debug(
+                                    logger.debug(
                                         f"Skipping already completed request {request_idx}"
                                     )
                                     status_tracker.num_tasks_already_completed += 1
@@ -355,12 +356,12 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                                 )
                                 status_tracker.num_tasks_started += 1
                                 status_tracker.num_tasks_in_progress += 1
-                                logging.debug(
+                                logger.debug(
                                     f"Reading request {next_request.task_id}: {next_request}"
                                 )
                             except StopIteration:
                                 # if file runs out, set flag to stop reading it
-                                logging.debug("Read file exhausted")
+                                logger.debug("Read file exhausted")
                                 file_not_finished = False
 
                     # update available capacity
@@ -407,7 +408,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                             )
                             next_request = None  # reset next_request to empty
                         else:
-                            logging.debug(
+                            logger.debug(
                                 f"Not Enough Capacity: Request tokens: {next_request_tokens}, Available request capacity: {available_request_capacity}, Available token capacity: {available_token_capacity}"
                             )
 
@@ -441,7 +442,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                         )
                         await asyncio.sleep(remaining_seconds_to_pause)
                         # ^e.g., if pause is 15 seconds and final limit was hit 5 seconds ago
-                        logging.warn(
+                        logger.warn(
                             f"Pausing to cool down until {time.ctime(status_tracker.time_of_last_rate_limit_error + seconds_to_pause_after_rate_limit_error)}"
                         )
 
@@ -449,18 +450,18 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
             pbar.close()
 
             # after finishing, log final status
-            logging.info(
+            logger.info(
                 f"""Parallel processing complete. Results saved to {save_filepath}"""
             )
 
-            logging.info(f"Status tracker: {status_tracker}")
+            logger.info(f"Status tracker: {status_tracker}")
 
             if status_tracker.num_tasks_failed > 0:
-                logging.warning(
+                logger.warning(
                     f"{status_tracker.num_tasks_failed} / {status_tracker.num_tasks_started} requests failed. Errors logged to {save_filepath}."
                 )
             if status_tracker.num_rate_limit_errors > 0:
-                logging.warning(
+                logger.warning(
                     f"{status_tracker.num_rate_limit_errors} rate limit errors received. Consider running at a lower rate."
                 )
 
@@ -502,7 +503,7 @@ class APIRequest:
         get_generic_response: Callable[[list], dict],
     ) -> None:
         """Calls the OpenAI API and saves results."""
-        logging.debug(f"Starting request #{self.task_id}")
+        logger.debug(f"Starting request #{self.task_id}")
         error = None
         try:
             async with session.post(
@@ -510,7 +511,7 @@ class APIRequest:
             ) as response:
                 response = await response.json()
             if "error" in response:
-                logging.warning(
+                logger.warning(
                     f"Request {self.task_id} failed with error {response['error']}"
                 )
                 status_tracker.num_api_errors += 1
@@ -525,7 +526,7 @@ class APIRequest:
         except (
             Exception
         ) as e:  # catching naked exceptions is bad practice, but in this case we'll log & save them
-            logging.warning(
+            logger.warning(
                 f"Request {self.task_id} failed with Exception {e}, attempts left {self.attempts_left}"
             )
             status_tracker.num_other_errors += 1
@@ -535,7 +536,7 @@ class APIRequest:
             if self.attempts_left:
                 retry_queue.put_nowait(self)
             else:
-                logging.error(
+                logger.error(
                     f"Request {self.request_json} failed after all attempts. Saving errors: {self.result}"
                 )
                 data = GenericResponse(
@@ -556,7 +557,7 @@ class APIRequest:
             append_generic_response(data, save_filepath)
             status_tracker.num_tasks_in_progress -= 1
             status_tracker.num_tasks_succeeded += 1
-            logging.debug(f"Request {self.task_id} saved to {save_filepath}")
+            logger.debug(f"Request {self.task_id} saved to {save_filepath}")
 
 
 def get_token_encoding_name(model: str) -> str:
@@ -564,7 +565,7 @@ def get_token_encoding_name(model: str) -> str:
     if "gpt" in model:
         return tiktoken.encoding_for_model(model).name
     else:
-        logging.warning(
+        logger.warning(
             f'Token encoding name for model "{model}" not implemented, using cl100k_base for token counting'
         )
         return "cl100k_base"

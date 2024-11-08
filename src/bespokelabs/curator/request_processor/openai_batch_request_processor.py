@@ -12,8 +12,10 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     GenericResponse,
 )
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
+from tqdm import tqdm
 
 T = TypeVar("T")
+logger = logging.getLogger(__name__)
 
 
 class OpenAIBatchRequestProcessor(BaseRequestProcessor):
@@ -21,7 +23,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         self,
         batch_size: int = 1000,
         model: str = "gpt-4o-mini",
-        check_interval: int = 60,
+        check_interval: int = 10,
         api_key: str = os.getenv("OPENAI_API_KEY"),
         url: str = "https://api.openai.com/v1/chat/completions",
     ):
@@ -66,7 +68,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         else:
             tpd = model_tpd[self.model]
 
-        logging.info(
+        logger.info(
             f"Automatically set max_tokens_per_day to {tpd}, model: {self.model} "
         )
 
@@ -135,7 +137,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
         # TODO(Ryan): Add error handling. This should handle error files from BatchAPI.
         if status_code != 200:
-            logging.warning(
+            logger.warning(
                 f"Request {request_id} failed with status code {status_code}"
             )
             return None
@@ -164,7 +166,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                 file=file_content, purpose="batch"
             )
 
-        logging.info(f"File uploaded: {batch_file_upload}")
+        logger.info(f"File uploaded: {batch_file_upload}")
 
         batch_object = await self.async_client.batches.create(
             input_file_id=batch_file_upload.id,
@@ -174,7 +176,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                 "request_file_name": batch_file
             },  # for easily mapping back later, NOTE(Ryan): can convert to the int or UUID later
         )
-        logging.info(f"Batch request submitted, received batch object: {batch_object}")
+        logger.info(f"Batch request submitted, received batch object: {batch_object}")
 
         return batch_object
 
@@ -201,7 +203,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
         # TODO(Ryan): we should have an easy way to cancel all batches in batch_objects.jsonl if the user realized they made a mistake
         if os.path.exists(batch_objects_file):
-            logging.warning(
+            logger.warning(
                 f"Batch objects file already exists, skipping batch submission and resuming: {batch_objects_file}"
             )
         else:
@@ -222,7 +224,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                 # NOTE(Ryan): we can also store the request_file_name in this object here, instead of in the metadata during batch submission. Can find a nice abstraction across other batch APIs (e.g. claude)
                 for obj in batch_objects:
                     f.write(json.dumps(obj.model_dump()) + "\n")
-            logging.info(f"Batch objects written to {batch_objects_file}")
+            logger.info(f"Batch objects written to {batch_objects_file}")
 
         # TODO(Ryan): Actually do accounting for tokens, so rate limits enforced locally.
         # NOTE(Ryan): Although this isn't really practical since the limits are for an entire day and an entire organization. Maybe skip this and just recognize what a rate limit error for batching looks like (need to try this on a low tier account).
@@ -245,7 +247,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
 
 class BatchWatcher:
-    def __init__(self, working_dir: str, check_interval: int = 60) -> None:
+    def __init__(self, working_dir: str, check_interval) -> None:
         """Initialize BatchWatcher with batch objects file and check interval.
 
         Args:
@@ -274,7 +276,7 @@ class BatchWatcher:
             tuple[str, str]: The batch ID and its status.
         """
         batch = await self.client.batches.retrieve(batch_id)
-        logging.info(
+        logger.info(
             f"Batch {batch_id} status: {batch.status} requests: {batch.request_counts.completed}/{batch.request_counts.failed}/{batch.request_counts.total} completed/failed/total"
         )
         return batch_id, batch
@@ -286,22 +288,45 @@ class BatchWatcher:
         dataset: Dataset,
     ) -> None:
         """Monitor the status of batches until all are completed (includes successfully, failed, expired or cancelled)."""
+
         completed_batches = {}
+        pbar = tqdm(
+            total=len(dataset),
+            desc="Completed OpenAI requests in batches",
+            unit="request",
+        )
+
         while len(completed_batches) < len(self.batch_ids):
+            pbar.n = 0
             status_tasks = []
             for batch_id in self.batch_ids:
                 if batch_id not in completed_batches:
                     status_tasks.append(self.check_batch_status(batch_id))
+                else:
+                    breakpoint()
+                    pbar.n = (
+                        pbar.n
+                        + completed_batches[batch_id].request_counts.completed
+                        + completed_batches[batch_id].request_counts.failed
+                    )
 
             batches = await asyncio.gather(*status_tasks)
             newly_completed_batches = []
             for batch_id, batch in batches:
                 if batch.status in ["completed", "failed", "expired", "cancelled"]:
-                    logging.info(
+                    logger.info(
                         f"Batch {batch_id} processing finished with status: {batch.status}"
                     )
                     completed_batches[batch_id] = batch
                     newly_completed_batches.append(batch)
+
+                pbar.n = (
+                    pbar.n
+                    + batch.request_counts.completed
+                    + batch.request_counts.failed
+                )
+
+            pbar.refresh()
 
             # NOTE(Ryan): Now downloading after each check, instead of waiting until all are completed
             tasks = [
@@ -313,12 +338,13 @@ class BatchWatcher:
             await asyncio.gather(*tasks)
 
             if len(completed_batches) < len(self.batch_ids):
-                logging.info(
+                logger.info(
                     f"Remaining batches processing {len(self.batch_ids) - len(completed_batches)}/{len(self.batch_ids)}"
                 )
-                logging.info(f"Sleeping for {self.check_interval} seconds...")
+                logger.info(f"Sleeping for {self.check_interval} seconds...")
                 await asyncio.sleep(self.check_interval)
 
+        pbar.close()
         self.batches = completed_batches.values()
 
     async def download_batch_result_file(
@@ -341,7 +367,7 @@ class BatchWatcher:
         elif batch.status == "failed" and batch.error_file_id:
             file_content = await self.client.files.content(batch.error_file_id)
         elif batch.status == "cancelled" or batch.status == "expired":
-            logging.warning(f"Batch {batch.id} was cancelled or expired")
+            logger.warning(f"Batch {batch.id} was cancelled or expired")
             return None
 
         # NOTE(Ryan): This is so the naming is consistent with the request file naming
