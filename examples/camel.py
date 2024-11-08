@@ -1,4 +1,5 @@
 from typing import List
+
 from pydantic import BaseModel, Field
 
 from bespokelabs import curator
@@ -56,4 +57,4 @@ qa_prompter = curator.Prompter(
 qa_dataset = qa_prompter(subsubject_dataset)
 
 qa_dataset.map(lambda row: {"answer": row["answer"].strip()}, num_proc=2)
-print(qa_dataset)
+print(qa_dataset.to_pandas())
