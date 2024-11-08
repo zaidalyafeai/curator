@@ -23,6 +23,7 @@ pandas = "^2.2.3"
 xxhash = "^3.5.0"
 tqdm = "^4.67.0"
 matplotlib = "^3.9.2"
+aiofiles = "^24.1.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.2.0"

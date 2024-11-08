@@ -4,6 +4,7 @@ from bespokelabs.curator.request_processor.openai_batch_request_processor import
 )
 from datasets import load_dataset, Dataset
 import argparse
+import logging
 
 
 def convert_ShareGPT_to_IT_format(dataset: Dataset) -> Dataset:
@@ -49,8 +50,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--batch",
-        type=bool,
-        default=False,
+        action="store_true",
         help="Whether to use batch processing",
     )
     parser.add_argument(
@@ -91,10 +91,15 @@ if __name__ == "__main__":
     #     model_name="gpt-4o-mini",
     # )
 
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+
     reannotate_prompter = curator.Prompter(
         prompt_func=lambda row: {"user_prompt": row["instruction"]},
         parse_func=lambda row, response: {**row, "model_response": response},
         model_name="gpt-4o-mini",
+        batch=args.batch,
     )
 
     # To set internal variables

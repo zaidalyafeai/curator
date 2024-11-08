@@ -12,6 +12,9 @@ from bespokelabs.curator.request_processor.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.generic_response import GenericResponse
 from datasets.arrow_writer import ArrowWriter, SchemaInferenceError
 from pydantic import BaseModel
+from math import ceil
+import asyncio
+import aiofiles
 
 
 class BaseRequestProcessor(ABC):
@@ -87,7 +90,7 @@ class BaseRequestProcessor(ABC):
         working_dir: str,
         prompt_formatter: PromptFormatter,
         batch_size: Optional[int] = None,
-    ) -> str:
+    ) -> list[str]:
         """
         Creates a request file if they don't already exist or use existing.
 
@@ -96,7 +99,7 @@ class BaseRequestProcessor(ABC):
             working_dir (str): The directory where request files will be saved.
 
         Returns:
-            str: Path to the request file that was created.
+            list[str]: Paths to the request files that were created.
         """
         os.makedirs(working_dir, exist_ok=True)
         requests_files = glob.glob(f"{working_dir}/requests_*.jsonl")
@@ -143,6 +146,8 @@ class BaseRequestProcessor(ABC):
         request_count = 0
         request_file_idx = 0
         requests_file = f"{working_dir}/requests_{request_file_idx}.jsonl"
+        requests_files = []
+
         # Create new requests file
         with open(requests_file, "w") as f:
             if dataset is None:
@@ -150,29 +155,65 @@ class BaseRequestProcessor(ABC):
                 api_request = self.create_api_specific_request(request)
                 f.write(json.dumps(api_request) + "\n")
             else:
-                for dataset_row_idx, dataset_row in enumerate(dataset):
-                    request = prompt_formatter.get_generic_request(
-                        dataset_row, dataset_row_idx
-                    )
-                    # Convert the generic request to an API-specific request
-                    api_request = self.create_api_specific_request(request)
-                    # Write the API-specific request to file
-                    f.write(json.dumps(api_request) + "\n")
-                    request_count += 1
+                if batch_size:
+                    num_batches = ceil(len(dataset) / batch_size)
+                    requests_files = [
+                        f"{working_dir}/requests_{i}.jsonl" for i in range(num_batches)
+                    ]
 
-                    # Batches could be created in parallel, but dataset is iterated sequentially
-                    if batch_size is not None and request_count == batch_size:
-                        request_count = 0
-                        request_file_idx += 1
-                        requests_file = (
-                            f"{working_dir}/requests_{request_file_idx}.jsonl"
+                    async def create_all_request_files():
+                        tasks = [
+                            self.acreate_request_file(
+                                dataset,
+                                prompt_formatter,
+                                requests_files[i],
+                                i * batch_size,
+                                batch_size,
+                            )
+                            for i in range(num_batches)
+                        ]
+                        await asyncio.gather(*tasks)
+
+                    asyncio.run(create_all_request_files())
+                else:
+                    requests_files = [f"{working_dir}/requests_0.jsonl"]
+                    asyncio.run(
+                        self.acreate_request_file(
+                            dataset, prompt_formatter, requests_files[0]
                         )
-                        logging.info(
-                            f"Wrote {request_count:,} requests to {requests_file}."
-                        )
+                    )
+
         if request_count > 0:
             logging.info(f"Wrote {request_count:,} requests to {requests_file}.")
+
         return requests_files
+
+    # NOTE(Ryan): Instead of doing this, just iterate over iterable and keep counter and change filename when hit batch_size, this will be slower but this whole thing is dominated by llm calls anyways
+    async def acreate_request_file(
+        self,
+        dataset: Dataset,
+        prompt_formatter: PromptFormatter,
+        request_file: str,
+        start_idx: int = 0,
+        batch_size: int = None,
+    ) -> str:
+        if batch_size is not None:
+            end_idx = min(start_idx + batch_size, len(dataset))
+            dataset = dataset.select(range(start_idx, end_idx))
+
+        # NOTE(Ryan): For loops only for IterableDataset which allows for _very_ large datasets, when start_idx and batch_size are not specified
+        async with aiofiles.open(request_file, "w") as f:
+            for idx, dataset_row in enumerate(dataset):
+                dataset_row_idx = idx + start_idx
+                # Get the generic request from the map function
+                request = prompt_formatter.get_generic_request(
+                    dataset_row, dataset_row_idx
+                )
+                # Convert the generic request to an API-specific request
+                api_request = self.create_api_specific_request(request)
+                # Write the API-specific request to file
+                await f.write(json.dumps(api_request) + "\n")
+        logging.info(f"Requests file {request_file} written to disk.")
 
     def create_dataset_files(
         self,

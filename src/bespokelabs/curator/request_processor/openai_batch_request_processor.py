@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, Optional, Set, Tuple, TypeVar
 from openai import AsyncOpenAI
 import pandas as pd
 import matplotlib.pyplot as plt
+import aiofiles
 
 from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.request_processor.base_request_processor import (
@@ -14,6 +15,7 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     GenericRequest,
     GenericResponse,
 )
+from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 
 T = TypeVar("T")
 
@@ -116,7 +118,9 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
         return request
 
-    def get_generic_response(self, response: Dict) -> GenericResponse:
+    def get_generic_response(
+        self, response: Dict, prompt_formatter: PromptFormatter
+    ) -> GenericResponse:
         """
         Parses a API-specific response into a generic response body.
         Does error handling on the response.
@@ -130,7 +134,6 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         Returns:
             dict: Generic response body with an extra field "metadata" which contains the original dataset row or the index of the row in the original dataset
         """
-
         request_id = response["id"]
         status_code = response["response"]["status_code"]
 
@@ -145,7 +148,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         # TODO(Ryan): if you add token tokens to generic response, we can parse that here too, similar to my comment above we can do that in the shared place.
         content = response["response"]["body"]["choices"][0]["message"]["content"]
 
-        if self.prompt_formatter.response_format:
+        if prompt_formatter.response_format:
             content = json.loads(content)
 
         return GenericResponse(
@@ -154,10 +157,32 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             raw_response=response,
         )
 
+    async def asubmit_batch(self, batch_file: str) -> dict:
+        async with aiofiles.open(batch_file, "rb") as file:
+            file_content = await file.read()
+            batch_file_upload = await self.async_client.files.create(
+                file=file_content, purpose="batch"
+            )
+
+        logging.info(f"File uploaded: {batch_file_upload}")
+
+        batch_object = await self.async_client.batches.create(
+            input_file_id=batch_file_upload.id,
+            endpoint="/v1/chat/completions",
+            completion_window="24h",
+            metadata={
+                "request_file_name": batch_file
+            },  # for easily mapping back later, NOTE(Ryan): can convert to the int or UUID later
+        )
+        logging.info(f"Batch request submitted, received batch object: {batch_object}")
+
+        return batch_object
+
     def run(
         self,
         dataset: Optional[Dataset],
         working_dir: str,
+        prompt_formatter: PromptFormatter,
     ) -> Dataset:
         """
         Uses the API to completing the specific map by calling the LLM.
@@ -170,7 +195,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             Dataset: Completed dataset
         """
         requests_files = self.create_request_files(
-            dataset, map, working_dir, self.batch_size
+            dataset, working_dir, prompt_formatter, self.batch_size
         )
         batch_objects_file = f"{working_dir}/batch_objects.jsonl"
 
@@ -211,12 +236,12 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         # TODO(Ryan): likely can add some logic for smarter check_interval based on batch size and if the batch has started or not, fine to do a dumb ping for now
         batch_watcher = BatchWatcher(working_dir, check_interval=self.check_interval)
 
-        asyncio.run(batch_watcher.watch())
+        asyncio.run(batch_watcher.watch(prompt_formatter, self.get_generic_response))
 
+        dataset = self.create_dataset_files(dataset, working_dir, prompt_formatter)
         return dataset
 
 
-@Dataset
 class BatchWatcher:
     def __init__(self, working_dir: str, check_interval: int = 60) -> None:
         """Initialize BatchWatcher with batch objects file and check interval.
@@ -234,6 +259,8 @@ class BatchWatcher:
             for obj in self.batch_objects
         }
         self.batches = []
+        self.check_interval = check_interval
+        self.working_dir = working_dir
 
     async def check_batch_status(self, batch_id: str) -> tuple[str, str]:
         """Check the status of a batch by its ID.
@@ -250,7 +277,11 @@ class BatchWatcher:
         )
         return batch_id, batch
 
-    async def watch(self) -> None:
+    async def watch(
+        self,
+        prompt_formatter: PromptFormatter,
+        get_generic_response: Callable[[Dict], GenericResponse],
+    ) -> None:
         """Monitor the status of batches until all are completed (includes successfully, failed, expired or cancelled)."""
         completed_batches = {}
         while len(completed_batches) < len(self.batch_ids):
@@ -271,7 +302,9 @@ class BatchWatcher:
 
             # NOTE(Ryan): Now downloading after each check, instead of waiting until all are completed
             tasks = [
-                self.download_batch_result_file(batch)
+                self.download_batch_result_file(
+                    batch, prompt_formatter, get_generic_response
+                )
                 for batch in newly_completed_batches
             ]
             await asyncio.gather(*tasks)
@@ -286,7 +319,10 @@ class BatchWatcher:
         self.batches = completed_batches.values()
 
     async def download_batch_result_file(
-        self, batch, OpenAIBatchRequestProcessor
+        self,
+        batch,
+        prompt_formatter: PromptFormatter,
+        get_generic_response: Callable[[Dict], GenericResponse],
     ) -> str:
         """Download the result of a completed batch to file.
 
@@ -309,10 +345,11 @@ class BatchWatcher:
             self.batch_id_to_request_file_name[batch.id].split("/")[-1].split("_", 1)[1]
         )
         output_path = f"{self.working_dir}/responses_{request_file_idx}"
-        with open(output_path, "wb") as f:
+        with open(output_path, "w") as f:
             for raw_response in file_content.text.splitlines():
-                generic_response = OpenAIBatchRequestProcessor.get_generic_response(
-                    raw_response
+                # TODO(Ryan): We should abstract this out
+                generic_response = get_generic_response(
+                    json.loads(raw_response), prompt_formatter
                 )
                 f.write(json.dumps(generic_response.model_dump()) + "\n")
         return output_path
