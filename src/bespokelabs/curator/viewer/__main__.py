@@ -22,6 +22,7 @@ def ensure_dependencies():
     
     if not os.path.exists(node_modules):
         print("First run: Installing Node.js dependencies...")
+        print("Your node_modules path: ", node_modules)
         try:
             subprocess.run(
                 ["npm", "install"],
@@ -33,7 +34,7 @@ def ensure_dependencies():
             print(f"Error installing dependencies: {e}")
             sys.exit(1)
         except FileNotFoundError:
-            print("Error: Node.js and npm are required. Please install them first.")
+            print("Error: Node.js is not installed. Please install Node.js to run the viewer.")
             sys.exit(1)
 
 def _setup_logging(level):
