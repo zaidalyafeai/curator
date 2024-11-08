@@ -1,30 +1,25 @@
 """Curator: Bespoke Labs Synthetic Data Generation Library."""
 
 import inspect
-import json
-import logging
-import math
 import os
-import time
-from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from typing import Any, Callable, Dict, Iterable, Optional, Type, TypeVar, Union
 
+from datasets import Dataset
 from pydantic import BaseModel
 from xxhash import xxh64
 
-from datasets import Dataset
 from bespokelabs.curator.db import MetadataDB
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
+from bespokelabs.curator.request_processor.base_request_processor import (
+    BaseRequestProcessor,
+)
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.openai_batch_request_processor import (
     OpenAIBatchRequestProcessor,
 )
 from bespokelabs.curator.request_processor.openai_online_request_processor import (
     OpenAIOnlineRequestProcessor,
-)
-from bespokelabs.curator.request_processor.base_request_processor import (
-    BaseRequestProcessor,
 )
 
 T = TypeVar("T")
@@ -116,6 +111,7 @@ class Prompter:
         dataset_hash = (
             dataset._fingerprint if dataset is not None else xxh64("").hexdigest()
         )
+
         prompt_func_hash = _get_function_hash(self.prompt_formatter.prompt_func)
         parse_func_hash = _get_function_hash(self.prompt_formatter.parse_func)
 

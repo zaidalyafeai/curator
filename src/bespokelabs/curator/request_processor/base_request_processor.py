@@ -176,9 +176,7 @@ class BaseRequestProcessor(ABC):
             asyncio.run(create_all_request_files())
         else:
             asyncio.run(
-                self.acreate_request_file(
-                    dataset, prompt_formatter, requests_file
-                )
+                self.acreate_request_file(dataset, prompt_formatter, requests_file)
             )
 
         return requests_files
