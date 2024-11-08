@@ -1,6 +1,4 @@
 from typing import List
-
-import pandas as pd
 from pydantic import BaseModel, Field
 
 from bespokelabs import curator
@@ -24,18 +22,14 @@ class QAs(BaseModel):
 
 
 subject_prompter = curator.Prompter(
-    prompt_func=lambda: {
-        "user_prompt": f"Generate a diverse list of 3 subjects. Keep it high-level (e.g. Math, Science)."
-    },
+    prompt_func=lambda: f"Generate a diverse list of 3 subjects. Keep it high-level (e.g. Math, Science).",
     parse_func=lambda _, subjects: [subject for subject in subjects.subjects],
     model_name="gpt-4o-mini",
     response_format=Subjects,
 )
 subject_dataset = subject_prompter()
 subsubject_prompter = curator.Prompter(
-    prompt_func=lambda subject: {
-        "user_prompt": f"For the given subject {subject}. Generate 3 diverse subsubjects. No explanation."
-    },
+    prompt_func=lambda subject: f"For the given subject {subject}. Generate 3 diverse subsubjects. No explanation.",
     parse_func=lambda subject, subsubjects: [
         {"subject": subject["subject"], "subsubject": subsubject.subject}
         for subsubject in subsubjects.subjects
@@ -46,9 +40,7 @@ subsubject_prompter = curator.Prompter(
 subsubject_dataset = subsubject_prompter(subject_dataset)
 
 qa_prompter = curator.Prompter(
-    prompt_func=lambda subsubject: {
-        "user_prompt": f"For the given subsubject {subsubject}. Generate 3 diverse questions and answers. No explanation."
-    },
+    prompt_func=lambda subsubject: f"For the given subsubject {subsubject}. Generate 3 diverse questions and answers. No explanation.",
     model_name="gpt-4o-mini",
     response_format=QAs,
     parse_func=lambda subsubject, qas: [
@@ -63,6 +55,5 @@ qa_prompter = curator.Prompter(
 )
 qa_dataset = qa_prompter(subsubject_dataset)
 
-qa_hf_dataset = qa_dataset.to_huggingface()
-qa_hf_dataset.map(lambda row: {"answer": row["answer"].strip()}, num_proc=2)
-print(qa_hf_dataset)
+qa_dataset.map(lambda row: {"answer": row["answer"].strip()}, num_proc=2)
+print(qa_dataset)

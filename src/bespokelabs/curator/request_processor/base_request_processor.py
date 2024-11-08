@@ -144,47 +144,42 @@ class BaseRequestProcessor(ABC):
                             )
                     return requests_files
 
-        request_count = 0
-        request_file_idx = 0
-        requests_file = f"{working_dir}/requests_{request_file_idx}.jsonl"
-        requests_files = []
-
         # Create new requests file
-        with open(requests_file, "w") as f:
-            if dataset is None:
+        requests_file = f"{working_dir}/requests_0.jsonl"
+        requests_files = [requests_file]
+
+        if dataset is None:
+            with open(requests_file, "w") as f:
                 request = prompt_formatter.get_generic_request(dict(), 0)
                 api_request = self.create_api_specific_request(request)
                 f.write(json.dumps(api_request) + "\n")
-            else:
-                if self.batch_size:
-                    num_batches = ceil(len(dataset) / self.batch_size)
-                    requests_files = [
-                        f"{working_dir}/requests_{i}.jsonl" for i in range(num_batches)
-                    ]
+            return requests_files
 
-                    async def create_all_request_files():
-                        tasks = [
-                            self.acreate_request_file(
-                                dataset,
-                                prompt_formatter,
-                                requests_files[i],
-                                start_idx=i * self.batch_size,
-                            )
-                            for i in range(num_batches)
-                        ]
-                        await asyncio.gather(*tasks)
+        if self.batch_size:
+            num_batches = ceil(len(dataset) / self.batch_size)
+            requests_files = [
+                f"{working_dir}/requests_{i}.jsonl" for i in range(num_batches)
+            ]
 
-                    asyncio.run(create_all_request_files())
-                else:
-                    requests_files = [f"{working_dir}/requests_0.jsonl"]
-                    asyncio.run(
-                        self.acreate_request_file(
-                            dataset, prompt_formatter, requests_files[0]
-                        )
+            async def create_all_request_files():
+                tasks = [
+                    self.acreate_request_file(
+                        dataset,
+                        prompt_formatter,
+                        requests_files[i],
+                        start_idx=i * self.batch_size,
                     )
+                    for i in range(num_batches)
+                ]
+                await asyncio.gather(*tasks)
 
-        if request_count > 0:
-            logging.info(f"Wrote {request_count:,} requests to {requests_file}.")
+            asyncio.run(create_all_request_files())
+        else:
+            asyncio.run(
+                self.acreate_request_file(
+                    dataset, prompt_formatter, requests_file
+                )
+            )
 
         return requests_files
 
@@ -199,6 +194,8 @@ class BaseRequestProcessor(ABC):
         if self.batch_size is not None:
             end_idx = min(start_idx + self.batch_size, len(dataset))
             dataset = dataset.select(range(start_idx, end_idx))
+        else:
+            end_idx = len(dataset)
 
         # NOTE(Ryan): For loops only for IterableDataset which allows for _very_ large datasets, when start_idx and batch_size are not specified
         async with aiofiles.open(request_file, "w") as f:
