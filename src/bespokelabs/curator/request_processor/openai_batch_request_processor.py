@@ -2,13 +2,9 @@ import asyncio
 import json
 import logging
 import os
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional, Set, Tuple, TypeVar
+from typing import Callable, Dict, Optional, TypeVar
 from openai import AsyncOpenAI
-import pandas as pd
-import matplotlib.pyplot as plt
 import aiofiles
-import io
 from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.request_processor.base_request_processor import (
     BaseRequestProcessor,
@@ -16,7 +12,6 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     GenericResponse,
 )
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
-from io import BytesIO
 
 T = TypeVar("T")
 
@@ -362,58 +357,3 @@ class BatchWatcher:
                 )
                 f.write(json.dumps(generic_response.model_dump(), default=str) + "\n")
         return output_path
-
-    async def plot_completion_data(self, output_dir: str) -> None:
-        """Save plots visualizing completion times for the batches.
-
-        Args:
-            output_dir (str): Directory to save the plots.
-        """
-        completion_times = []
-        completion_dates = []
-
-        for batch_id in self.batch_ids:
-            batch = await self.client.batches.retrieve(batch_id)
-            if batch.status == "completed":
-                duration = (
-                    batch.completed_at - batch.created_at
-                ) / 60  # Convert to minutes
-                completion_times.append(duration)
-                completion_dates.append(batch.completed_at)
-
-        # Create a DataFrame for plotting
-        df = pd.DataFrame(
-            {
-                "Completion Time (min)": completion_times,  # Update label to minutes
-                "Completion Date": pd.to_datetime(completion_dates, unit="s"),
-            }
-        )
-
-        # Histogram of completion durations
-        plt.figure(figsize=(12, 6))
-        plt.hist(df["Completion Time (min)"], bins=20, color="blue", alpha=0.7)
-        plt.title("Histogram of Completion Durations")
-        plt.xlabel("Duration (minutes)")  # Update label to minutes
-        plt.ylabel("Frequency")
-        plt.grid(axis="y")
-        plt.savefig(
-            os.path.join(output_dir, "completion_durations_histogram.png")
-        )  # Save the histogram
-        plt.close()  # Close the plot
-
-        # Cumulative plot of completed jobs over time
-        df.sort_values("Completion Date", inplace=True)
-        df["Cumulative Completed"] = range(1, len(df) + 1)
-
-        plt.figure(figsize=(12, 6))
-        plt.plot(
-            df["Completion Date"], df["Cumulative Completed"], marker="o", color="green"
-        )
-        plt.title("Cumulative Completed Jobs Over Time")
-        plt.xlabel("Completion Date")
-        plt.ylabel("Cumulative Completed Jobs")
-        plt.grid()
-        plt.savefig(
-            os.path.join(output_dir, "cumulative_completed_jobs.png")
-        )  # Save the cumulative plot
-        plt.close()  # Close the plot
