@@ -12,6 +12,9 @@ pip install bespokelabs-curator
 
 ```python
 from bespokelabs import curator
+import os
+
+os.environ['OPENAI_API_KEY'] = 'sk-...' # Set your OpenAI API key here
 
 poet = curator.Prompter(
     prompt_func=lambda: {
@@ -24,13 +27,9 @@ poem = poet()
 print(poem.to_list()[0])
 ```
 
-
-> Make sure to set your OpenAI API key in the environment variable `OPENAI_API_KEY` by doing 
-> ```bash
-> export OPENAI_API_KEY=your-api-key
-> ```
-
 You can see more examples in the [examples](examples) directory.
+
+To run the examples, make sure to set your OpenAI API key in the environment variable `OPENAI_API_KEY` by running `export OPENAI_API_KEY=sk-...` in your terminal.
 
 ## Bespoke Curator Viewer
 
