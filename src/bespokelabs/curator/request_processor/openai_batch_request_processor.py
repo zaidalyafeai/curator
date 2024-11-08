@@ -12,6 +12,7 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     GenericResponse,
 )
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
+from tqdm import tqdm
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
@@ -287,7 +288,14 @@ class BatchWatcher:
         dataset: Dataset,
     ) -> None:
         """Monitor the status of batches until all are completed (includes successfully, failed, expired or cancelled)."""
+
         completed_batches = {}
+        pbar = tqdm(
+            total=len(self.batch_ids),
+            desc="Completed Batches from OpenAI",
+            unit="batch",
+        )
+
         while len(completed_batches) < len(self.batch_ids):
             status_tasks = []
             for batch_id in self.batch_ids:
@@ -303,6 +311,7 @@ class BatchWatcher:
                     )
                     completed_batches[batch_id] = batch
                     newly_completed_batches.append(batch)
+                    pbar.update(1)
 
             # NOTE(Ryan): Now downloading after each check, instead of waiting until all are completed
             tasks = [
@@ -320,6 +329,7 @@ class BatchWatcher:
                 logger.info(f"Sleeping for {self.check_interval} seconds...")
                 await asyncio.sleep(self.check_interval)
 
+        pbar.close()
         self.batches = completed_batches.values()
 
     async def download_batch_result_file(
