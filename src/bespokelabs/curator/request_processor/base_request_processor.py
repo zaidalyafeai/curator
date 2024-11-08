@@ -16,6 +16,8 @@ from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.generic_response import GenericResponse
 
+logger = logging.getLogger(__name__)
+
 
 class BaseRequestProcessor(ABC):
     """
@@ -107,7 +109,7 @@ class BaseRequestProcessor(ABC):
 
         # By default use existing requests in working_dir
         if len(requests_files) > 0:
-            logging.info(
+            logger.info(
                 f"Using existing requests in {working_dir} by default. Found {len(requests_files)} request files."
                 f"If this is not what you want, delete the directory or specify a new one and re-run."
             )
@@ -122,22 +124,22 @@ class BaseRequestProcessor(ABC):
                     num_jobs = i + 1
 
                 if num_jobs > 0:
-                    logging.info(
+                    logger.info(
                         f"There are {num_jobs} existing requests in {requests_files[0]}"
                     )
-                    logging.info(
+                    logger.info(
                         f"Example request in {requests_files[0]}:\n{json.dumps(first_job, indent=2)}"
                     )
 
                     # Some simple sanity checks for the user
                     if self.batch_size is not None:
                         if self.batch_size != num_jobs:
-                            logging.warning(
+                            logger.warning(
                                 f"Batch size is {self.batch_size}, but there are {num_jobs} requests in {requests_files[0]}. "
                                 f"If you want to run with new batch size, you will have to delete the working directory and re-run (looses progress)"
                             )
                         if len(requests_files) == 1 and len(dataset) > self.batch_size:
-                            logging.warning(
+                            logger.warning(
                                 f"Only one request file was found, but batch size is specified and dataset is larger than batch size."
                                 f"You might be resuming from a different dataset or weren't using batching before."
                                 f"If you want to run with batching, you will have to delete working directory and re-run (looses progress)"
@@ -207,7 +209,7 @@ class BaseRequestProcessor(ABC):
                 api_request = self.create_api_specific_request(request)
                 # Write the API-specific request to file
                 await f.write(json.dumps(api_request) + "\n")
-        logging.info(f"Wrote {end_idx - start_idx} requests to {request_file}.")
+        logger.info(f"Wrote {end_idx - start_idx} requests to {request_file}.")
 
     def create_dataset_files(
         self,
@@ -237,7 +239,7 @@ class BaseRequestProcessor(ABC):
             raise ValueError(f"No responses files found in {working_dir}")
         dataset_file = f"{working_dir}/dataset.arrow"
         if os.path.exists(dataset_file):
-            logging.info(f"Using existing dataset file {dataset_file}")
+            logger.info(f"Using existing dataset file {dataset_file}")
             return Dataset.from_file(dataset_file)
 
         # Process all response files
@@ -277,13 +279,13 @@ class BaseRequestProcessor(ABC):
                                 row = row.model_dump()
                             writer.write(row)
 
-            logging.info(
+            logger.info(
                 f"Read {total_responses_count} responses, {failed_responses_count} failed"
             )
             if failed_responses_count == total_responses_count:
                 raise ValueError("All requests failed")
 
-            logging.info("Finalizing writer")
+            logger.info("Finalizing writer")
             try:
                 writer.finalize()
             except SchemaInferenceError as e:
