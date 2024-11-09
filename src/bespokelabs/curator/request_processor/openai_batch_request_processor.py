@@ -310,7 +310,6 @@ class BatchWatcher:
                 if batch_id not in completed_batches:
                     status_tasks.append(self.check_batch_status(batch_id))
                 else:
-                    breakpoint()
                     pbar.n = (
                         pbar.n
                         + completed_batches[batch_id].request_counts.completed
