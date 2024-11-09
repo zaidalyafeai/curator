@@ -346,7 +346,7 @@ class BatchWatcher:
 
             if len(completed_batches) < len(self.batch_ids):
                 logger.info(
-                    f"Batches processed: {len(completed_batches)}/{len(self.batch_ids)} Requests processed: {pbar.n}/{total_requests}"
+                    f"Batches fully finished: {len(completed_batches)}/{len(self.batch_ids)} Requests completed: {pbar.n}/{total_requests}"
                 )
                 logger.info(f"Sleeping for {self.check_interval} seconds...")
                 await asyncio.sleep(self.check_interval)
