@@ -87,22 +87,19 @@ class Prompter:
         prompts.
 
         Args:
-            dataset (Iterable): A dataset consisting of a list of items to apply completions
-            prompter (Prompter): A Prompter that contains the logic for formatting each
-                item in the dataset
-            resume (bool): Whether to resume from the previous completions run. If True,
-                we use a fingerprint from the input dataset and the prompter to resume
-                from a previous run that matches the same fingerprint.
+            request_processor (BaseRequestProcessor): A request processor that
+                will run the completions.
+            dataset (Iterable): A dataset consisting of a list of items to apply completions.
 
         Returns:
-            Iterable: A list of structured outputs from the completions
+            Dataset: A dataset of structured outputs from the completions.
         """
-        # NOTE(Ryan): We convert from iterable to Dataset because Dataset has random access via row_idx
-        if not isinstance(dataset, Dataset) and dataset is not None:
-            dataset = Dataset.from_generator(dataset)
-
-        if self is None:
-            raise ValueError("Prompter must be provided")
+        # Convert iterable to Dataset with better error handling
+        if dataset is not None and not isinstance(dataset, Dataset):
+            try:
+                dataset = Dataset.from_generator(lambda: dataset)
+            except Exception as e:
+                raise ValueError(f"Failed to convert dataset to Dataset format: {e}")
 
         curator_cache_dir = os.environ.get(
             "CURATOR_CACHE_DIR", os.path.expanduser("~/.cache/curator")
@@ -122,7 +119,7 @@ class Prompter:
                 str(parse_func_hash),
                 str(self.prompt_formatter.model_name),
                 str(
-                    self.prompt_formatter.response_format.schema_json()
+                    self.prompt_formatter.response_format.model_json_schema()
                     if self.prompt_formatter.response_format
                     else "text"
                 ),
@@ -147,7 +144,7 @@ class Prompter:
             "parse_func": parse_func_source,
             "model_name": self.prompt_formatter.model_name,
             "response_format": (
-                self.prompt_formatter.response_format.schema_json()
+                self.prompt_formatter.response_format.model_json_schema()
                 if self.prompt_formatter.response_format
                 else "text"
             ),
@@ -155,12 +152,11 @@ class Prompter:
         }
         metadata_db.store_metadata(metadata_dict)
 
-        # TODO(Ryan): do the response processing, while context of original dataset is available and need random access via row_idx)
-        dataset = request_processor.run(
+        # TODO(Ryan): Do the response processing, while context of original dataset
+        # is available and need random access via row_idx.
+        return request_processor.run(
             dataset, f"{curator_cache_dir}/{fingerprint}", self.prompt_formatter
         )
-
-        return dataset
 
 
 def _get_function_hash(func) -> str:
