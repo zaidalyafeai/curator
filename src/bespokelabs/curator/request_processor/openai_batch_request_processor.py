@@ -152,10 +152,15 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
         # NOTE(Ryan): So dicts that have objects that are not JSON serializable will be converted to strings.
 
+        if dataset is None:
+            dataset_row = dict()
+        else:
+            dataset_row = dataset[row_idx]
+
         return GenericResponse(
             response=content,
             row_idx=row_idx,
-            row=dataset[row_idx],
+            row=dataset_row,
             raw_response=response,
         )
 
@@ -289,9 +294,11 @@ class BatchWatcher:
     ) -> None:
         """Monitor the status of batches until all are completed (includes successfully, failed, expired or cancelled)."""
 
+        total_requests = 0 if dataset is None else len(dataset)
+
         completed_batches = {}
         pbar = tqdm(
-            total=len(dataset),
+            total=total_requests,
             desc="Completed OpenAI requests in batches",
             unit="request",
         )
@@ -339,7 +346,7 @@ class BatchWatcher:
 
             if len(completed_batches) < len(self.batch_ids):
                 logger.info(
-                    f"Remaining batches processing {len(self.batch_ids) - len(completed_batches)}/{len(self.batch_ids)}"
+                    f"Batches processed: {len(self.batch_ids) - len(completed_batches)}/{len(self.batch_ids)} Requests processed: {pbar.n}/{total_requests}"
                 )
                 logger.info(f"Sleeping for {self.check_interval} seconds...")
                 await asyncio.sleep(self.check_interval)
