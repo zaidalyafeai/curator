@@ -294,7 +294,7 @@ class BatchWatcher:
     ) -> None:
         """Monitor the status of batches until all are completed (includes successfully, failed, expired or cancelled)."""
 
-        total_requests = 0 if dataset is None else len(dataset)
+        total_requests = 1 if dataset is None else len(dataset)
 
         completed_batches = {}
         pbar = tqdm(
