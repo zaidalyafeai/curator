@@ -24,7 +24,7 @@ def generate_many_poems(how_many: int = 10):
       model_name="gpt-4o-mini",
   )
 
-  empty_dataset = Dataset.from_dict({"poem": [''] * how_many})
+  empty_dataset = Dataset.from_dict({"poem": [""] * how_many})
   poems: Dataset = poet(empty_dataset)
   print(poems["response"])
 
@@ -51,7 +51,7 @@ def generate_multiple_poems_single_call(how_many: int = 10):
 
 
 def generate_diverse_poems(how_many: int = 10):
-  # Generate diverse topics and then generate one poem per topic.
+  # Generate 10 diverse topics and then generate 10 poems for each topic.
   class Topic(BaseModel):
       topic: str = Field(description="A topic.")
 
@@ -60,25 +60,21 @@ def generate_diverse_poems(how_many: int = 10):
 
   topic_generator = curator.Prompter(
       prompt_func=lambda: f"Generate {how_many} diverse topics that are suitable for writing poems about.",
-      response_format=Topics,
       model_name="gpt-4o-mini",
+      response_format=Topics,
       parse_func=lambda _, topics_obj: [{"topic": t.topic} for t in topics_obj.topics],
   )
 
   topics = topic_generator()
-  print(topics["topic"])
-
-  class Poem(BaseModel):
-      poem: str = Field(description="A poem.")
+  print(topics['topic'])
 
   poet = curator.Prompter(
       prompt_func=lambda topic: f"Write a poem about {topic}.",
       model_name="gpt-4o-mini",
-      response_format=Poem,
-      parse_func=lambda _, poem_obj: [{"poem": poem_obj.poem}],
   )
+
   poems = poet(topics)
-  print(poems['poem'])
+  print(poems['response'])
 
 
 if __name__ == "__main__":
