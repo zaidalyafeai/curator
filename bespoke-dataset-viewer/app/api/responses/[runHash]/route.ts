@@ -12,7 +12,7 @@ export async function GET(
 ): Promise<Response> {  // This is the key change
   try {
     const { runHash } = await params
-    const responsesPath = join(homedir(), '.cache', 'curator', runHash, 'responses.jsonl')
+    const responsesPath = join(homedir(), '.cache', 'curator', runHash, 'responses_0.jsonl')
     
     const searchParams = request.nextUrl.searchParams
     const lastLineNumber = parseInt(searchParams.get('lastLine') || '0')
