@@ -130,20 +130,6 @@ class BaseRequestProcessor(ABC):
                     logger.info(
                         f"Example request in {requests_files[0]}:\n{json.dumps(first_job, indent=2)}"
                     )
-
-                    # Some simple sanity checks for the user
-                    if self.batch_size is not None:
-                        if self.batch_size != num_jobs:
-                            logger.warning(
-                                f"Batch size is {self.batch_size}, but there are {num_jobs} requests in {requests_files[0]}. "
-                                f"If you want to run with new batch size, you will have to delete the working directory and re-run (looses progress)"
-                            )
-                        if len(requests_files) == 1 and len(dataset) > self.batch_size:
-                            logger.warning(
-                                f"Only one request file was found, but batch size is specified and dataset is larger than batch size."
-                                f"You might be resuming from a different dataset or weren't using batching before."
-                                f"If you want to run with batching, you will have to delete working directory and re-run (looses progress)"
-                            )
                     return requests_files
 
         # Create new requests file

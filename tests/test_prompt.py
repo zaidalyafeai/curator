@@ -61,3 +61,76 @@ def test_completions(prompter: Prompter, tmp_path):
     assert len(result_dataset) == len(dataset)
     assert "message" in result_dataset.column_names
     assert "confidence" in result_dataset.column_names
+
+
+@pytest.mark.test
+def test_single_completion_batch(prompter: Prompter):
+    """Test that a single completion works with batch=True.
+
+    Args:
+        prompter: Fixture providing a configured Prompter instance.
+    """
+
+    # Create a prompter with batch=True
+    def simple_prompt_func():
+        return [
+            {
+                "role": "user",
+                "content": "Write a test message",
+            },
+            {
+                "role": "system",
+                "content": "You are a helpful assistant.",
+            },
+        ]
+
+    batch_prompter = Prompter(
+        model_name="gpt-4o-mini",
+        prompt_func=simple_prompt_func,
+        response_format=MockResponseFormat,
+        batch=True,
+    )
+
+    # Get single completion
+    result = batch_prompter()
+
+    # Assertions
+    assert isinstance(result, MockResponseFormat)
+    assert hasattr(result, "message")
+    assert hasattr(result, "confidence")
+
+
+@pytest.mark.test
+def test_single_completion_no_batch(prompter: Prompter):
+    """Test that a single completion works without batch parameter.
+
+    Args:
+        prompter: Fixture providing a configured Prompter instance.
+    """
+
+    # Create a prompter without batch parameter
+    def simple_prompt_func():
+        return [
+            {
+                "role": "user",
+                "content": "Write a test message",
+            },
+            {
+                "role": "system",
+                "content": "You are a helpful assistant.",
+            },
+        ]
+
+    non_batch_prompter = Prompter(
+        model_name="gpt-4o-mini",
+        prompt_func=simple_prompt_func,
+        response_format=MockResponseFormat,
+    )
+
+    # Get single completion
+    result = non_batch_prompter()
+
+    # Assertions
+    assert isinstance(result, MockResponseFormat)
+    assert hasattr(result, "message")
+    assert hasattr(result, "confidence")
