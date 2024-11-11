@@ -73,14 +73,23 @@ class Prompter:
         else:
             self._request_processor = OpenAIOnlineRequestProcessor(model=model_name)
 
-    def __call__(self, dataset: Optional[Iterable] = None) -> Dataset:
-        """Run completions on a dataset."""
-        return self._completions(self._request_processor, dataset)
+    def __call__(
+        self, dataset: Optional[Iterable] = None, working_dir: str = None
+    ) -> Dataset:
+        """
+        Run completions on a dataset.
+
+        Args:
+            dataset (Iterable): A dataset consisting of a list of items to apply completions
+            working_dir (str): The working directory to save the requests.jsonl, responses.jsonl, and dataset.arrow files.
+        """
+        return self._completions(self._request_processor, dataset, working_dir)
 
     def _completions(
         self,
         request_processor: BaseRequestProcessor,
         dataset: Optional[Iterable] = None,
+        working_dir: str = None,
     ) -> Dataset:
         """
         Apply structured completions in parallel to a dataset using specified model and
@@ -90,9 +99,7 @@ class Prompter:
             dataset (Iterable): A dataset consisting of a list of items to apply completions
             prompter (Prompter): A Prompter that contains the logic for formatting each
                 item in the dataset
-            resume (bool): Whether to resume from the previous completions run. If True,
-                we use a fingerprint from the input dataset and the prompter to resume
-                from a previous run that matches the same fingerprint.
+            working_dir (str): The working directory to save the requests.jsonl, responses.jsonl, and dataset.arrow files.
 
         Returns:
             Iterable: A list of structured outputs from the completions
@@ -104,9 +111,12 @@ class Prompter:
         if self is None:
             raise ValueError("Prompter must be provided")
 
-        curator_cache_dir = os.environ.get(
-            "CURATOR_CACHE_DIR", os.path.expanduser("~/.cache/curator")
-        )
+        if working_dir is None:
+            curator_cache_dir = os.environ.get(
+                "CURATOR_CACHE_DIR", os.path.expanduser("~/.cache/curator")
+            )
+        else:
+            curator_cache_dir = working_dir
 
         dataset_hash = (
             dataset._fingerprint if dataset is not None else xxh64("").hexdigest()
