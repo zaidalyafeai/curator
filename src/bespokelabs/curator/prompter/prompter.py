@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, Iterable, Optional, Type, TypeVar, Union
 from datasets import Dataset
 from pydantic import BaseModel
 from xxhash import xxh64
+import logging
 
 from bespokelabs.curator.db import MetadataDB
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
@@ -24,6 +25,8 @@ from bespokelabs.curator.request_processor.openai_online_request_processor impor
 
 T = TypeVar("T")
 
+logger = logging.getLogger(__name__)
+
 
 class Prompter:
     """Interface for prompting LLMs."""
@@ -39,6 +42,7 @@ class Prompter:
         ] = None,
         response_format: Optional[Type[BaseModel]] = None,
         batch: bool = False,
+        batch_size: Optional[int] = None,
     ):
         """Initialize a Prompter.
 
@@ -50,6 +54,8 @@ class Prompter:
                 response object and returns the parsed output
             response_format (Optional[Type[BaseModel]]): A Pydantic model specifying the
                 response format from the LLM.
+            batch (bool): Whether to use batch processing
+            batch_size (Optional[int]): The size of the batch to use, only used if batch is True
         """
         prompt_sig = inspect.signature(prompt_func)
         if len(prompt_sig.parameters) > 1:
@@ -69,8 +75,14 @@ class Prompter:
         )
 
         if batch:
-            self._request_processor = OpenAIBatchRequestProcessor(model=model_name)
+            self._request_processor = OpenAIBatchRequestProcessor(
+                model=model_name, batch_size=batch_size
+            )
         else:
+            if batch_size is not None:
+                logger.warning(
+                    f"Prompter argument `batch_size` {batch_size} is ignored because `batch` is False"
+                )
             self._request_processor = OpenAIOnlineRequestProcessor(model=model_name)
 
     def __call__(self, dataset: Optional[Iterable] = None) -> Dataset:
