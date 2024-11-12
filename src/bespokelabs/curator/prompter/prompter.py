@@ -147,13 +147,15 @@ class Prompter:
         )
 
         prompt_func_hash = _get_function_hash(self.prompt_formatter.prompt_func)
+
+        # Used to name the dataset .arrow file, but not the cache directory name
+        # Modifying `parse_func` creates a new dataset file from cached responses
         parse_func_hash = _get_function_hash(self.prompt_formatter.parse_func)
 
         fingerprint_str = "_".join(
             [
                 str(dataset_hash),
                 str(prompt_func_hash),
-                str(parse_func_hash),
                 str(self.prompt_formatter.model_name),
                 str(
                     self.prompt_formatter.response_format.schema_json()
@@ -195,9 +197,11 @@ class Prompter:
         }
         metadata_db.store_metadata(metadata_dict)
 
-        # TODO(Ryan): do the response processing, while context of original dataset is available and need random access via row_idx)
         dataset = request_processor.run(
-            dataset, f"{curator_cache_dir}/{fingerprint}", self.prompt_formatter
+            dataset=dataset,
+            working_dir=os.path.join(curator_cache_dir, fingerprint),
+            parse_func_hash=parse_func_hash,
+            prompt_formatter=self.prompt_formatter,
         )
 
         return dataset

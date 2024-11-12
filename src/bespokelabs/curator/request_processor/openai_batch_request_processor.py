@@ -162,6 +162,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         self,
         dataset: Optional[Dataset],
         working_dir: str,
+        parse_func_hash: str,
         prompt_formatter: PromptFormatter,
     ) -> Dataset:
         """
@@ -170,6 +171,8 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         Args:
             dataset (Dataset): Dataset that is being mapped over
             working_dir (str): Working directory to save files (requests.jsonl, responses.jsonl, dataset.arrow)
+            parse_func_hash (str): Hash of the parse_func to be used as the dataset file name
+            prompt_formatter (PromptFormatter): Prompt formatter to be used to format the prompt
 
         Returns:
             Dataset: Completed dataset
@@ -229,7 +232,9 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             )
         )
 
-        dataset = self.create_dataset_files(working_dir, prompt_formatter)
+        dataset = self.create_dataset_files(
+            working_dir, parse_func_hash, prompt_formatter
+        )
 
         return dataset
 
