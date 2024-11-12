@@ -39,7 +39,9 @@ class BaseRequestProcessor(ABC):
         pass
 
     @abstractmethod
-    def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
+    def create_api_specific_request(
+        self, generic_request: GenericRequest
+    ) -> dict:
         """
         Creates a API-specific request body from a GenericRequest.
 
@@ -56,7 +58,10 @@ class BaseRequestProcessor(ABC):
 
     @abstractmethod
     def get_generic_response(
-        self, response: dict, prompt_formatter: PromptFormatter, dataset: Dataset
+        self,
+        response: dict,
+        prompt_formatter: PromptFormatter,
+        dataset: Dataset,
     ) -> GenericResponse:
         """
         Parses a API-specific response into a generic response body.
@@ -75,7 +80,10 @@ class BaseRequestProcessor(ABC):
 
     @abstractmethod
     def run(
-        self, dataset: Dataset, working_dir: str, prompt_formatter: PromptFormatter
+        self,
+        dataset: Dataset,
+        working_dir: str,
+        prompt_formatter: PromptFormatter,
     ) -> Dataset:
         """
         Uses the API to completing the specific map by calling the LLM.
@@ -167,7 +175,9 @@ class BaseRequestProcessor(ABC):
         else:
             loop = get_or_create_event_loop()
             loop.run_until_complete(
-                self.acreate_request_file(dataset, prompt_formatter, requests_file)
+                self.acreate_request_file(
+                    dataset, prompt_formatter, requests_file
+                )
             )
 
         return requests_files
@@ -241,8 +251,10 @@ class BaseRequestProcessor(ABC):
                             generic_response_string
                         )
                         if prompt_formatter.response_format:
-                            response.response = prompt_formatter.response_format(
-                                **response.response
+                            response.response = (
+                                prompt_formatter.response_format(
+                                    **response.response
+                                )
                             )
 
                         if response is None:

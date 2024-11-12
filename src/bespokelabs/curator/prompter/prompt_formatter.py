@@ -13,7 +13,11 @@ class PromptFormatter:
     prompt_func: Callable[[Union[Dict[str, Any], BaseModel]], Dict[str, str]]
     parse_func: Optional[
         Callable[
-            [Union[Dict[str, Any], BaseModel], Union[Dict[str, Any], BaseModel]], T
+            [
+                Union[Dict[str, Any], BaseModel],
+                Union[Dict[str, Any], BaseModel],
+            ],
+            T,
         ]
     ] = None
     response_format: Optional[Type[BaseModel]] = None
@@ -21,10 +25,16 @@ class PromptFormatter:
     def __init__(
         self,
         model_name: str,
-        prompt_func: Callable[[Union[Dict[str, Any], BaseModel]], Dict[str, str]],
+        prompt_func: Callable[
+            [Union[Dict[str, Any], BaseModel]], Dict[str, str]
+        ],
         parse_func: Optional[
             Callable[
-                [Union[Dict[str, Any], BaseModel], Union[Dict[str, Any], BaseModel]], T
+                [
+                    Union[Dict[str, Any], BaseModel],
+                    Union[Dict[str, Any], BaseModel],
+                ],
+                T,
             ]
         ] = None,
         response_format: Optional[Type[BaseModel]] = None,

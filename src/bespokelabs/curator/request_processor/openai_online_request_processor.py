@@ -80,7 +80,9 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
 
         return rate_limits
 
-    def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
+    def create_api_specific_request(
+        self, generic_request: GenericRequest
+    ) -> dict:
         """
         Creates a API-specific request body from a generic request body.
 
@@ -167,19 +169,24 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
             dataset, working_dir, prompt_formatter
         )
         responses_files = [
-            f"{working_dir}/responses_{i}.jsonl" for i in range(len(requests_files))
+            f"{working_dir}/responses_{i}.jsonl"
+            for i in range(len(requests_files))
         ]
 
         rate_limits = self.get_rate_limits()
         rpm = rate_limits["max_requests_per_minute"]
         tpm = rate_limits["max_tokens_per_minute"]
 
-        token_encoding_name = get_token_encoding_name(prompt_formatter.model_name)
+        token_encoding_name = get_token_encoding_name(
+            prompt_formatter.model_name
+        )
 
         # NOTE(Ryan): If you wanted to do this on batches, you could run a for loop here about request_files. Although I don't recommend it because you are waiting for straggler requests to finish for each batch.
         # NOTE(Ryan): And if you wanted to do batches in parallel, you would have to divide rpm and tpm by the number of parallel batches.
         # TODO(Ryan): Can we abstract retries from process_api_requests_from_file so you can use it even if you use liteLLM.
-        for requests_file, responses_file in zip(requests_files, responses_files):
+        for requests_file, responses_file in zip(
+            requests_files, responses_files
+        ):
             asyncio.run(
                 self.process_api_requests_from_file(
                     requests_filepath=requests_file,
@@ -194,7 +201,9 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                 )
             )
 
-        dataset = self.create_dataset_files(dataset, working_dir, prompt_formatter)
+        dataset = self.create_dataset_files(
+            dataset, working_dir, prompt_formatter
+        )
         return dataset
 
     async def process_api_requests_from_file(
@@ -247,7 +256,9 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         if os.path.exists(save_filepath):
             if resume:
                 # save all successfully completed requests to a temporary file, then overwrite the original file with the temporary file
-                logger.debug(f"Resuming progress from existing file: {save_filepath}")
+                logger.debug(
+                    f"Resuming progress from existing file: {save_filepath}"
+                )
                 logger.debug(
                     f"Removing all failed requests from {save_filepath} so they can be retried"
                 )
@@ -282,7 +293,9 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                 with open(save_filepath, "r") as input_file, open(
                     temp_filepath, "w"
                 ) as output_file:
-                    for line in tqdm(input_file, desc="Processing existing requests"):
+                    for line in tqdm(
+                        input_file, desc="Processing existing requests"
+                    ):
                         data = json.loads(line)
                         if isinstance(data[1], list):
                             # this means that the request failed and we have a list of errors
@@ -319,7 +332,8 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
 
             # Create progress bar
             pbar = tqdm(
-                total=total_requests, desc="Processing parallel requests to OpenAI"
+                total=total_requests,
+                desc="Processing parallel requests to OpenAI",
             )
 
             connector = aiohttp.TCPConnector(limit=10 * max_requests_per_minute)
@@ -330,7 +344,9 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                     # get next request (if one is not already waiting for capacity)
                     if next_request is None:
                         if not queue_of_requests_to_retry.empty():
-                            next_request = queue_of_requests_to_retry.get_nowait()
+                            next_request = (
+                                queue_of_requests_to_retry.get_nowait()
+                            )
                             logger.debug(
                                 f"Retrying request {next_request.task_id}: {next_request}"
                             )
@@ -338,18 +354,27 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                             try:
                                 # get new request
                                 request_json = json.loads(next(requests))
-                                request_idx = request_json["metadata"]["request_idx"]
-                                if resume and request_idx in completed_request_ids:
+                                request_idx = request_json["metadata"][
+                                    "request_idx"
+                                ]
+                                if (
+                                    resume
+                                    and request_idx in completed_request_ids
+                                ):
                                     logger.debug(
                                         f"Skipping already completed request {request_idx}"
                                     )
-                                    status_tracker.num_tasks_already_completed += 1
+                                    status_tracker.num_tasks_already_completed += (
+                                        1
+                                    )
                                     continue
                                 next_request = APIRequest(
                                     task_id=next(task_id_generator),
                                     request_json=request_json,
                                     token_consumption=num_tokens_consumed_from_request(
-                                        request_json, api_endpoint, token_encoding_name
+                                        request_json,
+                                        api_endpoint,
+                                        token_encoding_name,
                                     ),
                                     attempts_left=max_attempts,
                                     metadata=request_json.pop("metadata", None),
@@ -430,7 +455,8 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
 
                     # if a rate limit error was hit recently, pause to cool down
                     seconds_since_rate_limit_error = (
-                        time.time() - status_tracker.time_of_last_rate_limit_error
+                        time.time()
+                        - status_tracker.time_of_last_rate_limit_error
                     )
                     if (
                         seconds_since_rate_limit_error
@@ -478,7 +504,9 @@ class StatusTracker:
     num_rate_limit_errors: int = 0
     num_api_errors: int = 0  # excluding rate limit errors, counted above
     num_other_errors: int = 0
-    time_of_last_rate_limit_error: int = 0  # used to cool off after hitting rate limits
+    time_of_last_rate_limit_error: int = (
+        0  # used to cool off after hitting rate limits
+    )
 
 
 @dataclass
@@ -571,7 +599,9 @@ def get_token_encoding_name(model: str) -> str:
         return "cl100k_base"
 
 
-def get_rate_limits(model: str, request_url: str, api_key: str) -> Tuple[int, int]:
+def get_rate_limits(
+    model: str, request_url: str, api_key: str
+) -> Tuple[int, int]:
     """
     Function to get rate limits for a given annotator. Makes a single request to openAI API
     and gets the rate limits from the response headers. These rate limits vary per model
@@ -594,8 +624,12 @@ def get_rate_limits(model: str, request_url: str, api_key: str) -> Tuple[int, in
             json={"model": model, "messages": []},
         )
         # Extract rate limit information from headers
-        max_requests = int(response.headers.get("x-ratelimit-limit-requests", 30_000))
-        max_tokens = int(response.headers.get("x-ratelimit-limit-tokens", 150_000_000))
+        max_requests = int(
+            response.headers.get("x-ratelimit-limit-requests", 30_000)
+        )
+        max_tokens = int(
+            response.headers.get("x-ratelimit-limit-tokens", 150_000_000)
+        )
     elif "api.sambanova.ai" in request_url:
         # Send a dummy request to get rate limit information
         max_requests = 50
@@ -682,7 +716,9 @@ def num_tokens_consumed_from_request(
                         )
                         num_tokens += len(str(value)) // 4
                     if key == "name":  # if there's a name, the role is omitted
-                        num_tokens -= 1  # role is always required and always 1 token
+                        num_tokens -= (
+                            1  # role is always required and always 1 token
+                        )
             num_tokens += 2  # every reply is primed with <im_start>assistant
             return num_tokens + completion_tokens
         # normal completions
