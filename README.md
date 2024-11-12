@@ -1,3 +1,21 @@
+<p align="center">
+  <a href="https://bespokelabs.ai/" target="_blank">
+    <img src="./docs/Bespoke-Labs-Logo-on-Mint.png" width="100%" alt="Bespoke Labs Logo" />
+  </a>
+  <br /> <br />
+</p>
+
+<h1 align="center">Curator</h1>
+<h3 align="center" style="font-size: 20px; margin-bottom: 4px">Data Curation for Post-Training for Structured Data Extraction</h3>
+<p align="center">
+  <a href="https://bespokelabs.ai/">
+    <img alt="Site" src="https://img.shields.io/badge/Site-bespokelabs.ai-blue?link=https%3A%2F%2Fbespokelabs.ai"/>
+  </a>
+  <a href="https://twitter.com/bespokelabsai">
+    <img src="https://img.shields.io/twitter/follow/bespokelabsai" alt="Follow on X" />
+  </a>
+</p>
+
 # Bespoke Curator
 
 Bespoke Labs Synthetic Data Curation Library
