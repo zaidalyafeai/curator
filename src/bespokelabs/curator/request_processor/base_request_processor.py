@@ -265,7 +265,7 @@ class BaseRequestProcessor(ABC):
                             # The dict is then used to construct the response_format Pydantic model
                             response.response_message = (
                                 prompt_formatter.response_format(
-                                    **json.loads(response.response_message)
+                                    **response.response_message
                                 )
                             )
 

@@ -385,6 +385,7 @@ class BatchWatcher:
 
         with open(response_file, "w") as f:
             for raw_response in file_content.text.splitlines():
+                raw_response = json.loads(raw_response)
                 generic_request = generic_request_map[
                     int(raw_response["custom_id"])
                 ]
