@@ -8,17 +8,20 @@
 <h1 align="center">Curator</h1>
 <h3 align="center" style="font-size: 20px; margin-bottom: 4px">Data Curation for Post-Training for Structured Data Extraction</h3>
 <p align="center">
+  <a href="https://docs.bespokelabs.ai/">
+    <img alt="Static Badge" src="https://img.shields.io/badge/Docs-docs.bespokelabs.ai-blue?style=flat&link=https%3A%2F%2Fdocs.bespokelabs.ai">
+  </a>
   <a href="https://bespokelabs.ai/">
     <img alt="Site" src="https://img.shields.io/badge/Site-bespokelabs.ai-blue?link=https%3A%2F%2Fbespokelabs.ai"/>
   </a>
   <a href="https://twitter.com/bespokelabsai">
     <img src="https://img.shields.io/twitter/follow/bespokelabsai" alt="Follow on X" />
   </a>
+  <a href="https://discord.gg/KqpXvpzVBS">
+    <img alt="Discord" src="https://img.shields.io/discord/1230990265867698186">
+  </a>
 </p>
 
-# Bespoke Curator
-
-Bespoke Labs Synthetic Data Curation Library
 
 ### Installation
 
@@ -35,14 +38,12 @@ import os
 os.environ['OPENAI_API_KEY'] = 'sk-...' # Set your OpenAI API key here
 
 poet = curator.Prompter(
-    prompt_func=lambda: {
-        "user_prompt": "Write a poem about the beauty of computer science"
-    },
+    prompt_func=lambda: "Write a poem about the beauty of computer science",
     model_name="gpt-4o-mini",
 )
 
 poem = poet()
-print(poem.to_list()[0])
+print(poem["response"][0])
 ```
 
 You can see more examples in the [examples](examples) directory.
