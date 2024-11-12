@@ -6,7 +6,7 @@
 </p>
 
 <h1 align="center">Curator</h1>
-<h3 align="center" style="font-size: 20px; margin-bottom: 4px">Data Curation for Post-Training for Structured Data Extraction</h3>
+<h3 align="center" style="font-size: 20px; margin-bottom: 4px">Data Curation for Post-Training & Structured Data Extraction</h3>
 <p align="center">
   <a href="https://docs.bespokelabs.ai/">
     <img alt="Static Badge" src="https://img.shields.io/badge/Docs-docs.bespokelabs.ai-blue?style=flat&link=https%3A%2F%2Fdocs.bespokelabs.ai">
@@ -14,6 +14,7 @@
   <a href="https://bespokelabs.ai/">
     <img alt="Site" src="https://img.shields.io/badge/Site-bespokelabs.ai-blue?link=https%3A%2F%2Fbespokelabs.ai"/>
   </a>
+  <img alt="PyPI - Version" src="https://img.shields.io/pypi/v/bespokelabs-curator">
   <a href="https://twitter.com/bespokelabsai">
     <img src="https://img.shields.io/twitter/follow/bespokelabsai" alt="Follow on X" />
   </a>
