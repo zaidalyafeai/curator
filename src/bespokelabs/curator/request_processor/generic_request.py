@@ -16,6 +16,6 @@ Attributes:
 class GenericRequest(BaseModel):
     model: str
     messages: List[Dict[str, Any]]
-    response_format: Dict[str, Any] = None
+    response_format: Dict[str, Any] | None = None
     original_row: Dict[str, Any]
     original_row_idx: int

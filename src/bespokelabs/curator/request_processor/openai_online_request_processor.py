@@ -155,7 +155,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                 )
             )
 
-        dataset = self.create_dataset_files(dataset, working_dir, prompt_formatter)
+        dataset = self.create_dataset_files(working_dir, prompt_formatter)
         return dataset
 
     async def process_generic_requests_from_file(
@@ -628,7 +628,7 @@ def api_endpoint_from_url(request_url: str) -> str:
 
 def append_generic_response(data: GenericResponse, filename: str) -> None:
     """Append a json payload to the end of a jsonl file."""
-    json_string = json.dumps(data.model_dump())
+    json_string = json.dumps(data.model_dump(), default=str)
     with open(filename, "a") as f:
         f.write(json_string + "\n")
 

@@ -109,7 +109,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             }
 
         request = {
-            "custom_id": str(generic_request.row_idx),
+            "custom_id": str(generic_request.original_row_idx),
             "method": "POST",
             "url": "/v1/chat/completions",
             "body": body,
@@ -118,11 +118,22 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         return request
 
     async def asubmit_batch(self, batch_file: str) -> dict:
-        async with aiofiles.open(batch_file, "rb") as file:
+        # Create a list to store API-specific requests
+        api_specific_requests = []
+
+        async with aiofiles.open(batch_file, "r") as file:
             file_content = await file.read()
-            batch_file_upload = await self.async_client.files.create(
-                file=file_content, purpose="batch"
-            )
+            for line in file_content.splitlines():
+                request = GenericRequest.model_validate_json(line)
+                api_specific_request = self.create_api_specific_request(request)
+                api_specific_requests.append(json.dumps(api_specific_request))
+
+        # Join requests with newlines and encode to bytes for upload
+        file_content = "\n".join(api_specific_requests).encode()
+
+        batch_file_upload = await self.async_client.files.create(
+            file=file_content, purpose="batch"
+        )
 
         logger.info(f"File uploaded: {batch_file_upload}")
 
@@ -132,7 +143,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             completion_window="24h",
             metadata={
                 "request_file_name": batch_file
-            },  # for easily mapping back later, NOTE(Ryan): can convert to the int or UUID later
+            },  # for downloading the batch to similarly named responses file
         )
         logger.info(f"Batch request submitted, received batch object: {batch_object}")
 
@@ -181,7 +192,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             with open(batch_objects_file, "w") as f:
                 # NOTE(Ryan): we can also store the request_file_name in this object here, instead of in the metadata during batch submission. Can find a nice abstraction across other batch APIs (e.g. claude)
                 for obj in batch_objects:
-                    f.write(json.dumps(obj.model_dump()) + "\n")
+                    f.write(json.dumps(obj.model_dump(), default=str) + "\n")
             logger.info(f"Batch objects written to {batch_objects_file}")
 
         # TODO(Ryan): Actually do accounting for tokens, so rate limits enforced locally.
@@ -202,7 +213,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             batch_watcher.watch(prompt_formatter.response_format, total_requests)
         )
 
-        dataset = self.create_dataset_files(dataset, working_dir, prompt_formatter)
+        dataset = self.create_dataset_files(working_dir, prompt_formatter)
         return dataset
 
 
@@ -319,6 +330,12 @@ class BatchWatcher:
             file_content = await self.client.files.content(batch.output_file_id)
         elif batch.status == "failed" and batch.error_file_id:
             file_content = await self.client.files.content(batch.error_file_id)
+        elif batch.status == "failed" and not batch.error_file_id:
+            errors = [str(error) for error in batch.errors.data]
+            logger.warning(
+                f"Batch {batch.id} failed\n" f"Batch errors: {'\n'.join(errors)}"
+            )
+            return None
         elif batch.status == "cancelled" or batch.status == "expired":
             logger.warning(f"Batch {batch.id} was cancelled or expired")
             return None

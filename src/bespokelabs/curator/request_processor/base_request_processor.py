@@ -109,7 +109,7 @@ class BaseRequestProcessor(ABC):
                         f"There are {num_jobs} existing requests in {requests_files[0]}"
                     )
                     logger.info(
-                        f"Example request in {requests_files[0]}:\n{json.dumps(first_job, indent=2)}"
+                        f"Example request in {requests_files[0]}:\n{json.dumps(first_job, default=str, indent=2)}"
                     )
                     return requests_files
 
@@ -120,7 +120,7 @@ class BaseRequestProcessor(ABC):
         if dataset is None:
             with open(requests_file, "w") as f:
                 generic_request = prompt_formatter.create_generic_request(dict(), 0)
-                f.write(json.dumps(generic_request.model_dump()) + "\n")
+                f.write(json.dumps(generic_request.model_dump(), default=str) + "\n")
             return requests_files
 
         if self.batch_size:
@@ -171,12 +171,11 @@ class BaseRequestProcessor(ABC):
                 request = prompt_formatter.create_generic_request(
                     dataset_row, dataset_row_idx
                 )
-                await f.write(json.dumps(request.model_dump()) + "\n")
+                await f.write(json.dumps(request.model_dump(), default=str) + "\n")
         logger.info(f"Wrote {end_idx - start_idx} requests to {request_file}.")
 
     def create_dataset_files(
         self,
-        dataset: Dataset,
         working_dir: str,
         prompt_formatter: PromptFormatter,
     ) -> None:
