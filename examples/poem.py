@@ -58,6 +58,7 @@ from typing import List
 
 # We use Pydantic and structured outputs to define the format of the response.
 
+
 # This defines a list of topics, which is the response format for the topic generator.
 class Topics(BaseModel):
     topics_list: List[str] = Field(description="A list of topics.")
@@ -89,9 +90,9 @@ poet = curator.Prompter(
     prompt_func=lambda row: f"Write two poems about {row['topic']}.",
     model_name="gpt-4o-mini",
     response_format=Poems,
-    # `row` is the input row, and `poems_obj` is the structured output from the LLM.
-    parse_func=lambda row, poems_obj: [
-        {"topic": row["topic"], "poem": p} for p in poems_obj.poems_list
+    # `row` is the input row, and `poems` is the Poems class which is parsed from the structured output from the LLM.
+    parse_func=lambda row, poems: [
+        {"topic": row["topic"], "poem": p} for p in poems.poems_list
     ],
 )
 
