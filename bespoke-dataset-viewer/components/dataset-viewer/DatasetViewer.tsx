@@ -29,9 +29,10 @@ const COLUMNS: Column[] = [
 
 interface DatasetViewerProps {
   runHash?: string
+  batchMode: boolean
 }
 
-export function DatasetViewer({ runHash }: DatasetViewerProps) {
+export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
   const [data, setData] = useState<DataItem[]>([])
   const [sortColumn] = useState<string | null>(null)
   const [sortDirection] = useState<"asc" | "desc">("asc")
@@ -45,6 +46,7 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
   const [lastLineNumber, setLastLineNumber] = useState(0)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [newItemIds, setNewItemIds] = useState<Set<number>>(new Set())
+  const [processedFiles, setProcessedFiles] = useState<string[]>([])
 
   useEffect(() => {
     const systemPreference = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
@@ -91,16 +93,22 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
   const getCellContent = (item: DataItem, columnKey: string) => {
     switch (columnKey) {
       case "user_message":
-        return item.request.messages.find(m => m.role === "user")?.content || "N/A";
+        return (item.request?.messages?.find(m => m.role === "user")?.content || 
+                item.request?.body?.messages?.find(m => m.role === "user")?.content ||
+                "N/A");
       case "assistant_message":
         if (typeof item.response === 'object') {
           return JSON.stringify(item.response, null, 2);
         }
         return item.response || "N/A";
       case "prompt_tokens":
-        return item.raw_response.usage.prompt_tokens?.toString() || "N/A";
+        return item.raw_response.usage?.prompt_tokens?.toString() || 
+               item.raw_response.response?.usage?.prompt_tokens?.toString() || 
+               "N/A";
       case "completion_tokens":
-        return item.raw_response.usage.completion_tokens?.toString() || "N/A";
+        return item.raw_response.usage?.completion_tokens?.toString() || 
+               item.raw_response.response?.usage?.completion_tokens?.toString() || 
+               "N/A";
       default:
         return "N/A";
     }
@@ -110,16 +118,31 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
     if (!runHash) return
 
     try {
-      const response = await fetch(`/api/responses/${runHash}?lastLine=${lastLineNumber}`)
+      const queryParams = new URLSearchParams({
+        batchMode: batchMode.toString(),
+        ...(batchMode 
+          ? { processedFiles: processedFiles.join(',') }
+          : { lastLine: lastLineNumber.toString() }
+        )
+      })
+
+      const response = await fetch(`/api/responses/${runHash}?${queryParams}`)
       if (!response.ok) throw new Error('Failed to fetch responses')
       
-      const { data: newData, totalLines } = await response.json()
+      const responseData = await response.json()
       
-      if (newData && newData.length > 0) {
-        setNewItemIds(new Set(newData.map((item: DataItem) => item.raw_response.id)))
+      if (responseData.data && responseData.data.length > 0) {
+        setNewItemIds(new Set(responseData.data.map((item: DataItem) => item.raw_response.id)))
 
-        setData(prevData => [...newData.reverse(), ...prevData])
-        setLastLineNumber(totalLines)
+        setData(prevData => [...responseData.data.reverse(), ...prevData])
+        
+        if (batchMode) {
+          // Update processed files list
+          setProcessedFiles(prev => [...prev, ...responseData.processedFiles])
+        } else {
+          // Update last line number for streaming mode
+          setLastLineNumber(responseData.totalLines)
+        }
         
         setTimeout(() => {
           setNewItemIds(new Set())
@@ -127,7 +150,7 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
 
         toast({
           title: "New responses received",
-          description: `${newData.length} new responses added`,
+          description: `${responseData.data.length} new responses added`,
         })
       }
     } catch (error) {
@@ -138,7 +161,7 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
         description: "Failed to fetch new responses",
       })
     }
-  }, [runHash, lastLineNumber, toast])
+  }, [runHash, lastLineNumber, processedFiles, batchMode, toast])
 
   const handleInitialLoad = useCallback(async () => {
     if (!runHash) return
