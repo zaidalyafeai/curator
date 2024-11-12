@@ -3,16 +3,21 @@ import json
 import logging
 import os
 from typing import Callable, Dict, Optional, TypeVar
-from openai import AsyncOpenAI
+
 import aiofiles
+from openai import AsyncOpenAI
+from tqdm import tqdm
+
 from bespokelabs.curator.dataset import Dataset
+from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import (
     BaseRequestProcessor,
     GenericRequest,
     GenericResponse,
 )
-from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
-from tqdm import tqdm
+from bespokelabs.curator.request_processor.event_loop import (
+    get_or_create_event_loop,
+)
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
@@ -232,7 +237,8 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                 ]
                 return await asyncio.gather(*tasks)
 
-            batch_objects = asyncio.run(submit_all_batches())
+            loop = get_or_create_event_loop()
+            batch_objects = loop.run_until_complete(submit_all_batches())
 
             with open(batch_objects_file, "w") as f:
                 # NOTE(Ryan): we can also store the request_file_name in this object here, instead of in the metadata during batch submission. Can find a nice abstraction across other batch APIs (e.g. claude)
@@ -254,7 +260,8 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             working_dir, check_interval=self.check_interval
         )
 
-        asyncio.run(
+        loop = get_or_create_event_loop()
+        loop.run_until_complete(
             batch_watcher.watch(
                 prompt_formatter, self.get_generic_response, dataset
             )

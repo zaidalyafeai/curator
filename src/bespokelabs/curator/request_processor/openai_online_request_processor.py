@@ -5,21 +5,24 @@ import os
 import re
 import time
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any, Callable, Dict, Optional, Set, Tuple, TypeVar
 
 import aiohttp
 import requests
 import tiktoken
 from tqdm import tqdm
-from functools import partial
 
 from bespokelabs.curator.dataset import Dataset
+from bespokelabs.curator.prompter.prompter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import (
     BaseRequestProcessor,
     GenericRequest,
     GenericResponse,
 )
-from bespokelabs.curator.prompter.prompter import PromptFormatter
+from bespokelabs.curator.request_processor.event_loop import (
+    get_or_create_event_loop,
+)
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
@@ -187,7 +190,8 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         for requests_file, responses_file in zip(
             requests_files, responses_files
         ):
-            asyncio.run(
+            loop = get_or_create_event_loop()
+            loop.run_until_complete(
                 self.process_api_requests_from_file(
                     requests_filepath=requests_file,
                     save_filepath=responses_file,
