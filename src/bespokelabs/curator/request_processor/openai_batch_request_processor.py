@@ -235,8 +235,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                 ]
                 return await asyncio.gather(*tasks)
 
-            loop = get_or_create_event_loop()
-            batch_objects = loop.run_until_complete(submit_all_batches())
+            batch_objects = run_in_event_loop(submit_all_batches())
 
             with open(batch_objects_file, "w") as f:
                 # NOTE(Ryan): we can also store the request_file_name in this object here, instead of in the metadata during batch submission. Can find a nice abstraction across other batch APIs (e.g. claude)
