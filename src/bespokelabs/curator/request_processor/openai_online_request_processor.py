@@ -21,7 +21,7 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     GenericResponse,
 )
 from bespokelabs.curator.request_processor.event_loop import (
-    get_or_create_event_loop,
+    run_in_event_loop,
 )
 
 T = TypeVar("T")
@@ -190,8 +190,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         for requests_file, responses_file in zip(
             requests_files, responses_files
         ):
-            loop = get_or_create_event_loop()
-            loop.run_until_complete(
+            run_in_event_loop(
                 self.process_api_requests_from_file(
                     requests_filepath=requests_file,
                     save_filepath=responses_file,

@@ -13,13 +13,9 @@ from datasets.arrow_writer import ArrowWriter, SchemaInferenceError
 from pydantic import BaseModel
 
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
-from bespokelabs.curator.request_processor.event_loop import (
-    get_or_create_event_loop,
-)
+from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
-from bespokelabs.curator.request_processor.generic_response import (
-    GenericResponse,
-)
+from bespokelabs.curator.request_processor.generic_response import GenericResponse
 
 logger = logging.getLogger(__name__)
 
@@ -174,11 +170,9 @@ class BaseRequestProcessor(ABC):
                 ]
                 await asyncio.gather(*tasks)
 
-            loop = get_or_create_event_loop()
-            loop.run_until_complete(create_all_request_files())
+            run_in_event_loop(create_all_request_files())
         else:
-            loop = get_or_create_event_loop()
-            loop.run_until_complete(
+            run_in_event_loop(
                 self.acreate_request_file(
                     dataset, prompt_formatter, requests_file
                 )
