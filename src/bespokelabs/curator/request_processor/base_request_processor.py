@@ -234,7 +234,6 @@ class BaseRequestProcessor(ABC):
             logger.info(f"Using existing dataset file {dataset_file}")
             try:
                 output_dataset = Dataset.from_file(dataset_file)
-                return output_dataset
             except pyarrow.lib.ArrowInvalid as e:
                 os.remove(dataset_file)
                 logger.warning(
@@ -242,6 +241,7 @@ class BaseRequestProcessor(ABC):
                     "which was likely corrupted by a failed previous run. "
                     "Deleted file and attempting to regenerate dataset from cached LLM responses."
                 )
+            return output_dataset
 
         # Process all response files
         with ArrowWriter(path=dataset_file) as writer:
