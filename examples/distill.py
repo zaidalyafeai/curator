@@ -20,7 +20,10 @@ def parse_func(row, response):
 
 
 distill_prompter = curator.Prompter(
-    prompt_func=prompt_func, parse_func=parse_func, model_name="gpt-4o-mini", batch=True
+    prompt_func=prompt_func,
+    parse_func=parse_func,
+    model_name="gpt-4o-mini",
+    batch=True,
 )
 
 distilled_dataset = distill_prompter(dataset)

@@ -43,7 +43,8 @@ class MetadataDB:
 
             # Check if run_hash exists
             cursor.execute(
-                "SELECT run_hash FROM runs WHERE run_hash = ?", (metadata["run_hash"],)
+                "SELECT run_hash FROM runs WHERE run_hash = ?",
+                (metadata["run_hash"],),
             )
             existing_run = cursor.fetchone()
 
