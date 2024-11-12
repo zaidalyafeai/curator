@@ -9,6 +9,7 @@
 
 <h1 align="center">Bespoke Labs Curator</h1>
 <h3 align="center" style="font-size: 20px; margin-bottom: 4px">Data Curation for Post-Training & Structured Data Extraction</h3>
+<br/>
 <p align="center">
   <a href="https://docs.bespokelabs.ai/">
     <img alt="Static Badge" src="https://img.shields.io/badge/Docs-docs.bespokelabs.ai-blue?style=flat&link=https%3A%2F%2Fdocs.bespokelabs.ai">
