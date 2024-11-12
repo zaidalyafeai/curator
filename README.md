@@ -1,13 +1,13 @@
 <p align="center">
   <a href="https://bespokelabs.ai/" target="_blank">
     <picture>
-      <source media="(prefers-color-scheme: dark)" width="50%" srcset="./docs/Bespoke-Labs-Logo-White.png">
-      <img alt="Bespoke Labs Logo" width="50%" src="./docs/Bespoke-Labs-Logo-Black.png">
+      <source media="(prefers-color-scheme: light)" width="10%" srcset="./docs/Bespoke-Labs-Logomark-Red.png">
+      <img alt="Bespoke Labs Logo" width="10%" src="./docs/Bespoke-Labs-Logomark-Red-on-Black.png">
     </picture>
   </a>
 </p>
 
-<h1 align="center">Curator</h1>
+<h1 align="center">Bespoke Labs Curator</h1>
 <h3 align="center" style="font-size: 20px; margin-bottom: 4px">Data Curation for Post-Training & Structured Data Extraction</h3>
 <p align="center">
   <a href="https://docs.bespokelabs.ai/">
