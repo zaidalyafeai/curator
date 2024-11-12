@@ -3,7 +3,7 @@ from datasets import load_dataset
 import logging
 
 dataset = load_dataset("allenai/WildChat", split="train")
-dataset = dataset.select(range(300))
+dataset = dataset.select(range(30))
 
 # To see more detail about how batches are being processed
 logger = logging.getLogger("bespokelabs.curator")
@@ -24,7 +24,7 @@ distill_prompter = curator.Prompter(
     parse_func=parse_func,
     model_name="gpt-4o-mini",
     batch=True,
-    batch_size=100,
+    batch_size=5,
 )
 
 distilled_dataset = distill_prompter(dataset)

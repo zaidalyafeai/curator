@@ -153,8 +153,6 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                 self.process_generic_requests_from_file(
                     generic_requests_filepath=generic_requests_file,
                     save_filepath=generic_responses_file,
-                    requests_filepath=generic_requests_file,
-                    save_filepath=generic_requests_files,
                     request_url=self.url,
                     max_requests_per_minute=rpm,
                     max_tokens_per_minute=tpm,
