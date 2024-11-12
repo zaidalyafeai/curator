@@ -674,7 +674,15 @@ def num_tokens_consumed_from_request(
             for message in request_json["messages"]:
                 num_tokens += 4  # every message follows <im_start>{role/name}\n{content}<im_end>\n
                 for key, value in message.items():
-                    num_tokens += len(encoding.encode(value))
+                    try:
+                        num_tokens += len(encoding.encode(str(value)))
+                    except TypeError:
+                        logger.warning(
+                            f"Failed to encode value {value} with tiktoken to count tokens, instead assuming a token for every 4 characters."
+                        )
+                        num_tokens += (
+                            len(str(value)) // 4
+                        )  # assume a token for every 4 characters
                     if key == "name":  # if there's a name, the role is omitted
                         num_tokens -= 1  # role is always required and always 1 token
             num_tokens += 2  # every reply is primed with <im_start>assistant
