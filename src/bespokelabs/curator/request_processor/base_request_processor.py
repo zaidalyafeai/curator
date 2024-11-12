@@ -13,8 +13,13 @@ from datasets.arrow_writer import ArrowWriter, SchemaInferenceError
 from pydantic import BaseModel
 
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
+from bespokelabs.curator.request_processor.event_loop import (
+    get_or_create_event_loop,
+)
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
-from bespokelabs.curator.request_processor.generic_response import GenericResponse
+from bespokelabs.curator.request_processor.generic_response import (
+    GenericResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +43,9 @@ class BaseRequestProcessor(ABC):
         pass
 
     @abstractmethod
-    def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
+    def create_api_specific_request(
+        self, generic_request: GenericRequest
+    ) -> dict:
         """
         Creates a API-specific request body from a GenericRequest.
 
@@ -55,7 +62,10 @@ class BaseRequestProcessor(ABC):
 
     @abstractmethod
     def run(
-        self, dataset: Dataset, working_dir: str, prompt_formatter: PromptFormatter
+        self,
+        dataset: Dataset,
+        working_dir: str,
+        prompt_formatter: PromptFormatter,
     ) -> Dataset:
         """
         Uses the API to completing the specific map by calling the LLM.
@@ -119,8 +129,12 @@ class BaseRequestProcessor(ABC):
 
         if dataset is None:
             with open(requests_file, "w") as f:
-                generic_request = prompt_formatter.create_generic_request(dict(), 0)
-                f.write(json.dumps(generic_request.model_dump(), default=str) + "\n")
+                generic_request = prompt_formatter.create_generic_request(
+                    dict(), 0
+                )
+                f.write(
+                    json.dumps(generic_request.model_dump(), default=str) + "\n"
+                )
             return requests_files
 
         if self.batch_size:
@@ -141,10 +155,14 @@ class BaseRequestProcessor(ABC):
                 ]
                 await asyncio.gather(*tasks)
 
-            asyncio.run(create_all_request_files())
+            loop = get_or_create_event_loop()
+            loop.run_until_complete(create_all_request_files())
         else:
-            asyncio.run(
-                self.acreate_request_file(dataset, prompt_formatter, requests_file)
+            loop = get_or_create_event_loop()
+            loop.run_until_complete(
+                self.acreate_request_file(
+                    dataset, prompt_formatter, requests_file
+                )
             )
 
         return requests_files
@@ -171,7 +189,9 @@ class BaseRequestProcessor(ABC):
                 request = prompt_formatter.create_generic_request(
                     dataset_row, dataset_row_idx
                 )
-                await f.write(json.dumps(request.model_dump(), default=str) + "\n")
+                await f.write(
+                    json.dumps(request.model_dump(), default=str) + "\n"
+                )
         logger.info(f"Wrote {end_idx - start_idx} requests to {request_file}.")
 
     def create_dataset_files(
@@ -236,7 +256,9 @@ class BaseRequestProcessor(ABC):
                             if not isinstance(dataset_rows, list):
                                 dataset_rows = [dataset_rows]
                         else:
-                            dataset_rows = [{"response": response.response_message}]
+                            dataset_rows = [
+                                {"response": response.response_message}
+                            ]
 
                         for row in dataset_rows:
                             if isinstance(row, BaseModel):
