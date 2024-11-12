@@ -21,6 +21,7 @@ class MetadataDB:
                 - model_name: Name of model used
                 - response_format: JSON schema of response format
                 - run_hash: Unique hash identifying the run
+                - batch_mode: Boolean indicating batch mode or online mode (True = batch, False = online)
         """
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         with sqlite3.connect(self.db_path) as conn:
@@ -33,6 +34,7 @@ class MetadataDB:
                     prompt_func TEXT,
                     model_name TEXT,
                     response_format TEXT,
+                    batch_mode BOOLEAN,
                     created_time TEXT,
                     last_edited_time TEXT
                 )
@@ -61,8 +63,8 @@ class MetadataDB:
                     """
                     INSERT INTO runs (
                         run_hash, dataset_hash, prompt_func, model_name, 
-                        response_format, created_time, last_edited_time
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        response_format, batch_mode, created_time, last_edited_time
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         metadata["run_hash"],
@@ -70,6 +72,7 @@ class MetadataDB:
                         metadata["prompt_func"],
                         metadata["model_name"],
                         metadata["response_format"],
+                        metadata["batch_mode"],
                         metadata["timestamp"],
                         "-",
                     ),

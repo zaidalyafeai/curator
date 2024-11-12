@@ -68,7 +68,7 @@ class Prompter:
         self.prompt_formatter = PromptFormatter(
             model_name, prompt_func, parse_func, response_format
         )
-
+        self.batch_mode = batch
         if batch:
             self._request_processor = OpenAIBatchRequestProcessor(model=model_name)
         else:
@@ -137,6 +137,7 @@ class Prompter:
                     if self.prompt_formatter.response_format
                     else "text"
                 ),
+                str(self.batch_mode),
             ]
         )
 
@@ -163,6 +164,7 @@ class Prompter:
                 else "text"
             ),
             "run_hash": fingerprint,
+            "batch_mode": self.batch_mode,
         }
         metadata_db.store_metadata(metadata_dict)
 
