@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://bespokelabs.ai/" target="_blank">
-    <img src="./docs/Bespoke-Labs-Logo-on-Mint.png" width="100%" alt="Bespoke Labs Logo" />
+    <img src="./docs/Bespoke-Labs-Logo-on-Mint.png" width="50%" alt="Bespoke Labs Logo" />
   </a>
   <br /> <br />
 </p>
