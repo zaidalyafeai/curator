@@ -1,4 +1,5 @@
 import asyncio
+from time import sleep
 
 
 def run_in_event_loop(coroutine):
@@ -8,6 +9,8 @@ def run_in_event_loop(coroutine):
     try:
         loop = asyncio.get_running_loop()
         future = loop.create_task(coroutine)
+        while not future.done():
+            sleep(1)
         return future.result()
     except RuntimeError as e:
         # If no event loop is running, asyncio will
@@ -15,4 +18,6 @@ def run_in_event_loop(coroutine):
         # In that case, we can create a new event loop.
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        return loop.run_until_complete(coroutine)
+        result = loop.run_until_complete(coroutine)
+        loop.close()
+        return result
