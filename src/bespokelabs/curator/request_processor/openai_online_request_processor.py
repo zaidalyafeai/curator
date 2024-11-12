@@ -28,12 +28,11 @@ logger = logging.getLogger(__name__)
 class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
     def __init__(
         self,
-        batch_size: Optional[int] = None,
         model: str = "gpt-4o-mini",
         api_key: str = os.getenv("OPENAI_API_KEY"),
         url: str = "https://api.openai.com/v1/chat/completions",
     ):
-        super().__init__(batch_size)
+        super().__init__(batch_size=None)
         self.model: str = model
         self.url: str = url
         self.api_key: str = api_key
