@@ -20,9 +20,7 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     GenericRequest,
     GenericResponse,
 )
-from bespokelabs.curator.request_processor.event_loop import (
-    run_in_event_loop,
-)
+from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
@@ -31,12 +29,11 @@ logger = logging.getLogger(__name__)
 class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
     def __init__(
         self,
-        batch_size: Optional[int] = None,
         model: str = "gpt-4o-mini",
         api_key: str = os.getenv("OPENAI_API_KEY"),
         url: str = "https://api.openai.com/v1/chat/completions",
     ):
-        super().__init__(batch_size)
+        super().__init__(batch_size=None)
         self.model: str = model
         self.url: str = url
         self.api_key: str = api_key
@@ -95,62 +92,21 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         Returns:
             dict: API specific request body
         """
+        request = {
+            "model": generic_request.model,
+            "messages": generic_request.messages,
+        }
         if generic_request.response_format:
-            request = {
-                "model": generic_request.model,
-                "messages": generic_request.messages,
-                "response_format": {
-                    "type": "json_schema",
-                    "json_schema": {
-                        # TODO(ryan): not sure if we should use strict: True or have name: be something else.
-                        "name": "output_schema",
-                        "schema": generic_request.response_format.model_json_schema(),
-                    },
-                },
-                "metadata": {
-                    "request_idx": generic_request.row_idx,
-                    "sample": generic_request.row,
-                },
-            }
-        else:
-            request = {
-                "model": generic_request.model,
-                "messages": generic_request.messages,
-                "metadata": {
-                    "request_idx": generic_request.row_idx,
-                    "sample": generic_request.row,
+            request["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    # TODO(ryan): not sure if we should use strict: True or have name: be something else.
+                    "name": "output_schema",
+                    "schema": generic_request.response_format,
                 },
             }
 
         return request
-
-    def get_generic_response(
-        self, response: Dict, prompt_formatter: PromptFormatter
-    ) -> GenericResponse:
-        """
-        Parses a API-specific response into a generic response body.
-        Does error handling on the response.
-        If there is an error, return None.
-
-        IMPORTANT: In the generic response body you need to provide either the original dataset row OR the index of the row in the original dataset.
-
-        Args:
-            response: API-specific response
-
-        Returns:
-            dict: Generic response body with an extra field "metadata" which contains the original dataset row or the index of the row in the original dataset
-        """
-        content = response["response"]["choices"][0]["message"]["content"]
-        if prompt_formatter.response_format:
-            content = json.loads(content)
-
-        return GenericResponse(
-            response=content,
-            row=response["metadata"][
-                "sample"
-            ],  # Or can do dataset[response["metadata"]["request_idx"]]
-            row_idx=response["metadata"]["request_idx"],
-        )
 
     def run(
         self,
@@ -168,12 +124,12 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         Returns:
             Dataset: Completed dataset
         """
-        requests_files = self.create_request_files(
+        generic_requests_files = self.create_request_files(
             dataset, working_dir, prompt_formatter
         )
-        responses_files = [
+        generic_responses_files = [
             f"{working_dir}/responses_{i}.jsonl"
-            for i in range(len(requests_files))
+            for i in range(len(generic_requests_files))
         ]
 
         rate_limits = self.get_rate_limits()
@@ -187,31 +143,28 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         # NOTE(Ryan): If you wanted to do this on batches, you could run a for loop here about request_files. Although I don't recommend it because you are waiting for straggler requests to finish for each batch.
         # NOTE(Ryan): And if you wanted to do batches in parallel, you would have to divide rpm and tpm by the number of parallel batches.
         # TODO(Ryan): Can we abstract retries from process_api_requests_from_file so you can use it even if you use liteLLM.
-        for requests_file, responses_file in zip(
-            requests_files, responses_files
+        for generic_requests_file, generic_responses_file in zip(
+            generic_requests_files, generic_responses_files
         ):
             run_in_event_loop(
-                self.process_api_requests_from_file(
-                    requests_filepath=requests_file,
-                    save_filepath=responses_file,
+                self.process_generic_requests_from_file(
+                    generic_requests_filepath=generic_requests_file,
+                    save_filepath=generic_responses_file,
                     request_url=self.url,
                     max_requests_per_minute=rpm,
                     max_tokens_per_minute=tpm,
                     token_encoding_name=token_encoding_name,
                     max_attempts=5,
                     resume=True,  # detects existing jobs and resume from there
-                    prompt_formatter=prompt_formatter,
                 )
             )
 
-        dataset = self.create_dataset_files(
-            dataset, working_dir, prompt_formatter
-        )
+        dataset = self.create_dataset_files(working_dir, prompt_formatter)
         return dataset
 
-    async def process_api_requests_from_file(
+    async def process_generic_requests_from_file(
         self,
-        requests_filepath: str,
+        generic_requests_filepath: str,
         save_filepath: str,
         request_url: str,
         max_requests_per_minute: float,
@@ -219,7 +172,6 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         token_encoding_name: str,
         max_attempts: int,
         resume: bool,
-        prompt_formatter: PromptFormatter,
         resume_no_retry: bool = False,
     ) -> None:
         """Processes API requests in parallel, throttling to stay under rate limits."""
@@ -272,14 +224,16 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                 ) as output_file:
                     for line in input_file:
                         response = GenericResponse.model_validate_json(line)
-                        if response.errors:
+                        if response.response_errors:
                             # this means that the request failed and we have a list of errors
                             logger.debug(
-                                f"Request {response.row_idx} previously failed due to errors: {response.errors}, removing from output and will retry"
+                                f"Request {response.generic_request.original_row_idx} previously failed due to errors: {response.response_errors}, removing from output and will retry"
                             )
                             num_previously_failed_requests += 1
                         else:
-                            completed_request_ids.add(response.row_idx)
+                            completed_request_ids.add(
+                                response.generic_request.original_row_idx
+                            )
                             output_file.write(line)
                 logger.info(
                     f"Found {len(completed_request_ids)} completed requests and {num_previously_failed_requests} previously failed requests"
@@ -320,13 +274,13 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                     return
 
         # initialize file reading
-        with open(requests_filepath) as file:
+        with open(generic_requests_filepath) as file:
             # `requests` will provide requests one at a time
-            requests = file.__iter__()
+            generic_requests = file.__iter__()
             logger.debug(f"File opened. Entering main loop")
 
             # Count total number of requests
-            total_requests = sum(1 for _ in open(requests_filepath))
+            total_requests = sum(1 for _ in open(generic_requests_filepath))
             if total_requests == len(completed_request_ids):
                 logger.debug(
                     "All requests have already been completed so will just reuse cache."
@@ -355,11 +309,16 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                             )
                         elif file_not_finished:
                             try:
-                                # get new request
-                                request_json = json.loads(next(requests))
-                                request_idx = request_json["metadata"][
-                                    "request_idx"
-                                ]
+                                # get new generic request
+                                generic_request_json = json.loads(
+                                    next(generic_requests)
+                                )
+                                generic_request = GenericRequest.model_validate(
+                                    generic_request_json
+                                )
+                                request_idx = generic_request.original_row_idx
+
+                                # Skip requests we already have responses for
                                 if (
                                     resume
                                     and request_idx in completed_request_ids
@@ -371,16 +330,23 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                                         1
                                     )
                                     continue
+
+                                # Create API-specific request
+                                api_specific_request_json = (
+                                    self.create_api_specific_request(
+                                        generic_request
+                                    )
+                                )
                                 next_request = APIRequest(
                                     task_id=next(task_id_generator),
-                                    request_json=request_json,
+                                    api_specific_request_json=api_specific_request_json,
+                                    generic_request=generic_request,
                                     token_consumption=num_tokens_consumed_from_request(
-                                        request_json,
+                                        api_specific_request_json,
                                         api_endpoint,
                                         token_encoding_name,
                                     ),
                                     attempts_left=max_attempts,
-                                    metadata=request_json.pop("metadata", None),
                                 )
                                 status_tracker.num_tasks_started += 1
                                 status_tracker.num_tasks_in_progress += 1
@@ -428,11 +394,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                                     retry_queue=queue_of_requests_to_retry,
                                     save_filepath=save_filepath,
                                     status_tracker=status_tracker,
-                                    get_generic_response=partial(
-                                        self.get_generic_response,
-                                        prompt_formatter=prompt_formatter,
-                                    ),
-                                )
+                                ),
                             )
                             next_request = None  # reset next_request to empty
                         else:
@@ -517,10 +479,10 @@ class APIRequest:
     """Stores an API request's inputs, outputs, and other metadata. Contains a method to make an API call."""
 
     task_id: int
-    request_json: dict
+    generic_request: GenericRequest
+    api_specific_request_json: dict
     token_consumption: int
     attempts_left: int
-    metadata: dict
     result: list = field(default_factory=list)
 
     async def call_api(
@@ -531,14 +493,15 @@ class APIRequest:
         retry_queue: asyncio.Queue,
         save_filepath: str,
         status_tracker: StatusTracker,
-        get_generic_response: Callable[[list], dict],
     ) -> None:
         """Calls the OpenAI API and saves results."""
         logger.debug(f"Starting request #{self.task_id}")
         error = None
         try:
             async with session.post(
-                url=request_url, headers=request_header, json=self.request_json
+                url=request_url,
+                headers=request_header,
+                json=self.api_specific_request_json,
             ) as response:
                 response = await response.json()
             if "error" in response:
@@ -567,25 +530,30 @@ class APIRequest:
             if self.attempts_left:
                 retry_queue.put_nowait(self)
             else:
-                logger.error(
-                    f"Request {self.request_json} failed after all attempts. Saving errors: {self.result}"
+                generic_response = GenericResponse(
+                    response_message=None,
+                    response_errors=[str(e) for e in self.result],
+                    raw_request=self.api_specific_request_json,
+                    raw_response=None,
+                    generic_request=self.generic_request,
                 )
-                data = GenericResponse(
-                    request=self.request_json,
-                    errors=[str(e) for e in self.result],
-                    row=self.metadata["sample"],
-                    row_idx=self.metadata["request_idx"],
-                )
-                append_generic_response(data, save_filepath)
+                append_generic_response(generic_response, save_filepath)
                 status_tracker.num_tasks_in_progress -= 1
                 status_tracker.num_tasks_failed += 1
+                logger.error(
+                    f"Request {self.api_specific_request_json} failed after all attempts."
+                    f"Saved errors {self.result} to {save_filepath}"
+                )
         else:
-            data = get_generic_response(
-                {"response": response, "metadata": self.metadata}
+            response_message = response["choices"][0]["message"]["content"]
+            generic_response = GenericResponse(
+                response_message=response_message,
+                response_errors=None,
+                raw_request=self.api_specific_request_json,
+                raw_response=response,
+                generic_request=self.generic_request,
             )
-            data.raw_response = response
-            data.request = self.request_json
-            append_generic_response(data, save_filepath)
+            append_generic_response(generic_response, save_filepath)
             status_tracker.num_tasks_in_progress -= 1
             status_tracker.num_tasks_succeeded += 1
             logger.debug(f"Request {self.task_id} saved to {save_filepath}")
@@ -687,13 +655,13 @@ def api_endpoint_from_url(request_url: str) -> str:
 
 def append_generic_response(data: GenericResponse, filename: str) -> None:
     """Append a json payload to the end of a jsonl file."""
-    json_string = json.dumps(data.model_dump())
+    json_string = json.dumps(data.model_dump(), default=str)
     with open(filename, "a") as f:
         f.write(json_string + "\n")
 
 
 def num_tokens_consumed_from_request(
-    request_json: dict,
+    api_specific_request_json: dict,
     api_endpoint: str,
     token_encoding_name: str,
 ):
@@ -701,14 +669,14 @@ def num_tokens_consumed_from_request(
     encoding = tiktoken.get_encoding(token_encoding_name)
     # if completions request, tokens = prompt + n * max_tokens
     if api_endpoint.endswith("completions"):
-        max_tokens = request_json.get("max_tokens", 15)
-        n = request_json.get("n", 1)
+        max_tokens = api_specific_request_json.get("max_tokens", 15)
+        n = api_specific_request_json.get("n", 1)
         completion_tokens = n * max_tokens
 
         # chat completions
         if api_endpoint.startswith("chat/"):
             num_tokens = 0
-            for message in request_json["messages"]:
+            for message in api_specific_request_json["messages"]:
                 num_tokens += 4  # every message follows <im_start>{role/name}\n{content}<im_end>\n
                 for key, value in message.items():
                     try:
@@ -726,7 +694,7 @@ def num_tokens_consumed_from_request(
             return num_tokens + completion_tokens
         # normal completions
         else:
-            prompt = request_json["prompt"]
+            prompt = api_specific_request_json["prompt"]
             if isinstance(prompt, str):  # single prompt
                 prompt_tokens = len(encoding.encode(prompt))
                 num_tokens = prompt_tokens + completion_tokens
@@ -741,7 +709,7 @@ def num_tokens_consumed_from_request(
                 )
     # if embeddings request, tokens = input tokens
     elif api_endpoint == "embeddings":
-        input = request_json["input"]
+        input = api_specific_request_json["input"]
         if isinstance(input, str):  # single input
             num_tokens = len(encoding.encode(input))
             return num_tokens
