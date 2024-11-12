@@ -225,8 +225,10 @@ class BaseRequestProcessor(ABC):
         dataset_file = f"{working_dir}/{parse_func_hash}.arrow"
         if os.path.exists(dataset_file):
             logger.info(f"Using existing dataset file {dataset_file}")
+            successful_dataset_cache_load = False
             try:
                 output_dataset = Dataset.from_file(dataset_file)
+                successful_dataset_cache_load = True
             except pyarrow.lib.ArrowInvalid as e:
                 os.remove(dataset_file)
                 logger.warning(
@@ -234,7 +236,15 @@ class BaseRequestProcessor(ABC):
                     "which was likely corrupted by a failed previous run. "
                     "Deleted file and attempting to regenerate dataset from cached LLM responses."
                 )
-            return output_dataset
+
+            if successful_dataset_cache_load:
+                return output_dataset
+
+        error_help = (
+            f"Please check your `parse_func` is returning a valid row (dict) "
+            "or list of rows (list of dicts) and re-run. "
+            "Dataset will be regenerated from cached LLM responses."
+        )
 
         # Process all response files
         with ArrowWriter(path=dataset_file) as writer:
@@ -275,6 +285,16 @@ class BaseRequestProcessor(ABC):
                         for row in dataset_rows:
                             if isinstance(row, BaseModel):
                                 row = row.model_dump()
+
+                            if not isinstance(row, dict):
+                                raise ValueError(
+                                    f"Got invalid row {row} of type {type(row)} from `parse_func`. {error_help}"
+                                )
+                            if not row:
+                                raise ValueError(
+                                    f"Got empty row {row} from `parse_func`. {error_help}"
+                                )
+
                             writer.write(row)
 
             logger.info(
@@ -285,34 +305,8 @@ class BaseRequestProcessor(ABC):
 
             logger.info("Finalizing writer")
 
-            error_help = (
-                f"Please check your `parse_func` is returning a"
-                "valid list of rows (list of dictionaries) and re-run."
-                "Dataset will be regenerated from cached LLM responses."
-            )
+            writer.finalize()
 
-            try:
-                writer.finalize()
-            except SchemaInferenceError as e:
-                os.remove(dataset_file)
-                raise ValueError(
-                    "Arrow writer is complaining about the schema: "
-                    f"likely your `parse_func` returned only None objects. {error_help}"
-                ) from e
-            except TypeError as e:
-                os.remove(dataset_file)
-                raise TypeError(
-                    "Arrow writer is complaining about the types: "
-                    f"likely your `parse_func` is not returning valid rows. {error_help}"
-                ) from e
-
-        try:
-            output_dataset = Dataset.from_file(dataset_file)
-        except pyarrow.lib.ArrowInvalid as e:
-            os.remove(dataset_file)
-            raise ValueError(
-                f"Arrow reader is complaining about the dataset file {dataset_file}: "
-                f"likely your `parse_func` is not returning valid rows. {error_help}"
-            ) from e
+        output_dataset = Dataset.from_file(dataset_file)
 
         return output_dataset

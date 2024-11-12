@@ -165,7 +165,9 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                 )
             )
 
-        dataset = self.create_dataset_files(working_dir, prompt_formatter)
+        dataset = self.create_dataset_files(
+            working_dir, parse_func_hash, prompt_formatter
+        )
         return dataset
 
     async def process_generic_requests_from_file(
