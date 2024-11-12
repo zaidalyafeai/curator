@@ -20,7 +20,9 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     GenericRequest,
     GenericResponse,
 )
-from bespokelabs.curator.request_processor.event_loop import get_or_create_event_loop
+from bespokelabs.curator.request_processor.event_loop import (
+    get_or_create_event_loop,
+)
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
