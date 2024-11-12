@@ -11,26 +11,44 @@ Curator provides a prompter class that takes care of a lot of the heavy lifting.
 
 The mental model to use for prompter is that it calls LLM 
 on each row of a given HF dataset in parallel.
-So the prompt_func should take a row of the dataset as input.
-But if there is no dataset, then the prompt_func can just be a
-lambda without any arguments.
 
-The parse_func is a function that takes the response from
-the LLM (which is of type response_format), and converts it
-into a list of dictionaries. 
-These then get converted into a HF dataset by the library.
+# Key Components of Prompter
 
-For example, if the input HF dataset has two rows, A and B,
-then prompt_func(A) and prompt_func(B) are called in parallel.
-The outputs can be structured outputs R1 and R2.
-The parse_func expects two arguments: 
-the input row (A or B), and the structured output (R1 or R2).
+## prompt_func
 
-It should return a list of dictionaries.
-These then get converted into a HF dataset by the library.
-For example, if the parse_func returns C and D for A after parsing R1,
-and E and F for B after parsing R2,
-then the output HF dataset has four rows: C, D, E, and F.
+1. Takes a dataset row as input
+2. Can be a simple lambda if no dataset is used
+3. Generates the prompt for the LLM
+
+## parse_func
+
+1. Takes two arguments:
+    - Input row
+    - LLM response (in response_format)
+2. Returns a list of dictionaries
+3. Converts LLM output into structured data
+
+
+# Data Flow Example
+Input Dataset: 
+    Row A
+    Row B
+Processing by Prompter:
+    Row A    →    prompt_func(A)    →    Response R1    →    parse_func(A, R1)    →    [C, D]
+    Row B    →    prompt_func(B)    →    Response R2    →    parse_func(B, R2)    →    [E, F]
+
+Output Dataset: 
+    Row C
+    Row D
+    Row E
+    Row F
+
+In this example:
+
+- Two input rows (A and B) are processed in parallel
+- Each generates a response (R1 and R2)
+- The parse function converts each response into multiple rows
+- The final dataset contains all generated rows
 
 Note that you can keep iterating on the dataset, by applying other prompters.
 """
@@ -42,32 +60,27 @@ from typing import List
 
 # We use Pydantic and structured outputs to define the format of the response.
 # This defines a single topic.
-class Topic(BaseModel):
-    topic: str = Field(description="A topic.")
 
 # This defines a list of topics, which is the response format for the topic generator.
 class Topics(BaseModel):
-    topics: List[Topic] = Field(description="A list of topics.")
+    topics: List[str] = Field(description="A list of topics.")
 
 # We define a prompter that generates topics.
 topic_generator = curator.Prompter(
     prompt_func=lambda: f"Generate 10 diverse topics that are suitable for writing poems about.",
     model_name="gpt-4o-mini",
     response_format=Topics,
-    parse_func=lambda _, topics_obj: [{"topic": t.topic} for t in topics_obj.topics],
+    parse_func=lambda _, topics_obj: [{"topic": t} for t in topics_obj.topics],
 )
 
 # We call the prompter to generate the dataset.
 topics: Dataset = topic_generator()
 print(topics['topic'])
 
-# We define a poem.
-class Poem(BaseModel):
-    poem: str = Field(description="A poem.")
 
-# And a list of poems.
+# Define a list of poems.
 class Poems(BaseModel):
-    poems: List[Poem] = Field(description="A list of poems.")
+    poems: List[str] = Field(description="A list of poems.")
 
 # We define a prompter that generates poems which gets applied to the topics dataset.
 poet = curator.Prompter(
@@ -77,7 +90,7 @@ poet = curator.Prompter(
     model_name="gpt-4o-mini",
     response_format=Poems,
     # `row` is the input row, and `poems_obj` is the structured output from the LLM.
-    parse_func=lambda row, poems_obj: [{"topic": row["topic"], "poem": p.poem} for p in poems_obj.poems],
+    parse_func=lambda row, poems_obj: [{"topic": row["topic"], "poem": p} for p in poems_obj.poems],
 )
 
 # We apply the prompter to the topics dataset.
