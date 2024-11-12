@@ -113,13 +113,14 @@ class Prompter:
         )
 
         prompt_func_hash = _get_function_hash(self.prompt_formatter.prompt_func)
+
+        # Used as the name of the dataset .arrow file so changing this will keep the same cache for the LLM responses, but will create a new dataset file
         parse_func_hash = _get_function_hash(self.prompt_formatter.parse_func)
 
         fingerprint_str = "_".join(
             [
                 str(dataset_hash),
                 str(prompt_func_hash),
-                str(parse_func_hash),
                 str(self.prompt_formatter.model_name),
                 str(
                     self.prompt_formatter.response_format.schema_json()
@@ -157,7 +158,10 @@ class Prompter:
 
         # TODO(Ryan): do the response processing, while context of original dataset is available and need random access via row_idx)
         dataset = request_processor.run(
-            dataset, f"{curator_cache_dir}/{fingerprint}", self.prompt_formatter
+            dataset,
+            f"{curator_cache_dir}/{fingerprint}",
+            parse_func_hash,
+            self.prompt_formatter,
         )
 
         return dataset

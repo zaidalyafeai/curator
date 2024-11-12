@@ -11,6 +11,7 @@ import aiofiles
 from datasets import Dataset
 from datasets.arrow_writer import ArrowWriter, SchemaInferenceError
 from pydantic import BaseModel
+import pyarrow
 
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
@@ -74,7 +75,11 @@ class BaseRequestProcessor(ABC):
 
     @abstractmethod
     def run(
-        self, dataset: Dataset, working_dir: str, prompt_formatter: PromptFormatter
+        self,
+        dataset: Dataset,
+        working_dir: str,
+        parse_func_hash: str,
+        prompt_formatter: PromptFormatter,
     ) -> Dataset:
         """
         Uses the API to completing the specific map by calling the LLM.
@@ -201,6 +206,7 @@ class BaseRequestProcessor(ABC):
         self,
         dataset: Dataset,
         working_dir: str,
+        parse_func_hash: str,
         prompt_formatter: PromptFormatter,
     ) -> None:
         """
@@ -223,10 +229,17 @@ class BaseRequestProcessor(ABC):
         responses_files = glob.glob(f"{working_dir}/responses_*.jsonl")
         if len(responses_files) == 0:
             raise ValueError(f"No responses files found in {working_dir}")
-        dataset_file = f"{working_dir}/dataset.arrow"
+        dataset_file = f"{working_dir}/{parse_func_hash}.arrow"
         if os.path.exists(dataset_file):
             logger.info(f"Using existing dataset file {dataset_file}")
-            return Dataset.from_file(dataset_file)
+            try:
+                output_dataset = Dataset.from_file(dataset_file)
+                return output_dataset
+            except Exception as e:
+                os.remove(dataset_file)
+                logger.warning(
+                    f"Failed to load dataset from {dataset_file}. This was likely corrupted by a failed previous run. Deleting the file and will try to regenerate from the cached LLM responses."
+                )
 
         # Process all response files
         with ArrowWriter(path=dataset_file) as writer:
@@ -275,8 +288,19 @@ class BaseRequestProcessor(ABC):
             try:
                 writer.finalize()
             except SchemaInferenceError as e:
+                os.remove(dataset_file)
                 raise ValueError(
-                    "Arrow writer is complaining about the schema: likely all of your parsed rows were None and writer.write only wrote None objects."
+                    "Arrow writer is complaining about the schema: likely your `parse_func` returned only None objects. Please fix your `parse_func` to return valid rows and re-run. The dataset will be regenerated from the cached LLM responses."
+                ) from e
+            except TypeError as e:
+                os.remove(dataset_file)
+                raise ValueError(
+                    "Arrow writer is complaining about the types: likely your `parse_func` is not returning a valid list of rows (list of dictionaries). Please fix your `parse_func` to return valid rows and re-run. The dataset will be regenerated from the cached LLM responses."
                 ) from e
 
-        return Dataset.from_file(dataset_file)
+        try:
+            output_dataset = Dataset.from_file(dataset_file)
+        except Exception as e:
+            raise ValueError(f"Failed to load dataset from {dataset_file}.") from e
+
+        return output_dataset
