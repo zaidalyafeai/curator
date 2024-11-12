@@ -54,25 +54,6 @@ class BaseRequestProcessor(ABC):
         pass
 
     @abstractmethod
-    def get_generic_response(
-        self, response: dict, prompt_formatter: PromptFormatter, dataset: Dataset
-    ) -> GenericResponse:
-        """
-        Parses a API-specific response into a generic response body.
-        Does error handling on the response.
-
-        IMPORTANT: In the generic response body you need to provide either the original dataset row OR the index of the row in the original dataset.
-        Must return request_body.metadata.dataset_row or request_body.metadata.dataset_row_idx
-
-        Args:
-            response (dict): API-specific response
-
-        Returns:
-            dict: Generic response body with an extra field "metadata" which contains the original dataset row or the index of the row in the original dataset
-        """
-        pass
-
-    @abstractmethod
     def run(
         self, dataset: Dataset, working_dir: str, prompt_formatter: PromptFormatter
     ) -> Dataset:
@@ -138,9 +119,8 @@ class BaseRequestProcessor(ABC):
 
         if dataset is None:
             with open(requests_file, "w") as f:
-                request = prompt_formatter.get_generic_request(dict(), 0)
-                api_request = self.create_api_specific_request(request)
-                f.write(json.dumps(api_request) + "\n")
+                generic_request = prompt_formatter.create_generic_request(dict(), 0)
+                f.write(json.dumps(generic_request.model_dump()) + "\n")
             return requests_files
 
         if self.batch_size:
@@ -188,13 +168,10 @@ class BaseRequestProcessor(ABC):
             for idx, dataset_row in enumerate(dataset):
                 dataset_row_idx = idx + start_idx
                 # Get the generic request from the map function
-                request = prompt_formatter.get_generic_request(
+                request = prompt_formatter.create_generic_request(
                     dataset_row, dataset_row_idx
                 )
-                # Convert the generic request to an API-specific request
-                api_request = self.create_api_specific_request(request)
-                # Write the API-specific request to file
-                await f.write(json.dumps(api_request) + "\n")
+                await f.write(json.dumps(request.model_dump()) + "\n")
         logger.info(f"Wrote {end_idx - start_idx} requests to {request_file}.")
 
     def create_dataset_files(
