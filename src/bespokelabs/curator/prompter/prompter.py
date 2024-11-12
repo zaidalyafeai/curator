@@ -22,6 +22,7 @@ from bespokelabs.curator.request_processor.openai_online_request_processor impor
     OpenAIOnlineRequestProcessor,
 )
 
+_CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")
 
 
@@ -113,7 +114,7 @@ class Prompter:
 
         if working_dir is None:
             curator_cache_dir = os.environ.get(
-                "CURATOR_CACHE_DIR", os.path.expanduser("~/.cache/curator")
+                "CURATOR_CACHE_DIR", os.path.expanduser(_CURATOR_DEFAULT_CACHE_DIR)
             )
         else:
             curator_cache_dir = working_dir
