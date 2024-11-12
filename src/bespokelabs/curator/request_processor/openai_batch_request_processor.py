@@ -3,16 +3,19 @@ import json
 import logging
 import os
 from typing import Callable, Dict, Optional, TypeVar
-from openai import AsyncOpenAI
+
 import aiofiles
+from openai import AsyncOpenAI
+from tqdm import tqdm
+
 from bespokelabs.curator.dataset import Dataset
+from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import (
     BaseRequestProcessor,
     GenericRequest,
     GenericResponse,
 )
-from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
-from tqdm import tqdm
+from bespokelabs.curator.request_processor.event_loop import get_or_create_event_loop
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
@@ -243,7 +246,8 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         # TODO(Ryan): likely can add some logic for smarter check_interval based on batch size and if the batch has started or not, fine to do a dumb ping for now
         batch_watcher = BatchWatcher(working_dir, check_interval=self.check_interval)
 
-        asyncio.run(
+        loop = get_or_create_event_loop()
+        loop.run_until_complete(
             batch_watcher.watch(prompt_formatter, self.get_generic_response, dataset)
         )
 
