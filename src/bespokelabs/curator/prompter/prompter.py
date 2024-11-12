@@ -32,10 +32,16 @@ class Prompter:
     def __init__(
         self,
         model_name: str,
-        prompt_func: Callable[[Union[Dict[str, Any], BaseModel]], Dict[str, str]],
+        prompt_func: Callable[
+            [Union[Dict[str, Any], BaseModel]], Dict[str, str]
+        ],
         parse_func: Optional[
             Callable[
-                [Union[Dict[str, Any], BaseModel], Union[Dict[str, Any], BaseModel]], T
+                [
+                    Union[Dict[str, Any], BaseModel],
+                    Union[Dict[str, Any], BaseModel],
+                ],
+                T,
             ]
         ] = None,
         response_format: Optional[Type[BaseModel]] = None,
@@ -70,9 +76,13 @@ class Prompter:
         )
         self.batch_mode = batch
         if batch:
-            self._request_processor = OpenAIBatchRequestProcessor(model=model_name)
+            self._request_processor = OpenAIBatchRequestProcessor(
+                model=model_name
+            )
         else:
-            self._request_processor = OpenAIOnlineRequestProcessor(model=model_name)
+            self._request_processor = OpenAIOnlineRequestProcessor(
+                model=model_name
+            )
 
     def __call__(
         self, dataset: Optional[Iterable] = None, working_dir: str = None
@@ -114,13 +124,16 @@ class Prompter:
 
         if working_dir is None:
             curator_cache_dir = os.environ.get(
-                "CURATOR_CACHE_DIR", os.path.expanduser(_CURATOR_DEFAULT_CACHE_DIR)
+                "CURATOR_CACHE_DIR",
+                os.path.expanduser(_CURATOR_DEFAULT_CACHE_DIR),
             )
         else:
             curator_cache_dir = working_dir
 
         dataset_hash = (
-            dataset._fingerprint if dataset is not None else xxh64("").hexdigest()
+            dataset._fingerprint
+            if dataset is not None
+            else xxh64("").hexdigest()
         )
 
         prompt_func_hash = _get_function_hash(self.prompt_formatter.prompt_func)
@@ -146,9 +159,13 @@ class Prompter:
         metadata_db = MetadataDB(metadata_db_path)
 
         # Get the source code of the prompt function
-        prompt_func_source = inspect.getsource(self.prompt_formatter.prompt_func)
+        prompt_func_source = inspect.getsource(
+            self.prompt_formatter.prompt_func
+        )
         if self.prompt_formatter.parse_func is not None:
-            parse_func_source = inspect.getsource(self.prompt_formatter.parse_func)
+            parse_func_source = inspect.getsource(
+                self.prompt_formatter.parse_func
+            )
         else:
             parse_func_source = ""
 

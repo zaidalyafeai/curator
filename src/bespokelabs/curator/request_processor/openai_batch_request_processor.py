@@ -76,7 +76,9 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
         return rate_limits
 
-    def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
+    def create_api_specific_request(
+        self, generic_request: GenericRequest
+    ) -> dict:
         """
         Creates a API-specific request body from a generic request body.
 
@@ -117,7 +119,10 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         return request
 
     def get_generic_response(
-        self, response: Dict, prompt_formatter: PromptFormatter, dataset: Dataset
+        self,
+        response: Dict,
+        prompt_formatter: PromptFormatter,
+        dataset: Dataset,
     ) -> GenericResponse:
         """
         Parses a API-specific response into a generic response body.
@@ -144,7 +149,9 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
         # NOTE(Ryan): can we actually parse the response into a an OpenAI ChatCompletions object? Easier to access fields?
         # TODO(Ryan): if you add token tokens to generic response, we can parse that here too, similar to my comment above we can do that in the shared place.
-        content = response["response"]["body"]["choices"][0]["message"]["content"]
+        content = response["response"]["body"]["choices"][0]["message"][
+            "content"
+        ]
         row_idx = int(response["custom_id"])
 
         if prompt_formatter.response_format:
@@ -181,7 +188,9 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                 "request_file_name": batch_file
             },  # for easily mapping back later, NOTE(Ryan): can convert to the int or UUID later
         )
-        logger.info(f"Batch request submitted, received batch object: {batch_object}")
+        logger.info(
+            f"Batch request submitted, received batch object: {batch_object}"
+        )
 
         return batch_object
 
@@ -241,13 +250,19 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         # TODO(Ryan): This creates responses_0.jsonl, responses_1.jsonl, etc. errors named same way? or errors_0.jsonl, errors_1.jsonl?
         # TODO(Ryan): retries, resubmits on lagging batches - need to study this a little closer
         # TODO(Ryan): likely can add some logic for smarter check_interval based on batch size and if the batch has started or not, fine to do a dumb ping for now
-        batch_watcher = BatchWatcher(working_dir, check_interval=self.check_interval)
-
-        asyncio.run(
-            batch_watcher.watch(prompt_formatter, self.get_generic_response, dataset)
+        batch_watcher = BatchWatcher(
+            working_dir, check_interval=self.check_interval
         )
 
-        dataset = self.create_dataset_files(dataset, working_dir, prompt_formatter)
+        asyncio.run(
+            batch_watcher.watch(
+                prompt_formatter, self.get_generic_response, dataset
+            )
+        )
+
+        dataset = self.create_dataset_files(
+            dataset, working_dir, prompt_formatter
+        )
         return dataset
 
 
@@ -319,7 +334,12 @@ class BatchWatcher:
             batches = await asyncio.gather(*status_tasks)
             newly_completed_batches = []
             for batch_id, batch in batches:
-                if batch.status in ["completed", "failed", "expired", "cancelled"]:
+                if batch.status in [
+                    "completed",
+                    "failed",
+                    "expired",
+                    "cancelled",
+                ]:
                     logger.info(
                         f"Batch {batch_id} processing finished with status: {batch.status}"
                     )
@@ -378,7 +398,9 @@ class BatchWatcher:
 
         # NOTE(Ryan): This is so the naming is consistent with the request file naming
         request_file_idx = (
-            self.batch_id_to_request_file_name[batch.id].split("/")[-1].split("_", 1)[1]
+            self.batch_id_to_request_file_name[batch.id]
+            .split("/")[-1]
+            .split("_", 1)[1]
         )
         output_path = f"{self.working_dir}/responses_{request_file_idx}"
         with open(output_path, "w") as f:
@@ -387,5 +409,8 @@ class BatchWatcher:
                 generic_response = get_generic_response(
                     json.loads(raw_response), prompt_formatter, dataset
                 )
-                f.write(json.dumps(generic_response.model_dump(), default=str) + "\n")
+                f.write(
+                    json.dumps(generic_response.model_dump(), default=str)
+                    + "\n"
+                )
         return output_path
