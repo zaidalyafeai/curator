@@ -554,6 +554,8 @@ class APIRequest:
                 )
         else:
             response_message = response["choices"][0]["message"]["content"]
+            if self.generic_request.response_format:
+                response_message = json.loads(response_message)
             generic_response = GenericResponse(
                 response_message=response_message,
                 response_errors=None,
