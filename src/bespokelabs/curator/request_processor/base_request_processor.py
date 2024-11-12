@@ -235,10 +235,12 @@ class BaseRequestProcessor(ABC):
             try:
                 output_dataset = Dataset.from_file(dataset_file)
                 return output_dataset
-            except Exception as e:
+            except pyarrow.lib.ArrowInvalid as e:
                 os.remove(dataset_file)
                 logger.warning(
-                    f"Failed to load dataset from {dataset_file}. This was likely corrupted by a failed previous run. Deleting the file and will try to regenerate from the cached LLM responses."
+                    f"Failed to load dataset from {dataset_file}, "
+                    "which was likely corrupted by a failed previous run. "
+                    "Deleted file and attempting to regenerate dataset from cached LLM responses."
                 )
 
         # Process all response files
@@ -285,22 +287,35 @@ class BaseRequestProcessor(ABC):
                 raise ValueError("All requests failed")
 
             logger.info("Finalizing writer")
+
+            error_help = (
+                f"Please check your `parse_func` is returning a"
+                "valid list of rows (list of dictionaries) and re-run."
+                "Dataset will be regenerated from cached LLM responses."
+            )
+
             try:
                 writer.finalize()
             except SchemaInferenceError as e:
                 os.remove(dataset_file)
                 raise ValueError(
-                    "Arrow writer is complaining about the schema: likely your `parse_func` returned only None objects. Please fix your `parse_func` to return valid rows and re-run. The dataset will be regenerated from the cached LLM responses."
+                    "Arrow writer is complaining about the schema: "
+                    f"likely your `parse_func` returned only None objects. {error_help}"
                 ) from e
             except TypeError as e:
                 os.remove(dataset_file)
-                raise ValueError(
-                    "Arrow writer is complaining about the types: likely your `parse_func` is not returning a valid list of rows (list of dictionaries). Please fix your `parse_func` to return valid rows and re-run. The dataset will be regenerated from the cached LLM responses."
+                raise TypeError(
+                    "Arrow writer is complaining about the types: "
+                    f"likely your `parse_func` is not returning valid rows. {error_help}"
                 ) from e
 
         try:
             output_dataset = Dataset.from_file(dataset_file)
-        except Exception as e:
-            raise ValueError(f"Failed to load dataset from {dataset_file}.") from e
+        except pyarrow.lib.ArrowInvalid as e:
+            os.remove(dataset_file)
+            raise ValueError(
+                f"Arrow reader is complaining about the dataset file {dataset_file}: "
+                f"likely your `parse_func` is not returning valid rows. {error_help}"
+            ) from e
 
         return output_dataset
