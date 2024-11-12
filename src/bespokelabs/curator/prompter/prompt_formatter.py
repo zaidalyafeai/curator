@@ -44,7 +44,7 @@ class PromptFormatter:
         self.parse_func = parse_func
         self.response_format = response_format
 
-    def get_generic_request(
+    def create_generic_request(
         self, row: Dict[str, Any] | BaseModel, idx: int
     ) -> GenericRequest:
         """Format the request object based off Prompter attributes."""
@@ -71,8 +71,11 @@ class PromptFormatter:
         return GenericRequest(
             model=self.model_name,
             messages=messages,
-            row=row,
-            row_idx=idx,
-            metadata=prompts,
-            response_format=self.response_format,
+            original_row=row,
+            original_row_idx=idx,
+            response_format=(
+                self.response_format.model_json_schema()
+                if self.response_format
+                else None
+            ),
         )
