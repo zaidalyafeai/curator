@@ -63,5 +63,9 @@ class PromptFormatter:
             messages=messages,
             original_row=row,
             original_row_idx=idx,
-            response_format=self.response_format,
+            response_format=(
+                self.response_format.model_json_schema()
+                if self.response_format
+                else None
+            ),
         )

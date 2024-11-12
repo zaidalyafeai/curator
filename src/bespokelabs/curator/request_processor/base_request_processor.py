@@ -214,28 +214,30 @@ class BaseRequestProcessor(ABC):
                         response = GenericResponse.model_validate_json(
                             generic_response_string
                         )
-                        if prompt_formatter.response_format:
-                            response.response = prompt_formatter.response_format(
-                                **response.response
-                            )
 
-                        if response is None:
+                        if response.response_errors:
                             failed_responses_count += 1
                             continue
 
-                        # Requires dataset to be Dataset object with random access
-                        if response.row is None:
-                            response.row = dataset[response.row_idx]
+                        if prompt_formatter.response_format:
+                            # Response message is a string, which is converted to a dict
+                            # The dict is then used to construct the response_format Pydantic model
+                            response.response_message = (
+                                prompt_formatter.response_format(
+                                    **json.loads(response.response_message)
+                                )
+                            )
 
                         # parse_func can return a single row or a list of rows
                         if prompt_formatter.parse_func:
                             dataset_rows = prompt_formatter.parse_func(
-                                response.row, response.response
+                                response.generic_request.original_row,
+                                response.response_message,
                             )
                             if not isinstance(dataset_rows, list):
                                 dataset_rows = [dataset_rows]
                         else:
-                            dataset_rows = [{"response": response.response}]
+                            dataset_rows = [{"response": response.response_message}]
 
                         for row in dataset_rows:
                             if isinstance(row, BaseModel):

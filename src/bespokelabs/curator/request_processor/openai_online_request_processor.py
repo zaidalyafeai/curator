@@ -93,10 +93,6 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         request = {
             "model": generic_request.model,
             "messages": generic_request.messages,
-            "metadata": {
-                "request_idx": str(generic_request.original_row_idx),
-                "original_dataset_row": generic_request.original_row,
-            },
         }
         if generic_request.response_format:
             request["response_format"] = {
@@ -229,7 +225,9 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                             )
                             num_previously_failed_requests += 1
                         else:
-                            completed_request_ids.add(response.generic_request.original_row_idx)
+                            completed_request_ids.add(
+                                response.generic_request.original_row_idx
+                            )
                             output_file.write(line)
                 logger.info(
                     f"Found {len(completed_request_ids)} completed requests and {num_previously_failed_requests} previously failed requests"
@@ -526,8 +524,9 @@ class APIRequest:
                     f"Saved errors {self.result} to {save_filepath}"
                 )
         else:
+            response_message = response["choices"][0]["message"]["content"]
             generic_response = GenericResponse(
-                response_message=response,
+                response_message=response_message,
                 response_errors=None,
                 raw_request=self.api_specific_request_json,
                 raw_response=response,
