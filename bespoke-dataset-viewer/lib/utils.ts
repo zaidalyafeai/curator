@@ -2,6 +2,11 @@ import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { DataItem } from "../types/dataset"
 
+export function isNumeric(value: any): boolean {
+  if (value === null || value === undefined) return false;
+  return Number.isFinite(Number(value));
+}
+
 export const getColumnValue = (item: DataItem, column: string): string => {
   if (!item) return "N/A"
 
