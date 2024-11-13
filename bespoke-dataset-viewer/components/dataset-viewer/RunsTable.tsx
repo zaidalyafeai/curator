@@ -174,7 +174,7 @@ export function RunsTable() {
               data={runs}
               getRowKey={(run) => run.id}
               getCellContent={getCellContent}
-              onRowClick={(run) => router.push(`/dataset/${run.run_hash}`)}
+              onRowClick={(run) => router.push(`/dataset/${run.run_hash}?batchMode=${run.batch_mode}`)}
               truncateConfig={{ enabled: true, maxLength: 100 }}
               pageSize={10}
               rowProps={(run) => ({

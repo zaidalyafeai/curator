@@ -1,27 +1,32 @@
-import { DataItem } from "../types/dataset"
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { DataItem } from "../types/dataset"
 
 export const getColumnValue = (item: DataItem, column: string): string => {
   if (!item) return "N/A"
 
   switch (column) {
-    case "Model":
-      return item.request.model || "N/A"
-    case "System Message":
-      return item.request.messages.find((m: { role: string }) => m.role === "system")?.content || "N/A"
-    case "User Message":
-      return item.request.messages.find((m: { role: string }) => m.role === "user")?.content || "N/A"
-    case "Assistant Message":
-      return item.raw_response.choices[0]?.message?.content || "N/A"
-    case "Total Tokens":
-      return item.raw_response.usage.total_tokens.toString() || "N/A"
-    case "Prompt Tokens":
-      return item.raw_response.usage.prompt_tokens.toString() || "N/A"
-    case "Completion Tokens":
-      return item.raw_response.usage.completion_tokens.toString() || "N/A"
+    case "user_message":
+      return item.generic_request?.messages?.find(m => m.role === "user")?.content || "N/A";
+    case "assistant_message":
+      if (typeof item.response_message === 'object') {
+        return JSON.stringify(item.response_message, null, 2);
+      }
+      return item.response_message || "N/A";
+    case "prompt_tokens":
+      return item.raw_response.usage?.prompt_tokens?.toString() ||
+        item.raw_response.response?.body?.usage?.prompt_tokens?.toString() ||
+        "N/A";
+    case "completion_tokens":
+      return item.raw_response.usage?.completion_tokens?.toString() ||
+        item.raw_response.response?.body?.usage?.completion_tokens?.toString() ||
+        "N/A";
+    case "total_tokens":
+      return item.raw_response.usage?.total_tokens?.toString() ||
+        item.raw_response.response?.body?.usage?.total_tokens?.toString() ||
+        "N/A";
     default:
-      return "N/A"
+      return "N/A";
   }
 }
 
@@ -44,7 +49,7 @@ export function getDistributionData(data: DataItem[], column: string) {
 
   // Get unique values
   const uniqueValues = [...new Set(values)];
-  
+
   // If there's only one unique value, return it directly
   if (uniqueValues.length === 1) {
     return [{
@@ -75,8 +80,8 @@ export function getDistributionData(data: DataItem[], column: string) {
   } else {
     // For larger ranges, use Freedman-Diaconis rule with some adjustments
     const iqr = calculateIQR(values);
-    binSize = 2 * iqr * Math.pow(values.length, -1/3);
-    
+    binSize = 2 * iqr * Math.pow(values.length, -1 / 3);
+
     // Round to a nice number
     const magnitude = Math.pow(10, Math.floor(Math.log10(binSize)));
     binSize = Math.ceil(binSize / magnitude) * magnitude;
@@ -92,7 +97,7 @@ export function getDistributionData(data: DataItem[], column: string) {
   while (start < max) {
     const end = start + binSize;
     bins.push({
-      range: allIntegers 
+      range: allIntegers
         ? `${Math.floor(start)}-${Math.floor(end)}`
         : `${start.toFixed(2)}-${end.toFixed(2)}`,
       start,
