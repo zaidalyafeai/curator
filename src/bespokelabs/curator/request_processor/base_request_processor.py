@@ -252,7 +252,8 @@ class BaseRequestProcessor(ABC):
                             generic_response_string
                         )
 
-                        if response.response_errors:
+                        # response.response_errors is not None IFF response.response_message is None
+                        if response.response_errors is not None:
                             failed_responses_count += 1
                             continue
 
@@ -266,16 +267,17 @@ class BaseRequestProcessor(ABC):
                                     )
                                 )
                             except ValidationError as e:
+                                schema_str = json.dumps(
+                                    prompt_formatter.response_format.model_json_schema(),
+                                    indent=2,
+                                )
                                 warning_msg = (
-                                    f"Pydantic failed to parse response message {response.response_message} with `response_format` {prompt_formatter.response_format}."
+                                    f"Pydantic failed to parse response message {response.response_message} with `response_format` {schema_str}."
                                     f"The model likely returned a JSON that does not match the schema of the `response_format`. Will skip this response."
                                 )
-
                                 logger.warning(warning_msg)
-                                response.response_message = None
-                                response.response_errors = [
-                                    f"{warning_msg}. Original error: {str(e)}"
-                                ]
+                                failed_responses_count += 1
+                                continue
 
                         # parse_func can return a single row or a list of rows
                         if prompt_formatter.parse_func:
