@@ -266,12 +266,16 @@ class BaseRequestProcessor(ABC):
                                     )
                                 )
                             except ValidationError as e:
-                                logger.warning(
+                                warning_msg = (
                                     f"Pydantic failed to parse response message {response.response_message} with `response_format` {prompt_formatter.response_format}."
                                     f"The model likely returned a JSON that does not match the schema of the `response_format`. Will skip this response."
                                 )
+
+                                logger.warning(warning_msg)
                                 response.response_message = None
-                                response.response_errors = [str(e)]
+                                response.response_errors = [
+                                    f"{warning_msg}. Original error: {str(e)}"
+                                ]
 
                         # parse_func can return a single row or a list of rows
                         if prompt_formatter.parse_func:
