@@ -267,10 +267,17 @@ class BaseRequestProcessor(ABC):
 
                         # parse_func can return a single row or a list of rows
                         if prompt_formatter.parse_func:
-                            dataset_rows = prompt_formatter.parse_func(
-                                response.generic_request.original_row,
-                                response.response_message,
-                            )
+                            try:
+                                dataset_rows = prompt_formatter.parse_func(
+                                    response.generic_request.original_row,
+                                    response.response_message,
+                                )
+                            except Exception as e:
+                                logger.error(
+                                    f"Exception raised in your `parse_func`. {error_help}"
+                                )
+                                os.remove(dataset_file)
+                                raise e
                             if not isinstance(dataset_rows, list):
                                 dataset_rows = [dataset_rows]
                         else:
@@ -283,10 +290,13 @@ class BaseRequestProcessor(ABC):
                                 row = row.model_dump()
 
                             if not isinstance(row, dict):
+                                os.remove(dataset_file)
                                 raise ValueError(
-                                    f"Got invalid row {row} of type {type(row)} from `parse_func`. {error_help}"
+                                    f"Got invalid row {row} of type {type(row)} from `parse_func`. "
+                                    f"This should be type <class 'dict'>. {error_help}"
                                 )
                             if not row:
+                                os.remove(dataset_file)
                                 raise ValueError(
                                     f"Got empty row {row} from `parse_func`. {error_help}"
                                 )
@@ -297,6 +307,7 @@ class BaseRequestProcessor(ABC):
                 f"Read {total_responses_count} responses, {failed_responses_count} failed"
             )
             if failed_responses_count == total_responses_count:
+                os.remove(dataset_file)
                 raise ValueError("All requests failed")
 
             logger.info("Finalizing writer")
