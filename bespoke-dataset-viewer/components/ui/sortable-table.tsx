@@ -28,7 +28,21 @@ import {
 const MAX_VISIBLE_PAGES = 5
 
 function isNumeric(value: any): boolean {
-  return !isNaN(parseFloat(value)) && isFinite(value)
+  // Handle null/undefined
+  if (value == null) return false;
+  
+  // Handle numbers directly
+  if (typeof value === 'number') return !isNaN(value);
+  
+  // Handle strings that represent numbers
+  if (typeof value === 'string') {
+    // Trim whitespace
+    const trimmed = value.trim();
+    if (trimmed === '') return false;
+    return !isNaN(Number(trimmed))
+  }
+  
+  return false;
 }
 
 export function SortableTable({
