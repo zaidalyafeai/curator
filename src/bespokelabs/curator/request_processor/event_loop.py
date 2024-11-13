@@ -10,7 +10,9 @@ def run_in_event_loop(coroutine):
     """
 
     try:
+        # This call will raise an RuntimError if there is no event loop running.
         asyncio.get_running_loop()
+
         # If there is an event loop running (the call
         # above doesn't raise an exception), we can
         # use nest_asyncio to patch the event loop.
