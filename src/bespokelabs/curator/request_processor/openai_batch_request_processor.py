@@ -3,10 +3,10 @@ import json
 import logging
 import os
 from typing import Optional, Type, TypeVar
-from pydantic import BaseModel
-from openai import AsyncOpenAI
+
 import aiofiles
 from openai import AsyncOpenAI
+from pydantic import BaseModel
 from tqdm import tqdm
 
 from bespokelabs.curator.dataset import Dataset
@@ -103,7 +103,6 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                 "messages": generic_request.messages,
                 "response_format": {
                     "type": "json_schema",
-                    "strict": True,
                     "json_schema": {
                         # TODO(ryan): not sure if this should be something else.
                         # TODO(ryan): also not sure if we should use strict: True
