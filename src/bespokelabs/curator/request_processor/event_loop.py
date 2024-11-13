@@ -9,10 +9,8 @@ def run_in_event_loop(coroutine):
     Run a coroutine in the current event loop or create a new one if there isn't one.
     """
     
-    
     try:
         asyncio.get_running_loop()
-
         # If there is an event loop running (the call
         # above doesn't raise an exception), we can
         # use nest_asyncio to patch the event loop.
