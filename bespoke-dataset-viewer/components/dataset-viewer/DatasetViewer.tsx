@@ -1,24 +1,23 @@
 "use client"
 
-import { useState, useCallback, useEffect, useMemo } from "react"
+import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/button"
-import { Loader2 } from "lucide-react"
-import { DataItem } from "@/types/dataset"
-import { getColumnValue } from "@/lib/utils"
-import { DetailsSidebar } from "./DetailsSidebar"
-import { DistributionChart } from "./DistributionChart"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuTrigger,
   DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Column } from "@/types/table"
 import { SortableTable } from "@/components/ui/sortable-table"
 import { useToast } from "@/components/ui/use-toast"
+import { cn, getColumnValue } from "@/lib/utils"
+import { DataItem } from "@/types/dataset"
+import { Column } from "@/types/table"
 import { AnimatePresence } from "framer-motion"
-import { cn } from "@/lib/utils"
-import { Header } from "@/components/layout/Header"
+import { Loader2 } from "lucide-react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { DetailsSidebar } from "./DetailsSidebar"
+import { DistributionChart } from "./DistributionChart"
 
 const COLUMNS: Column[] = [
   { key: "user_message", label: "User Message" },
@@ -57,7 +56,7 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
 
   useEffect(() => {
     if (!mounted) return
-    
+
     if (theme === 'dark') {
       document.documentElement.classList.add('dark')
     } else {
@@ -68,7 +67,7 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
 
   const filteredData = useMemo(() => {
     const dataArray = Array.isArray(data) ? data : []
-    
+
     return dataArray.filter((item) => {
       return Object.entries(filters).every(([column, filterValue]) => {
         if (!filterValue) return true
@@ -80,37 +79,15 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
 
   const sortedData = useMemo(() => {
     if (!sortColumn) return filteredData
-    
+
     return [...filteredData].sort((a, b) => {
       const aValue = getColumnValue(a, sortColumn)
       const bValue = getColumnValue(b, sortColumn)
-      
+
       const comparison = aValue.localeCompare(bValue)
       return sortDirection === "asc" ? comparison : -comparison
     })
   }, [filteredData, sortColumn, sortDirection])
-
-  const getCellContent = (item: DataItem, columnKey: string) => {
-    switch (columnKey) {
-      case "user_message":
-        return (item.generic_request?.messages?.find(m => m.role === "user")?.content || "N/A");
-      case "assistant_message":
-        if (typeof item.response_message === 'object') {
-            return JSON.stringify(item.response_message, null, 2);
-        }
-            return item.response_message || "N/A";
-      case "prompt_tokens":
-        return item.raw_response.usage?.prompt_tokens?.toString() || 
-               item.raw_response.response?.body?.usage?.prompt_tokens?.toString() || 
-               "N/A";
-      case "completion_tokens":
-        return item.raw_response.usage?.completion_tokens?.toString() || 
-               item.raw_response.response?.body?.usage?.completion_tokens?.toString() || 
-               "N/A";
-      default:
-        return "N/A";
-    }
-  }
 
   const fetchNewResponses = useCallback(async () => {
     if (!runHash) return
@@ -118,7 +95,7 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
     try {
       const queryParams = new URLSearchParams({
         batchMode: batchMode.toString(),
-        ...(batchMode 
+        ...(batchMode
           ? { processedFiles: processedFiles.join(',') }
           : { lastLine: lastLineNumber.toString() }
         )
@@ -126,14 +103,14 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
 
       const response = await fetch(`/api/responses/${runHash}?${queryParams}`)
       if (!response.ok) throw new Error('Failed to fetch responses')
-      
+
       const responseData = await response.json()
-      
+
       if (responseData.data && responseData.data.length > 0) {
         setNewItemIds(new Set(responseData.data.map((item: DataItem) => item.raw_response.id)))
 
         setData(prevData => [...responseData.data.reverse(), ...prevData])
-        
+
         if (batchMode) {
           // Update processed files list
           setProcessedFiles(prev => [...prev, ...responseData.processedFiles])
@@ -141,7 +118,7 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
           // Update last line number for streaming mode
           setLastLineNumber(responseData.totalLines)
         }
-        
+
         setTimeout(() => {
           setNewItemIds(new Set())
         }, 5000)
@@ -165,33 +142,33 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
     if (!runHash) return
 
     try {
-        const queryParams = new URLSearchParams({
-            batchMode: batchMode.toString(),
-            ...(batchMode
-                ? { processedFiles: '' }
-                : { lastLine: '0' }
-            )
-        })
+      const queryParams = new URLSearchParams({
+        batchMode: batchMode.toString(),
+        ...(batchMode
+          ? { processedFiles: '' }
+          : { lastLine: '0' }
+        )
+      })
       const response = await fetch(`/api/responses/${runHash}?${queryParams}`)
       if (!response.ok) throw new Error('Failed to fetch responses')
       const { data: initialData, totalLines, processedFiles: newProcessedFiles } = await response.json()
-      
+
       if (initialData && Array.isArray(initialData)) {
         setData(initialData.reverse()) // Newest first
-        
+
         if (batchMode && newProcessedFiles) {
           setProcessedFiles(newProcessedFiles)
         } else {
           setLastLineNumber(totalLines)
         }
-        
+
         // Show initial data count
         toast({
           title: "Dataset loaded",
           description: `Loaded ${initialData.length} responses`,
         })
       }
-      
+
       // Start polling after initial load
       setIsPolling(true)
     } catch (error) {
@@ -233,7 +210,7 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
     <>
       <DetailsSidebar item={selectedItem} onClose={() => setSelectedItem(null)} />
       <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
-        <Header 
+        <Header
           isLoading={isInitialLoad}
           isPolling={isPolling}
           onTogglePolling={() => setIsPolling(prev => !prev)}
@@ -250,10 +227,10 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline">
-                  {selectedDistribution 
-                    ? selectedDistribution.split('_').map(word => 
-                        word.charAt(0).toUpperCase() + word.slice(1)
-                      ).join(' ')
+                  {selectedDistribution
+                    ? selectedDistribution.split('_').map(word =>
+                      word.charAt(0).toUpperCase() + word.slice(1)
+                    ).join(' ')
                     : 'Select Metric'}
                 </Button>
               </DropdownMenuTrigger>
@@ -263,9 +240,9 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
                 </DropdownMenuItem>
                 {["total_tokens", "prompt_tokens", "completion_tokens"].map((column) => (
                   <DropdownMenuItem key={column} onClick={() => setSelectedDistribution(column)}>
-                    {column === "total_tokens" ? "Total Tokens" : 
-                     column === "prompt_tokens" ? "Prompt Tokens" : 
-                     "Completion Tokens"}
+                    {column === "total_tokens" ? "Total Tokens" :
+                      column === "prompt_tokens" ? "Prompt Tokens" :
+                        "Completion Tokens"}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
@@ -298,10 +275,10 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
                     columns={COLUMNS}
                     data={sortedData}
                     getRowKey={(item) => item.raw_response.id}
-                    getCellContent={getCellContent}
+                    getCellContent={(item, columnKey) => getColumnValue(item, columnKey)}
                     onRowClick={(item) => setSelectedItem(item)}
-                    truncateConfig={{ 
-                      enabled: true, 
+                    truncateConfig={{
+                      enabled: true,
                       maxLength: 150
                     }}
                     pageSize={10}
@@ -312,14 +289,14 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
                       ),
                       layout: true,
                       initial: { opacity: 0, y: -20 },
-                      animate: { 
-                        opacity: 1, 
+                      animate: {
+                        opacity: 1,
                         y: 0,
                         transition: {
                           duration: 0.2
                         }
                       },
-                      exit: { 
+                      exit: {
                         opacity: 0,
                         y: -20,
                         transition: {

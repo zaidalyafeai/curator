@@ -1,5 +1,4 @@
 import { DatasetViewer } from "@/components/dataset-viewer/DatasetViewer"
-import { headers } from 'next/headers'
 
 export default async function DatasetPage({ 
   params,

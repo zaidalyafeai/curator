@@ -1,13 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { DataItem } from '@/types/dataset'
 import { existsSync, promises as fs } from 'fs'
+import { NextRequest, NextResponse } from 'next/server'
 import { homedir } from 'os'
 import { join } from 'path'
-import path from 'path'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-async function readJsonlFile(filePath: string): Promise<any[]> {
+async function readJsonlFile(filePath: string): Promise<DataItem[]> {
   const content = await fs.readFile(filePath, 'utf-8')
   return content.split('\n')
     .filter(line => line.trim() !== '')
@@ -16,12 +16,12 @@ async function readJsonlFile(filePath: string): Promise<any[]> {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ runHash: string }>  }
+  { params }: { params: Promise<{ runHash: string }> }
 ): Promise<Response> {
   try {
     const { runHash } = await params
     const runDir = join(homedir(), '.cache', 'curator', runHash)
-    
+
     const searchParams = request.nextUrl.searchParams
     const lastLineNumber = parseInt(searchParams.get('lastLine') || '0')
     const processedFiles = (searchParams.get('processedFiles') || '').split(',').filter(Boolean)
@@ -33,15 +33,15 @@ export async function GET(
         { status: 404 }
       )
     }
-    
+
     if (isBatchMode) {
       // Batch streaming mode: Read all response files that haven't been processed
       const files = await fs.readdir(runDir)
       const responseFiles = files
         .filter(f => f.startsWith('responses_') && f.endsWith('.jsonl'))
         .filter(f => !processedFiles.includes(f))
-      
-      const allData: any[] = []
+
+      const allData: DataItem[] = []
       for (const file of responseFiles) {
         const filePath = join(runDir, file)
         const fileData = await readJsonlFile(filePath)
@@ -59,7 +59,7 @@ export async function GET(
       const responsesPath = join(runDir, 'responses_0.jsonl')
       const content = await fs.readFile(responsesPath, 'utf-8')
       const lines = content.split('\n').filter(line => line.trim() !== '')
-      
+
       const newLines = lines.slice(lastLineNumber)
       const jsonData = newLines.map(line => JSON.parse(line))
 
