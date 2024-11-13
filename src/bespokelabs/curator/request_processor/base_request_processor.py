@@ -307,7 +307,7 @@ class BaseRequestProcessor(ABC):
 
 def parse_response_message(
     response_message: str, response_format: Optional[BaseModel]
-) -> tuple[any, Optional[list[str]]]:
+) -> tuple[Optional[dict | str], Optional[list[str]]]:
     response_errors = None
     if response_format:
         try:
