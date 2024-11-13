@@ -119,10 +119,10 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                 "messages": generic_request.messages,
             }
 
-        if self.temperature:
+        if self.temperature is not None:
             body["temperature"] = self.temperature
 
-        if self.top_p:
+        if self.top_p is not None:
             body["top_p"] = self.top_p
 
         request = {

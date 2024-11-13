@@ -112,10 +112,10 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                 },
             }
 
-        if self.temperature:
+        if self.temperature is not None:
             request["temperature"] = self.temperature
 
-        if self.top_p:
+        if self.top_p is not None:
             request["top_p"] = self.top_p
 
         return request
