@@ -561,11 +561,12 @@ class APIRequest:
                 )
         else:
             response_message = response["choices"][0]["message"]["content"]
-            if self.generic_request.response_format:
-                response_message = json.loads(response_message)
+            response_message, response_errors = self.parse_response_message(
+                response_message, self.generic_request.response_format
+            )
             generic_response = GenericResponse(
                 response_message=response_message,
-                response_errors=None,
+                response_errors=response_errors,
                 raw_request=self.api_specific_request_json,
                 raw_response=response,
                 generic_request=self.generic_request,

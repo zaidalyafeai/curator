@@ -413,15 +413,16 @@ class BatchWatcher:
                 else:
                     # NOTE(Ryan): can we actually parse the response into a an OpenAI ChatCompletions object? Easier to access fields?
                     # TODO(Ryan): if you add token tokens to generic response
-                    content = raw_response["response"]["body"]["choices"][0][
-                        "message"
-                    ]["content"]
-
-                    if response_format:
-                        content = json.loads(content)
-
-                    generic_response.response_message = content
-
+                    choices = raw_response["response"]["body"]["choices"]
+                    # Assuming N = 1
+                    response_message = choices[0]["message"]["content"]
+                    response_message, response_errors = (
+                        self.parse_response_message(
+                            response_message, response_format
+                        )
+                    )
+                    generic_response.response_message = response_message
+                    generic_response.response_errors = response_errors
                 f.write(
                     json.dumps(generic_response.model_dump(), default=str)
                     + "\n"
