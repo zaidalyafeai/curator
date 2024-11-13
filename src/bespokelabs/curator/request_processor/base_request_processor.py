@@ -267,8 +267,12 @@ class BaseRequestProcessor(ABC):
                                     )
                                 )
                             except ValidationError as e:
+                                schema_str = json.dumps(
+                                    prompt_formatter.response_format.model_json_schema(),
+                                    indent=2,
+                                )
                                 warning_msg = (
-                                    f"Pydantic failed to parse response message {response.response_message} with `response_format` {prompt_formatter.response_format}."
+                                    f"Pydantic failed to parse response message {response.response_message} with `response_format` {schema_str}."
                                     f"The model likely returned a JSON that does not match the schema of the `response_format`. Will skip this response."
                                 )
                                 logger.warning(warning_msg)
