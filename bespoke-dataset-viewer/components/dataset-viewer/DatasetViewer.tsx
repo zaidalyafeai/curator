@@ -33,9 +33,6 @@ interface DatasetViewerProps {
 
 export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
   const [data, setData] = useState<DataItem[]>([])
-  const [sortColumn] = useState<string | null>(null)
-  const [sortDirection] = useState<"asc" | "desc">("asc")
-  const [filters] = useState<Record<string, string>>({})
   const [theme, setTheme] = useState<"light" | "dark">("light")
   const [mounted, setMounted] = useState(false)
   const [selectedDistribution, setSelectedDistribution] = useState<string | null>("total_tokens")
@@ -64,30 +61,6 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
     }
     localStorage.setItem('theme', theme)
   }, [theme, mounted])
-
-  const filteredData = useMemo(() => {
-    const dataArray = Array.isArray(data) ? data : []
-
-    return dataArray.filter((item) => {
-      return Object.entries(filters).every(([column, filterValue]) => {
-        if (!filterValue) return true
-        const cellValue = getColumnValue(item, column)
-        return cellValue.toLowerCase().includes(filterValue.toLowerCase())
-      })
-    })
-  }, [data, filters])
-
-  const sortedData = useMemo(() => {
-    if (!sortColumn) return filteredData
-
-    return [...filteredData].sort((a, b) => {
-      const aValue = getColumnValue(a, sortColumn)
-      const bValue = getColumnValue(b, sortColumn)
-
-      const comparison = aValue.localeCompare(bValue)
-      return sortDirection === "asc" ? comparison : -comparison
-    })
-  }, [filteredData, sortColumn, sortDirection])
 
   const fetchNewResponses = useCallback(async () => {
     if (!runHash) return
@@ -262,7 +235,7 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
                 {selectedDistribution && (
                   <div className="rounded-lg border bg-card p-4">
                     <DistributionChart
-                      data={sortedData}
+                      data={data}
                       column={selectedDistribution}
                     />
                   </div>
@@ -273,7 +246,7 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
                 <AnimatePresence>
                   <SortableTable
                     columns={COLUMNS}
-                    data={sortedData}
+                    data={data}
                     getRowKey={(item) => item.raw_response.id}
                     getCellContent={(item, columnKey) => getColumnValue(item, columnKey)}
                     onRowClick={(item) => setSelectedItem(item)}
