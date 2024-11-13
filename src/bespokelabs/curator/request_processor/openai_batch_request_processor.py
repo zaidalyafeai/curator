@@ -417,10 +417,8 @@ class BatchWatcher:
                     choices = raw_response["response"]["body"]["choices"]
                     # Assuming N = 1
                     response_message = choices[0]["message"]["content"]
-                    response_message, response_errors = (
-                        parse_response_message(
-                            response_message, response_format
-                        )
+                    response_message, response_errors = parse_response_message(
+                        response_message, response_format
                     )
                     generic_response.response_message = response_message
                     generic_response.response_errors = response_errors

@@ -16,7 +16,9 @@ from pydantic import BaseModel
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
-from bespokelabs.curator.request_processor.generic_response import GenericResponse
+from bespokelabs.curator.request_processor.generic_response import (
+    GenericResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -304,6 +306,7 @@ class BaseRequestProcessor(ABC):
         output_dataset = Dataset.from_file(dataset_file)
 
         return output_dataset
+
 
 def parse_response_message(
     response_message: str, response_format: Optional[BaseModel]
