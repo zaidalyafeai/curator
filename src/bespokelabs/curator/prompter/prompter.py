@@ -50,6 +50,8 @@ class Prompter:
         response_format: Optional[Type[BaseModel]] = None,
         batch: bool = False,
         batch_size: Optional[int] = None,
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
     ):
         """Initialize a Prompter.
 
@@ -83,7 +85,10 @@ class Prompter:
         self.batch_mode = batch
         if batch:
             self._request_processor = OpenAIBatchRequestProcessor(
-                model=model_name, batch_size=batch_size
+                model=model_name,
+                batch_size=batch_size,
+                temperature=temperature,
+                top_p=top_p,
             )
         else:
             if batch_size is not None:
@@ -91,7 +96,7 @@ class Prompter:
                     f"Prompter argument `batch_size` {batch_size} is ignored because `batch` is False"
                 )
             self._request_processor = OpenAIOnlineRequestProcessor(
-                model=model_name
+                model=model_name, temperature=temperature, top_p=top_p
             )
 
     def __call__(

@@ -14,9 +14,7 @@ from pydantic import BaseModel
 import pyarrow
 
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
-from bespokelabs.curator.request_processor.event_loop import (
-    get_or_create_event_loop,
-)
+from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.generic_response import (
     GenericResponse,
@@ -157,11 +155,9 @@ class BaseRequestProcessor(ABC):
                 ]
                 await asyncio.gather(*tasks)
 
-            loop = get_or_create_event_loop()
-            loop.run_until_complete(create_all_request_files())
+            run_in_event_loop(create_all_request_files())
         else:
-            loop = get_or_create_event_loop()
-            loop.run_until_complete(
+            run_in_event_loop(
                 self.acreate_request_file(
                     dataset, prompt_formatter, requests_file
                 )
@@ -265,7 +261,7 @@ class BaseRequestProcessor(ABC):
                             # The dict is then used to construct the response_format Pydantic model
                             response.response_message = (
                                 prompt_formatter.response_format(
-                                    **json.loads(response.response_message)
+                                    **response.response_message
                                 )
                             )
 

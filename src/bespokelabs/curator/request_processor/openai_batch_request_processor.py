@@ -16,9 +16,7 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     GenericRequest,
     GenericResponse,
 )
-from bespokelabs.curator.request_processor.event_loop import (
-    get_or_create_event_loop,
-)
+from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
@@ -29,6 +27,8 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         self,
         batch_size: int = 1000,
         model: str = "gpt-4o-mini",
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
         check_interval: int = 10,
         api_key: str = os.getenv("OPENAI_API_KEY"),
         url: str = "https://api.openai.com/v1/chat/completions",
@@ -37,6 +37,8 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         self.url: str = url
         self.api_key: str = api_key
         self.check_interval: int = check_interval
+        self.temperature: float = temperature
+        self.top_p: float = top_p
 
     def get_rate_limits(self) -> dict:
         """
@@ -114,6 +116,12 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                 "model": generic_request.model,
                 "messages": generic_request.messages,
             }
+
+        if self.temperature is not None:
+            body["temperature"] = self.temperature
+
+        if self.top_p is not None:
+            body["top_p"] = self.top_p
 
         request = {
             "custom_id": str(generic_request.original_row_idx),
@@ -199,8 +207,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                 ]
                 return await asyncio.gather(*tasks)
 
-            loop = get_or_create_event_loop()
-            batch_objects = loop.run_until_complete(submit_all_batches())
+            batch_objects = run_in_event_loop(submit_all_batches())
 
             with open(batch_objects_file, "w") as f:
                 # NOTE(Ryan): we can also store the request_file_name in this object here, instead of in the metadata during batch submission. Can find a nice abstraction across other batch APIs (e.g. claude)
@@ -225,8 +232,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         # NOTE(Ryan): If we allow for multiple heterogeneous requests per dataset row, we will need to update this.
         total_requests = 1 if dataset is None else len(dataset)
 
-        loop = get_or_create_event_loop()
-        loop.run_until_complete(
+        run_in_event_loop(
             batch_watcher.watch(
                 prompt_formatter.response_format, total_requests
             )
@@ -360,10 +366,9 @@ class BatchWatcher:
         elif batch.status == "failed" and batch.error_file_id:
             file_content = await self.client.files.content(batch.error_file_id)
         elif batch.status == "failed" and not batch.error_file_id:
-            errors = [str(error) for error in batch.errors.data]
+            errors = "\n".join([str(error) for error in batch.errors.data])
             logger.warning(
-                f"Batch {batch.id} failed\n"
-                f"Batch errors: {'\n'.join(errors)}"
+                f"Batch {batch.id} failed\n" f"Batch errors: {errors}"
             )
             return None
         elif batch.status == "cancelled" or batch.status == "expired":
@@ -385,6 +390,7 @@ class BatchWatcher:
 
         with open(response_file, "w") as f:
             for raw_response in file_content.text.splitlines():
+                raw_response = json.loads(raw_response)
                 generic_request = generic_request_map[
                     int(raw_response["custom_id"])
                 ]

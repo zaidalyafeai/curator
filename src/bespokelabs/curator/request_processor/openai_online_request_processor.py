@@ -20,9 +20,7 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     GenericRequest,
     GenericResponse,
 )
-from bespokelabs.curator.request_processor.event_loop import (
-    get_or_create_event_loop,
-)
+from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
@@ -34,11 +32,15 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         model: str = "gpt-4o-mini",
         api_key: str = os.getenv("OPENAI_API_KEY"),
         url: str = "https://api.openai.com/v1/chat/completions",
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
     ):
         super().__init__(batch_size=None)
         self.model: str = model
         self.url: str = url
         self.api_key: str = api_key
+        self.temperature: float = temperature
+        self.top_p: float = top_p
 
     def get_rate_limits(self) -> dict:
         """
@@ -108,6 +110,12 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                 },
             }
 
+        if self.temperature is not None:
+            request["temperature"] = self.temperature
+
+        if self.top_p is not None:
+            request["top_p"] = self.top_p
+
         return request
 
     def run(
@@ -151,8 +159,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         for generic_requests_file, generic_responses_file in zip(
             generic_requests_files, generic_responses_files
         ):
-            loop = get_or_create_event_loop()
-            loop.run_until_complete(
+            run_in_event_loop(
                 self.process_generic_requests_from_file(
                     generic_requests_filepath=generic_requests_file,
                     save_filepath=generic_responses_file,
@@ -554,6 +561,8 @@ class APIRequest:
                 )
         else:
             response_message = response["choices"][0]["message"]["content"]
+            if self.generic_request.response_format:
+                response_message = json.loads(response_message)
             generic_response = GenericResponse(
                 response_message=response_message,
                 response_errors=None,
