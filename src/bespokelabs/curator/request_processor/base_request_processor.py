@@ -8,10 +8,10 @@ from math import ceil
 from typing import Optional
 
 import aiofiles
-from datasets import Dataset
-from datasets.arrow_writer import ArrowWriter, SchemaInferenceError
-from pydantic import BaseModel
 import pyarrow
+from datasets import Dataset
+from datasets.arrow_writer import ArrowWriter
+from pydantic import BaseModel, ValidationError
 
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
@@ -259,11 +259,23 @@ class BaseRequestProcessor(ABC):
                         if prompt_formatter.response_format:
                             # Response message is a string, which is converted to a dict
                             # The dict is then used to construct the response_format Pydantic model
-                            response.response_message = (
-                                prompt_formatter.response_format(
-                                    **response.response_message
+                            try:
+                                response.response_message = (
+                                    prompt_formatter.response_format(
+                                        **response.response_message
+                                    )
                                 )
-                            )
+                            except ValidationError as e:
+                                warning_msg = (
+                                    f"Pydantic failed to parse response message {response.response_message} with `response_format` {prompt_formatter.response_format}."
+                                    f"The model likely returned a JSON that does not match the schema of the `response_format`. Will skip this response."
+                                )
+
+                                logger.warning(warning_msg)
+                                response.response_message = None
+                                response.response_errors = [
+                                    f"{warning_msg}. Original error: {str(e)}"
+                                ]
 
                         # parse_func can return a single row or a list of rows
                         if prompt_formatter.parse_func:
@@ -317,3 +329,21 @@ class BaseRequestProcessor(ABC):
         output_dataset = Dataset.from_file(dataset_file)
 
         return output_dataset
+
+
+def parse_response_message(
+    response_message: str, response_format: Optional[BaseModel]
+) -> tuple[Optional[dict | str], Optional[list[str]]]:
+    response_errors = None
+    if response_format:
+        try:
+            response_message = json.loads(response_message)
+        except json.JSONDecodeError:
+            logger.warning(
+                f"Failed to parse response as JSON: {response_message}, skipping this response."
+            )
+            response_message = None
+            response_errors = [
+                f"Failed to parse response as JSON: {response_message}"
+            ]
+    return response_message, response_errors

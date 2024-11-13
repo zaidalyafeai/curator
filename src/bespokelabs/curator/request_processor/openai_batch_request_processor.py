@@ -3,10 +3,10 @@ import json
 import logging
 import os
 from typing import Optional, Type, TypeVar
-from pydantic import BaseModel
-from openai import AsyncOpenAI
+
 import aiofiles
 from openai import AsyncOpenAI
+from pydantic import BaseModel
 from tqdm import tqdm
 
 from bespokelabs.curator.dataset import Dataset
@@ -15,6 +15,7 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     BaseRequestProcessor,
     GenericRequest,
     GenericResponse,
+    parse_response_message,
 )
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 
@@ -413,15 +414,14 @@ class BatchWatcher:
                 else:
                     # NOTE(Ryan): can we actually parse the response into a an OpenAI ChatCompletions object? Easier to access fields?
                     # TODO(Ryan): if you add token tokens to generic response
-                    content = raw_response["response"]["body"]["choices"][0][
-                        "message"
-                    ]["content"]
-
-                    if response_format:
-                        content = json.loads(content)
-
-                    generic_response.response_message = content
-
+                    choices = raw_response["response"]["body"]["choices"]
+                    # Assuming N = 1
+                    response_message = choices[0]["message"]["content"]
+                    response_message, response_errors = parse_response_message(
+                        response_message, response_format
+                    )
+                    generic_response.response_message = response_message
+                    generic_response.response_errors = response_errors
                 f.write(
                     json.dumps(generic_response.model_dump(), default=str)
                     + "\n"
