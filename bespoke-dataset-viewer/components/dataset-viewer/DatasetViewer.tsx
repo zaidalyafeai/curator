@@ -93,21 +93,19 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
   const getCellContent = (item: DataItem, columnKey: string) => {
     switch (columnKey) {
       case "user_message":
-        return (item.request?.messages?.find(m => m.role === "user")?.content || 
-                item.request?.body?.messages?.find(m => m.role === "user")?.content ||
-                "N/A");
+        return (item.generic_request?.messages?.find(m => m.role === "user")?.content || "N/A");
       case "assistant_message":
-        if (typeof item.response === 'object') {
-          return JSON.stringify(item.response, null, 2);
+        if (typeof item.response_message === 'object') {
+            return JSON.stringify(item.response_message, null, 2);
         }
-        return item.response || "N/A";
+            return item.response_message || "N/A";
       case "prompt_tokens":
         return item.raw_response.usage?.prompt_tokens?.toString() || 
-               item.raw_response.response?.usage?.prompt_tokens?.toString() || 
+               item.raw_response.response?.body?.usage?.prompt_tokens?.toString() || 
                "N/A";
       case "completion_tokens":
         return item.raw_response.usage?.completion_tokens?.toString() || 
-               item.raw_response.response?.usage?.completion_tokens?.toString() || 
+               item.raw_response.response?.body?.usage?.completion_tokens?.toString() || 
                "N/A";
       default:
         return "N/A";
@@ -167,13 +165,25 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
     if (!runHash) return
 
     try {
-      const response = await fetch(`/api/responses/${runHash}`)
+        const queryParams = new URLSearchParams({
+            batchMode: batchMode.toString(),
+            ...(batchMode
+                ? { processedFiles: '' }
+                : { lastLine: '0' }
+            )
+        })
+      const response = await fetch(`/api/responses/${runHash}?${queryParams}`)
       if (!response.ok) throw new Error('Failed to fetch responses')
-      const { data: initialData, totalLines } = await response.json()
+      const { data: initialData, totalLines, processedFiles: newProcessedFiles } = await response.json()
       
       if (initialData && Array.isArray(initialData)) {
         setData(initialData.reverse()) // Newest first
-        setLastLineNumber(totalLines)
+        
+        if (batchMode && newProcessedFiles) {
+          setProcessedFiles(newProcessedFiles)
+        } else {
+          setLastLineNumber(totalLines)
+        }
         
         // Show initial data count
         toast({
@@ -194,7 +204,7 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
     } finally {
       setIsInitialLoad(false)
     }
-  }, [runHash, toast])
+  }, [runHash, batchMode, toast])
 
   // Initial data load
   useEffect(() => {

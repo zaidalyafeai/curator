@@ -1,15 +1,20 @@
 import { DatasetViewer } from "@/components/dataset-viewer/DatasetViewer"
+import { headers } from 'next/headers'
 
 export default async function DatasetPage({ 
-  params 
+  params,
+  searchParams
 }: { 
-  params: Promise<{ runHash: string }> 
+  params: Promise<{ runHash: string }>,
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   const { runHash } = await params
+  const { batchMode } = await searchParams
+  const isBatchMode = batchMode === '1'
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <DatasetViewer runHash={runHash} />
+        <DatasetViewer runHash={runHash} batchMode={isBatchMode} />
       </body>
     </html>
   )

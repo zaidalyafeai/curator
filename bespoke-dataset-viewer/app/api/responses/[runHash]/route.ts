@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { promises as fs } from 'fs'
+import { existsSync, promises as fs } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 import path from 'path'
@@ -17,7 +17,7 @@ async function readJsonlFile(filePath: string): Promise<any[]> {
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ runHash: string }>  }
-): Promise<Response> {  // This is the key change
+): Promise<Response> {
   try {
     const { runHash } = await params
     const runDir = join(homedir(), '.cache', 'curator', runHash)
@@ -27,13 +27,20 @@ export async function GET(
     const processedFiles = (searchParams.get('processedFiles') || '').split(',').filter(Boolean)
     const isBatchMode = searchParams.get('batchMode') === 'true'
 
+    if (!existsSync(runDir)) {
+      return NextResponse.json(
+        { error: "Run directory not found" },
+        { status: 404 }
+      )
+    }
+    
     if (isBatchMode) {
-      // Batch mode: Read all response files that haven't been processed
+      // Batch streaming mode: Read all response files that haven't been processed
       const files = await fs.readdir(runDir)
       const responseFiles = files
         .filter(f => f.startsWith('responses_') && f.endsWith('.jsonl'))
         .filter(f => !processedFiles.includes(f))
-
+      
       const allData: any[] = []
       for (const file of responseFiles) {
         const filePath = join(runDir, file)
@@ -44,10 +51,11 @@ export async function GET(
       return NextResponse.json({
         data: allData,
         processedFiles: responseFiles,
-        isBatchMode: true
+        isBatchMode: true,
+        totalLines: null
       })
     } else {
-      // Streaming mode: Monitor responses_0.jsonl
+      // Online streaming mode
       const responsesPath = join(runDir, 'responses_0.jsonl')
       const content = await fs.readFile(responsesPath, 'utf-8')
       const lines = content.split('\n').filter(line => line.trim() !== '')
@@ -58,7 +66,8 @@ export async function GET(
       return NextResponse.json({
         data: jsonData,
         totalLines: lines.length,
-        isBatchMode: false
+        isBatchMode: false,
+        processedFiles: null
       })
     }
   } catch (error) {

@@ -4,15 +4,18 @@ export type Message = {
 }
 
 export type DataItem = {
-  response: string | Record<string, any>
-  request: {
+  response_message: string | Record<string, any>
+  response_errors: string[] | null
+  raw_response: null | any
+  raw_request: null | any
+  generic_request: {
     model: string
     messages: Message[]
+    response_format: Record<string, any> | null
+    original_row: Record<string, any>
+    original_row_idx: number
   }
-  errors: null | any
-  row: any
-  row_idx: number
-  raw_response: null | any
+  
 }
 
 export interface Run {
