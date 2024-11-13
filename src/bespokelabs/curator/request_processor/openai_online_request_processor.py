@@ -19,6 +19,7 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     BaseRequestProcessor,
     GenericRequest,
     GenericResponse,
+    parse_response_message,
 )
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 
@@ -560,7 +561,7 @@ class APIRequest:
                 )
         else:
             response_message = response["choices"][0]["message"]["content"]
-            response_message, response_errors = self.parse_response_message(
+            response_message, response_errors = parse_response_message(
                 response_message, self.generic_request.response_format
             )
             generic_response = GenericResponse(
