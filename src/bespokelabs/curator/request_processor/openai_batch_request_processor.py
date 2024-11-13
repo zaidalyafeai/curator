@@ -29,6 +29,8 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         self,
         batch_size: int = 1000,
         model: str = "gpt-4o-mini",
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
         check_interval: int = 10,
         api_key: str = os.getenv("OPENAI_API_KEY"),
         url: str = "https://api.openai.com/v1/chat/completions",
@@ -37,6 +39,8 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         self.url: str = url
         self.api_key: str = api_key
         self.check_interval: int = check_interval
+        self.temperature: float = temperature
+        self.top_p: float = top_p
 
     def get_rate_limits(self) -> dict:
         """
@@ -114,6 +118,12 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                 "model": generic_request.model,
                 "messages": generic_request.messages,
             }
+
+        if self.temperature is not None:
+            body["temperature"] = self.temperature
+
+        if self.top_p is not None:
+            body["top_p"] = self.top_p
 
         request = {
             "custom_id": str(generic_request.original_row_idx),
