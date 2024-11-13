@@ -14,8 +14,8 @@ import { cn, getColumnValue } from "@/lib/utils"
 import { DataItem } from "@/types/dataset"
 import { Column } from "@/types/table"
 import { AnimatePresence } from "framer-motion"
-import { Loader2 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { FileText, Loader2, RefreshCcw } from "lucide-react"
+import { useCallback, useEffect, useState } from "react"
 import { DetailsSidebar } from "./DetailsSidebar"
 import { DistributionChart } from "./DistributionChart"
 
@@ -29,6 +29,32 @@ const COLUMNS: Column[] = [
 interface DatasetViewerProps {
   runHash?: string
   batchMode: boolean
+}
+
+function NoDataView({ batchMode, isPolling }: { batchMode: boolean, isPolling: boolean }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-[60vh] p-8">
+      <div className="bg-muted/30 rounded-full p-6 mb-6">
+        <FileText className="w-12 h-12 text-muted-foreground" />
+      </div>
+      <h3 className="text-xl font-semibold mb-2">No responses available yet</h3>
+      <p className="text-muted-foreground text-center max-w-md mb-4">
+        {batchMode
+          ? "Waiting for the first batch to complete. Once finished, responses will appear here in batches."
+          : "Responses will appear here as they are generated. The table will update automatically. Check if the curator is still running."}
+      </p>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        {isPolling ? (
+          <>
+            <RefreshCcw className="w-4 h-4 animate-spin" />
+            <span>Polling for new responses...</span>
+          </>
+        ) : (
+          <span>Polling is paused</span>
+        )}
+      </div>
+    </div>
+  )
 }
 
 export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
@@ -197,29 +223,31 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
               <h2 className="text-2xl font-semibold text-foreground">Dataset Details</h2>
               <p className="text-sm text-muted-foreground">View and analyze your dataset responses</p>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  {selectedDistribution
-                    ? selectedDistribution.split('_').map(word =>
-                      word.charAt(0).toUpperCase() + word.slice(1)
-                    ).join(' ')
-                    : 'Select Metric'}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setSelectedDistribution(null)}>
-                  None
-                </DropdownMenuItem>
-                {["total_tokens", "prompt_tokens", "completion_tokens"].map((column) => (
-                  <DropdownMenuItem key={column} onClick={() => setSelectedDistribution(column)}>
-                    {column === "total_tokens" ? "Total Tokens" :
-                      column === "prompt_tokens" ? "Prompt Tokens" :
-                        "Completion Tokens"}
+            {data.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline">
+                    {selectedDistribution
+                      ? selectedDistribution.split('_').map(word =>
+                        word.charAt(0).toUpperCase() + word.slice(1)
+                      ).join(' ')
+                      : 'Select Metric'}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setSelectedDistribution(null)}>
+                    None
                   </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  {["total_tokens", "prompt_tokens", "completion_tokens"].map((column) => (
+                    <DropdownMenuItem key={column} onClick={() => setSelectedDistribution(column)}>
+                      {column === "total_tokens" ? "Total Tokens" :
+                        column === "prompt_tokens" ? "Prompt Tokens" :
+                          "Completion Tokens"}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
 
           {isInitialLoad ? (
@@ -229,6 +257,8 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
                 <p className="text-muted-foreground">Loading dataset...</p>
               </div>
             </div>
+          ) : data.length === 0 ? (
+            <NoDataView batchMode={batchMode} isPolling={isPolling} />
           ) : (
             <>
               <div className="mb-8 space-y-4">
