@@ -104,7 +104,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
             request["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
-                    # TODO(ryan): not sure if we should use strict: True or have name: be something else.
+                    "strict": True,
                     "name": "output_schema",
                     "schema": generic_request.response_format,
                 },

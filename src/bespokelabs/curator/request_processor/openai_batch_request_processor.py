@@ -103,6 +103,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                 "messages": generic_request.messages,
                 "response_format": {
                     "type": "json_schema",
+                    "strict": True,
                     "json_schema": {
                         # TODO(ryan): not sure if this should be something else.
                         # TODO(ryan): also not sure if we should use strict: True
