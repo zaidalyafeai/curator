@@ -7,6 +7,7 @@ import time
 from dataclasses import dataclass, field
 from functools import partial
 from typing import Any, Callable, Dict, Optional, Set, Tuple, TypeVar
+import resource
 
 import aiohttp
 import requests
@@ -190,6 +191,13 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         resume_no_retry: bool = False,
     ) -> None:
         """Processes API requests in parallel, throttling to stay under rate limits."""
+
+        # Increase the number of open file descriptors to avoid "Too many open files" errors
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        resource.setrlimit(
+            resource.RLIMIT_NOFILE, (min(hard, 10 * max_requests_per_minute), hard)
+        )
+
         # constants
         seconds_to_pause_after_rate_limit_error = 15
         seconds_to_sleep_each_loop = (
