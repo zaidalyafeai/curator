@@ -10,8 +10,8 @@ from typing import Optional
 import aiofiles
 import pyarrow
 from datasets import Dataset
-from datasets.arrow_writer import ArrowWriter, SchemaInferenceError
-from pydantic import BaseModel
+from datasets.arrow_writer import ArrowWriter
+from pydantic import BaseModel, ValidationError
 
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
@@ -259,11 +259,19 @@ class BaseRequestProcessor(ABC):
                         if prompt_formatter.response_format:
                             # Response message is a string, which is converted to a dict
                             # The dict is then used to construct the response_format Pydantic model
-                            response.response_message = (
-                                prompt_formatter.response_format(
-                                    **response.response_message
+                            try:
+                                response.response_message = (
+                                    prompt_formatter.response_format(
+                                        **response.response_message
+                                    )
                                 )
-                            )
+                            except ValidationError as e:
+                                logger.warning(
+                                    f"Pydantic failed to parse response message {response.response_message} with `response_format` {prompt_formatter.response_format}."
+                                    f"The model likely returned a JSON that does not match the schema of the `response_format`. Will skip this response."
+                                )
+                                response.response_message = None
+                                response.response_errors = [str(e)]
 
                         # parse_func can return a single row or a list of rows
                         if prompt_formatter.parse_func:
