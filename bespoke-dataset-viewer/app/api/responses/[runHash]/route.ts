@@ -57,6 +57,18 @@ export async function GET(
     } else {
       // Online streaming mode
       const responsesPath = join(runDir, 'responses_0.jsonl')
+      
+      // Check if the file exists before trying to read it
+      if (!existsSync(responsesPath)) {
+        return NextResponse.json({
+          data: [],
+          totalLines: 0,
+          isBatchMode: false,
+          processedFiles: null,
+          message: "No responses file found yet"
+        })
+      }
+
       const content = await fs.readFile(responsesPath, 'utf-8')
       const lines = content.split('\n').filter(line => line.trim() !== '')
 
