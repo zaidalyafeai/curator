@@ -50,8 +50,8 @@ class Prompter:
         response_format: Optional[Type[BaseModel]] = None,
         batch: bool = False,
         batch_size: Optional[int] = None,
-        temperature: float = 1.0,
-        top_p: float = 1.0,
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
     ):
         """Initialize a Prompter.
 

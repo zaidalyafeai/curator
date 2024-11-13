@@ -34,8 +34,8 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         model: str = "gpt-4o-mini",
         api_key: str = os.getenv("OPENAI_API_KEY"),
         url: str = "https://api.openai.com/v1/chat/completions",
-        temperature: float = 1.0,
-        top_p: float = 1.0,
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
     ):
         super().__init__(batch_size=None)
         self.model: str = model
@@ -112,10 +112,10 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                 },
             }
 
-        if self.temperature != 1.0:
+        if self.temperature:
             request["temperature"] = self.temperature
 
-        if self.top_p != 1.0:
+        if self.top_p:
             request["top_p"] = self.top_p
 
         return request
