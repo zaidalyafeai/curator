@@ -54,11 +54,11 @@ function getDistributionData(data: DataItem[], column: string) {
   const values = data.map(item => {
     switch (column) {
       case "total_tokens":
-        return item.raw_response.usage.total_tokens;
+        return item.raw_response.usage?.total_tokens || item.raw_response.response?.body?.usage?.total_tokens || 0;
       case "prompt_tokens":
-        return item.raw_response.usage.prompt_tokens;
+        return item.raw_response.usage?.prompt_tokens || item.raw_response.response?.body?.usage?.prompt_tokens || 0;
       case "completion_tokens":
-        return item.raw_response.usage.completion_tokens;
+        return item.raw_response.usage?.completion_tokens || item.raw_response.response?.body?.usage?.completion_tokens || 0;
       default:
         return 0;
     }

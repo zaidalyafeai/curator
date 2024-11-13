@@ -25,6 +25,8 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 
+const MAX_VISIBLE_PAGES = 5
+
 export function SortableTable({
   columns,
   data,
@@ -153,6 +155,38 @@ export function SortableTable({
     )
   }
 
+  const getVisiblePages = useCallback((currentPage: number, totalPages: number) => {
+    if (totalPages <= MAX_VISIBLE_PAGES) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1)
+    }
+
+    let startPage = Math.max(1, currentPage - Math.floor(MAX_VISIBLE_PAGES / 2))
+    let endPage = startPage + MAX_VISIBLE_PAGES - 1
+
+    if (endPage > totalPages) {
+      endPage = totalPages
+      startPage = Math.max(1, endPage - MAX_VISIBLE_PAGES + 1)
+    }
+
+    const pages = []
+    
+    if (startPage > 1) {
+      pages.push(1)
+      if (startPage > 2) pages.push('...')
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i)
+    }
+    
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) pages.push('...')
+      pages.push(totalPages)
+    }
+
+    return pages
+  }, [])
+
   return (
     <div className="rounded-lg border bg-card">
       <DndContext onDragEnd={handleDragEnd}>
@@ -203,25 +237,33 @@ export function SortableTable({
               <PaginationItem>
                 <PaginationPrevious 
                   onClick={handlePrevPage}
-                  aria-disabled={currentPage === 1}
+                  className={cn(
+                    currentPage === 1 && "pointer-events-none opacity-50"
+                  )}
                 />
               </PaginationItem>
               
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <PaginationItem key={`page-${page}`}>
-                  <PaginationLink
-                    onClick={() => handlePageClick(page)}
-                    isActive={currentPage === page}
-                  >
-                    {page}
-                  </PaginationLink>
+              {getVisiblePages(currentPage, totalPages).map((page, index) => (
+                <PaginationItem key={`page-${index}`}>
+                  {page === '...' ? (
+                    <span className="px-4 py-2">...</span>
+                  ) : (
+                    <PaginationLink
+                      onClick={() => handlePageClick(page as number)}
+                      isActive={currentPage === page}
+                    >
+                      {page}
+                    </PaginationLink>
+                  )}
                 </PaginationItem>
               ))}
               
               <PaginationItem>
                 <PaginationNext
                   onClick={handleNextPage}
-                  aria-disabled={currentPage === totalPages}
+                  className={cn(
+                    currentPage === totalPages && "pointer-events-none opacity-50"
+                  )}
                 />
               </PaginationItem>
             </PaginationContent>
