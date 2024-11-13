@@ -8,17 +8,15 @@ from math import ceil
 from typing import Optional
 
 import aiofiles
+import pyarrow
 from datasets import Dataset
 from datasets.arrow_writer import ArrowWriter, SchemaInferenceError
 from pydantic import BaseModel
-import pyarrow
 
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
-from bespokelabs.curator.request_processor.generic_response import (
-    GenericResponse,
-)
+from bespokelabs.curator.request_processor.generic_response import GenericResponse
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +192,7 @@ class BaseRequestProcessor(ABC):
 
     def parse_response_message(
         self, response_message: str, response_format: Optional[BaseModel]
-    ) -> tuple[Any, Optional[list[str]]]:
+    ) -> tuple[any, Optional[list[str]]]:
         response_errors = None
         if response_format:
             try:
