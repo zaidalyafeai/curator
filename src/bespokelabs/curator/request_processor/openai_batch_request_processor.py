@@ -353,8 +353,7 @@ class BatchWatcher:
         elif batch.status == "failed" and not batch.error_file_id:
             errors = "\n".join([str(error) for error in batch.errors.data])
             logger.warning(
-                f"Batch {batch.id} failed\n"
-                f"Batch errors: {errors}"
+                f"Batch {batch.id} failed\n" f"Batch errors: {errors}"
             )
             return None
         elif batch.status == "cancelled" or batch.status == "expired":
