@@ -16,9 +16,7 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     GenericRequest,
     GenericResponse,
 )
-from bespokelabs.curator.request_processor.event_loop import (
-    get_or_create_event_loop,
-)
+from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
@@ -209,8 +207,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                 ]
                 return await asyncio.gather(*tasks)
 
-            loop = get_or_create_event_loop()
-            batch_objects = loop.run_until_complete(submit_all_batches())
+            batch_objects = run_in_event_loop(submit_all_batches())
 
             with open(batch_objects_file, "w") as f:
                 # NOTE(Ryan): we can also store the request_file_name in this object here, instead of in the metadata during batch submission. Can find a nice abstraction across other batch APIs (e.g. claude)
@@ -235,8 +232,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         # NOTE(Ryan): If we allow for multiple heterogeneous requests per dataset row, we will need to update this.
         total_requests = 1 if dataset is None else len(dataset)
 
-        loop = get_or_create_event_loop()
-        loop.run_until_complete(
+        run_in_event_loop(
             batch_watcher.watch(
                 prompt_formatter.response_format, total_requests
             )
@@ -370,10 +366,9 @@ class BatchWatcher:
         elif batch.status == "failed" and batch.error_file_id:
             file_content = await self.client.files.content(batch.error_file_id)
         elif batch.status == "failed" and not batch.error_file_id:
-            errors = [str(error) for error in batch.errors.data]
+            errors = "\n".join([str(error) for error in batch.errors.data])
             logger.warning(
-                f"Batch {batch.id} failed\n"
-                f"Batch errors: {'\n'.join(errors)}"
+                f"Batch {batch.id} failed\n" f"Batch errors: {errors}"
             )
             return None
         elif batch.status == "cancelled" or batch.status == "expired":
