@@ -14,6 +14,25 @@ def npm_install():
     run_command("npm install", cwd="bespoke-dataset-viewer")
 
 
+def copy_with_excludes(source, target, excludes=None):
+    """Copy files/directories while excluding specified paths"""
+    if excludes is None:
+        excludes = []
+
+    if source.is_file():
+        shutil.copy2(source, target)
+        print(f"Copied file {source} to {target}")
+    elif source.is_dir():
+        if target.exists():
+            shutil.rmtree(target)
+        
+        def ignore_patterns(path, names):
+            return [n for n in names if str(Path(path) / n) in excludes]
+            
+        shutil.copytree(source, target, ignore=ignore_patterns)
+        print(f"Copied directory {source} to {target}")
+
+
 def nextjs_build():
     print("Running Next.js build")
     run_command("npm run build", cwd="bespoke-dataset-viewer")
@@ -28,11 +47,11 @@ def nextjs_build():
         shutil.rmtree(target_base)
     target_base.mkdir(parents=True, exist_ok=True)
 
-    # Copy only the necessary files, excluding node_modules
+    # Files and directories to copy
     files_to_copy = [
         ".next",
         "app",
-        "components",
+        "components", 
         "lib",
         "public",
         "types",
@@ -46,19 +65,17 @@ def nextjs_build():
         "components.json",
     ]
 
+    # Paths to exclude
+    exclude_paths = [
+        str(source_base / ".next" / "cache")
+    ]
+
     for item in files_to_copy:
         source = source_base / item
         target = target_base / item
 
         if source.exists():
-            if source.is_file():
-                shutil.copy2(source, target)
-                print(f"Copied file {source} to {target}")
-            elif source.is_dir():
-                if target.exists():
-                    shutil.rmtree(target)
-                shutil.copytree(source, target)
-                print(f"Copied directory {source} to {target}")
+            copy_with_excludes(source, target, exclude_paths)
         else:
             print(f"Warning: {source} not found")
 
