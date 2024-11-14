@@ -2,7 +2,7 @@ import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { DataItem } from "../types/dataset"
 
-export function isNumeric(value: any): boolean {
+export function isNumeric(value: unknown): boolean {
   if (value === null || value === undefined) return false;
   return Number.isFinite(Number(value));
 }
