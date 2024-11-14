@@ -108,7 +108,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                         # TODO(ryan): not sure if this should be something else.
                         # TODO(ryan): also not sure if we should use strict: True
                         "name": "output_schema",
-                        "schema": generic_request.response_format.model_json_schema(),
+                        "schema": generic_request.response_format,
                     },
                 },
             }

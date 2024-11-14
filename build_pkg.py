@@ -25,10 +25,10 @@ def copy_with_excludes(source, target, excludes=None):
     elif source.is_dir():
         if target.exists():
             shutil.rmtree(target)
-        
+
         def ignore_patterns(path, names):
             return [n for n in names if str(Path(path) / n) in excludes]
-            
+
         shutil.copytree(source, target, ignore=ignore_patterns)
         print(f"Copied directory {source} to {target}")
 
@@ -66,9 +66,7 @@ def nextjs_build():
     ]
 
     # Paths to exclude
-    exclude_paths = [
-        str(source_base / ".next" / "cache")
-    ]
+    exclude_paths = [str(source_base / ".next" / "cache")]
 
     for item in files_to_copy:
         source = source_base / item
