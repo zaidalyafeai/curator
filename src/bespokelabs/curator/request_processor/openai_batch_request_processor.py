@@ -168,7 +168,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         # Explicitly close the client. Otherwise we get something like
         # future: <Task finished name='Task-46' coro=<AsyncClient.aclose() done ... >>
         await async_client.close()
-        
+
         return batch_object
 
     def run(
@@ -241,7 +241,6 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             # Explicitly close the client. Otherwise we get something like
             # future: <Task finished name='Task-46' coro=<AsyncClient.aclose() done ... >>
             await batch_watcher.close_client()
-
 
         run_in_event_loop(watch_batches())
 
