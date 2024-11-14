@@ -1,16 +1,8 @@
 <p align="center">
   <a href="https://bespokelabs.ai/" target="_blank">
-    <picture style="display: inline-block; width: 8vw; min-width: 60px; max-width: 80px;">
-      <source 
-        media="(prefers-color-scheme: light)" 
-        srcset="./docs/Bespoke-Labs-Logomark-Red.png"
-        width="100%"
-      >
-      <img 
-        alt="Bespoke Labs Logo" 
-        src="./docs/Bespoke-Labs-Logomark-Red-on-Black.png"
-        width="100%"
-      >
+    <picture>
+      <source media="(prefers-color-scheme: light)" width="80" srcset="./docs/Bespoke-Labs-Logomark-Red.png">
+      <img alt="Bespoke Labs Logo" width="80" src="./docs/Bespoke-Labs-Logomark-Red-on-Black.png">
     </picture>
   </a>
 </p>
