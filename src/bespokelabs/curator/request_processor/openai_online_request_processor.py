@@ -195,7 +195,8 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         # Increase the number of open file descriptors to avoid "Too many open files" errors
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         resource.setrlimit(
-            resource.RLIMIT_NOFILE, (min(hard, 10 * max_requests_per_minute), hard)
+            resource.RLIMIT_NOFILE,
+            (min(hard, 10 * max_requests_per_minute), hard),
         )
 
         # constants
