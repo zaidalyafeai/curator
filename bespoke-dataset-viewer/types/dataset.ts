@@ -4,46 +4,18 @@ export type Message = {
 }
 
 export type DataItem = {
-  response: string | Record<string, any>
-  request: {
+  response_message: string | Record<string, any>
+  response_errors: string[] | null
+  raw_response: null | any
+  raw_request: null | any
+  generic_request: {
     model: string
     messages: Message[]
+    response_format: Record<string, any> | null
+    original_row: Record<string, any>
+    original_row_idx: number
   }
-  errors: null | any
-  row: any
-  row_idx: number
-  raw_response: {
-    id: string
-    object: string
-    created: number
-    model: string
-    choices: {
-      index: number
-      message: {
-        role: string
-        content: string
-        refusal: null | string
-      }
-      logprobs: null | any
-      finish_reason: string
-    }[]
-    usage: {
-      prompt_tokens: number
-      completion_tokens: number
-      total_tokens: number
-      prompt_tokens_details: {
-        cached_tokens: number
-        audio_tokens: number
-      }
-      completion_tokens_details: {
-        reasoning_tokens: number
-        audio_tokens: number
-        accepted_prediction_tokens: number
-        rejected_prediction_tokens: number
-      }
-    }
-    system_fingerprint: string
-  }
+  
 }
 
 export interface Run {

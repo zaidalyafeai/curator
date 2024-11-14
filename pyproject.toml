@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "bespokelabs-curator"
-version = "0.1.7rc1"
+version = "0.1.7"
 description = "Bespoke Labs Curator"
 authors = ["Bespoke Labs <company@bespokelabs.ai>"]
 readme = "README.md"
@@ -31,6 +31,7 @@ tqdm = "^4.67.0"
 matplotlib = "^3.9.2"
 aiofiles = "^24.1.0"
 tiktoken = "^0.8.0"
+nest-asyncio = "^1.6.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.2.0"

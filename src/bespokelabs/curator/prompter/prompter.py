@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, Iterable, Optional, Type, TypeVar, Union
 from datasets import Dataset
 from pydantic import BaseModel
 from xxhash import xxh64
+import logging
 
 from bespokelabs.curator.db import MetadataDB
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
@@ -24,6 +25,8 @@ from bespokelabs.curator.request_processor.openai_online_request_processor impor
 
 _CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")
+
+logger = logging.getLogger(__name__)
 
 
 class Prompter:
@@ -46,6 +49,9 @@ class Prompter:
         ] = None,
         response_format: Optional[Type[BaseModel]] = None,
         batch: bool = False,
+        batch_size: Optional[int] = None,
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
     ):
         """Initialize a Prompter.
 
@@ -57,6 +63,8 @@ class Prompter:
                 response object and returns the parsed output
             response_format (Optional[Type[BaseModel]]): A Pydantic model specifying the
                 response format from the LLM.
+            batch (bool): Whether to use batch processing
+            batch_size (Optional[int]): The size of the batch to use, only used if batch is True
         """
         prompt_sig = inspect.signature(prompt_func)
         if len(prompt_sig.parameters) > 1:
@@ -77,11 +85,18 @@ class Prompter:
         self.batch_mode = batch
         if batch:
             self._request_processor = OpenAIBatchRequestProcessor(
-                model=model_name
+                model=model_name,
+                batch_size=batch_size,
+                temperature=temperature,
+                top_p=top_p,
             )
         else:
+            if batch_size is not None:
+                logger.warning(
+                    f"Prompter argument `batch_size` {batch_size} is ignored because `batch` is False"
+                )
             self._request_processor = OpenAIOnlineRequestProcessor(
-                model=model_name
+                model=model_name, temperature=temperature, top_p=top_p
             )
 
     def __call__(
@@ -137,13 +152,15 @@ class Prompter:
         )
 
         prompt_func_hash = _get_function_hash(self.prompt_formatter.prompt_func)
+
+        # Used to name the dataset .arrow file, but not the cache directory name
+        # Modifying `parse_func` creates a new dataset file from cached responses
         parse_func_hash = _get_function_hash(self.prompt_formatter.parse_func)
 
         fingerprint_str = "_".join(
             [
                 str(dataset_hash),
                 str(prompt_func_hash),
-                str(parse_func_hash),
                 str(self.prompt_formatter.model_name),
                 str(
                     self.prompt_formatter.response_format.schema_json()
@@ -185,9 +202,11 @@ class Prompter:
         }
         metadata_db.store_metadata(metadata_dict)
 
-        # TODO(Ryan): do the response processing, while context of original dataset is available and need random access via row_idx)
         dataset = request_processor.run(
-            dataset, f"{curator_cache_dir}/{fingerprint}", self.prompt_formatter
+            dataset=dataset,
+            working_dir=os.path.join(curator_cache_dir, fingerprint),
+            parse_func_hash=parse_func_hash,
+            prompt_formatter=self.prompt_formatter,
         )
 
         return dataset

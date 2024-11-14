@@ -56,8 +56,8 @@ export function Header({
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => router.push('/')}>
           <Image
-            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-sN2O0LK0cVw6NesKNPlJCoWAu7xfOm.png"
-            alt="Bespoke Logo"
+            src="/Bespoke-Labs-Logomark-Red-on-Mint.svg"
+            alt="Bespoke Logo" 
             width={32}
             height={32}
             className="object-contain"
