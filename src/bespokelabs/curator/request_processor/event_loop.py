@@ -16,7 +16,7 @@ def run_in_event_loop(coroutine):
         # If there is an event loop running (the call
         # above doesn't raise an exception), we can
         # use nest_asyncio to patch the event loop.
-        nest_asyncio.apply()asd
+        nest_asyncio.apply()
 
         return asyncio.run(coroutine)
     except RuntimeError as e:
