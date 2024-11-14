@@ -51,7 +51,7 @@ def nextjs_build():
     files_to_copy = [
         ".next",
         "app",
-        "components", 
+        "components",
         "lib",
         "public",
         "types",
