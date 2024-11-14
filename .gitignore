@@ -2,4 +2,6 @@
 __pycache__
 .vscode
 
+# Static / Build
 /src/bespokelabs/curator/viewer/static
+/dist

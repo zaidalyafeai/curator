@@ -7,6 +7,7 @@ import time
 from dataclasses import dataclass, field
 from functools import partial
 from typing import Any, Callable, Dict, Optional, Set, Tuple, TypeVar
+import resource
 
 import aiohttp
 import requests
@@ -19,6 +20,7 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     BaseRequestProcessor,
     GenericRequest,
     GenericResponse,
+    parse_response_message,
 )
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 
@@ -104,7 +106,6 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
             request["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
-                    # TODO(ryan): not sure if we should use strict: True or have name: be something else.
                     "name": "output_schema",
                     "schema": generic_request.response_format,
                 },
@@ -190,6 +191,14 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         resume_no_retry: bool = False,
     ) -> None:
         """Processes API requests in parallel, throttling to stay under rate limits."""
+
+        # Increase the number of open file descriptors to avoid "Too many open files" errors
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        resource.setrlimit(
+            resource.RLIMIT_NOFILE,
+            (min(hard, 10 * max_requests_per_minute), hard),
+        )
+
         # constants
         seconds_to_pause_after_rate_limit_error = 15
         seconds_to_sleep_each_loop = (
@@ -561,11 +570,12 @@ class APIRequest:
                 )
         else:
             response_message = response["choices"][0]["message"]["content"]
-            if self.generic_request.response_format:
-                response_message = json.loads(response_message)
+            response_message, response_errors = parse_response_message(
+                response_message, self.generic_request.response_format
+            )
             generic_response = GenericResponse(
                 response_message=response_message,
-                response_errors=None,
+                response_errors=response_errors,
                 raw_request=self.api_specific_request_json,
                 raw_response=response,
                 generic_request=self.generic_request,

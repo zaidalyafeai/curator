@@ -15,7 +15,7 @@ import { SortableTableProps, SortDirection } from "@/types/table"
 import { Tooltip } from "@/components/ui/tooltip"
 import { TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { motion } from "framer-motion"
-import { cn } from "@/lib/utils"
+import { cn, isNumeric } from "@/lib/utils"
 import {
   Pagination,
   PaginationContent,
@@ -85,14 +85,25 @@ export function SortableTable({
       }
     })
 
-    // Apply sorting
+    // Apply sorting with numeric support
     if (sortColumn) {
       result.sort((a, b) => {
-        const aValue = String(getCellContent(a, sortColumn))
-        const bValue = String(getCellContent(b, sortColumn))
+        const aValue = getCellContent(a, sortColumn)
+        const bValue = getCellContent(b, sortColumn)
+        
+        // Handle numeric sorting
+        if (isNumeric(aValue) && isNumeric(bValue)) {
+          const aNum = parseFloat(String(aValue))
+          const bNum = parseFloat(String(bValue))
+          return sortDirection === "asc" 
+            ? aNum - bNum
+            : bNum - aNum
+        }
+
+        // Fall back to string sorting
         return sortDirection === "asc" 
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue)
+          ? String(aValue).localeCompare(String(bValue))
+          : String(bValue).localeCompare(String(aValue))
       })
     }
 

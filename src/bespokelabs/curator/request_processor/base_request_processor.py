@@ -8,10 +8,10 @@ from math import ceil
 from typing import Optional
 
 import aiofiles
-from datasets import Dataset
-from datasets.arrow_writer import ArrowWriter, SchemaInferenceError
-from pydantic import BaseModel
 import pyarrow
+from datasets import Dataset
+from datasets.arrow_writer import ArrowWriter
+from pydantic import BaseModel, ValidationError
 
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
@@ -252,25 +252,46 @@ class BaseRequestProcessor(ABC):
                             generic_response_string
                         )
 
-                        if response.response_errors:
+                        # response.response_errors is not None IFF response.response_message is None
+                        if response.response_errors is not None:
                             failed_responses_count += 1
                             continue
 
                         if prompt_formatter.response_format:
                             # Response message is a string, which is converted to a dict
                             # The dict is then used to construct the response_format Pydantic model
-                            response.response_message = (
-                                prompt_formatter.response_format(
-                                    **response.response_message
+                            try:
+                                response.response_message = (
+                                    prompt_formatter.response_format(
+                                        **response.response_message
+                                    )
                                 )
-                            )
+                            except ValidationError as e:
+                                schema_str = json.dumps(
+                                    prompt_formatter.response_format.model_json_schema(),
+                                    indent=2,
+                                )
+                                warning_msg = (
+                                    f"Pydantic failed to parse response message {response.response_message} with `response_format` {schema_str}."
+                                    f"The model likely returned a JSON that does not match the schema of the `response_format`. Will skip this response."
+                                )
+                                logger.warning(warning_msg)
+                                failed_responses_count += 1
+                                continue
 
                         # parse_func can return a single row or a list of rows
                         if prompt_formatter.parse_func:
-                            dataset_rows = prompt_formatter.parse_func(
-                                response.generic_request.original_row,
-                                response.response_message,
-                            )
+                            try:
+                                dataset_rows = prompt_formatter.parse_func(
+                                    response.generic_request.original_row,
+                                    response.response_message,
+                                )
+                            except Exception as e:
+                                logger.error(
+                                    f"Exception raised in your `parse_func`. {error_help}"
+                                )
+                                os.remove(dataset_file)
+                                raise e
                             if not isinstance(dataset_rows, list):
                                 dataset_rows = [dataset_rows]
                         else:
@@ -283,10 +304,13 @@ class BaseRequestProcessor(ABC):
                                 row = row.model_dump()
 
                             if not isinstance(row, dict):
+                                os.remove(dataset_file)
                                 raise ValueError(
-                                    f"Got invalid row {row} of type {type(row)} from `parse_func`. {error_help}"
+                                    f"Got invalid row {row} of type {type(row)} from `parse_func`. "
+                                    f"This should be type <class 'dict'>. {error_help}"
                                 )
                             if not row:
+                                os.remove(dataset_file)
                                 raise ValueError(
                                     f"Got empty row {row} from `parse_func`. {error_help}"
                                 )
@@ -297,6 +321,7 @@ class BaseRequestProcessor(ABC):
                 f"Read {total_responses_count} responses, {failed_responses_count} failed"
             )
             if failed_responses_count == total_responses_count:
+                os.remove(dataset_file)
                 raise ValueError("All requests failed")
 
             logger.info("Finalizing writer")
@@ -306,3 +331,21 @@ class BaseRequestProcessor(ABC):
         output_dataset = Dataset.from_file(dataset_file)
 
         return output_dataset
+
+
+def parse_response_message(
+    response_message: str, response_format: Optional[BaseModel]
+) -> tuple[Optional[dict | str], Optional[list[str]]]:
+    response_errors = None
+    if response_format:
+        try:
+            response_message = json.loads(response_message)
+        except json.JSONDecodeError:
+            logger.warning(
+                f"Failed to parse response as JSON: {response_message}, skipping this response."
+            )
+            response_message = None
+            response_errors = [
+                f"Failed to parse response as JSON: {response_message}"
+            ]
+    return response_message, response_errors
