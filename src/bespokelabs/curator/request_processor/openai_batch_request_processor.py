@@ -22,6 +22,7 @@ from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 logger = logging.getLogger(__name__)
 
 MAX_REQUESTS_PER_BATCH = 50_000
+MAX_BYTES_PER_BATCH = 200 * 1024 * 1024
 
 
 class OpenAIBatchRequestProcessor(BaseRequestProcessor):
@@ -145,16 +146,36 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         # Create a list to store API-specific requests
         api_specific_requests = []
 
+        line_count = 0
         async with aiofiles.open(batch_file, "r") as file:
             file_content = await file.read()
             for line in file_content.splitlines():
                 request = GenericRequest.model_validate_json(line)
                 api_specific_request = self.create_api_specific_request(request)
                 api_specific_requests.append(json.dumps(api_specific_request))
+                line_count += 1
+
+        if line_count > MAX_REQUESTS_PER_BATCH:
+            raise ValueError(
+                f"Batch file {batch_file} contains {line_count:,} requests, "
+                f"which is more than the maximum of {MAX_REQUESTS_PER_BATCH:,} requests per batch that OpenAI supports. "
+                f"Preventing batch submission."
+            )
 
         # Join requests with newlines and encode to bytes for upload
         file_content = "\n".join(api_specific_requests).encode()
+        file_content_size = len(file_content)
+        logger.debug(
+            f"Batch file content size: {file_content_size / (1024*1024):.2f} MB ({file_content_size:,} bytes)"
+        )
+        if file_content_size > MAX_BYTES_PER_BATCH:
+            raise ValueError(
+                f"Batch file content size {file_content_size:,} bytes "
+                f"is greater than the maximum of {MAX_BYTES_PER_BATCH:,} bytes per batch that OpenAI supports. "
+                f"Please reduce your batch size or request content size (via prompt_func and response_format)."
+            )
 
+        # this let's you upload a file that is larger than 200MB and won't error, so we catch it above
         batch_file_upload = await async_client.files.create(
             file=file_content, purpose="batch"
         )
