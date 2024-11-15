@@ -22,7 +22,7 @@ from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 logger = logging.getLogger(__name__)
 
 MAX_REQUESTS_PER_BATCH = 50_000
-MAX_BYTES_PER_BATCH = 200_000_000
+MAX_BYTES_PER_BATCH = 200 * 1024 * 1024
 
 
 class OpenAIBatchRequestProcessor(BaseRequestProcessor):
