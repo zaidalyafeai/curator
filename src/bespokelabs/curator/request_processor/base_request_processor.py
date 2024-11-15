@@ -42,7 +42,9 @@ class BaseRequestProcessor(ABC):
         pass
 
     @abstractmethod
-    def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
+    def create_api_specific_request(
+        self, generic_request: GenericRequest
+    ) -> dict:
         """
         Creates a API-specific request body from a GenericRequest.
 
@@ -113,7 +115,9 @@ class BaseRequestProcessor(ABC):
                     num_jobs = i + 1
 
                 if num_jobs > 0:
-                    logger.info(f"There are {num_jobs} existing requests in {requests_files[0]}")
+                    logger.info(
+                        f"There are {num_jobs} existing requests in {requests_files[0]}"
+                    )
                     logger.info(
                         f"Example request in {requests_files[0]}:\n{json.dumps(first_job, default=str, indent=2)}"
                     )
@@ -125,13 +129,19 @@ class BaseRequestProcessor(ABC):
 
         if dataset is None:
             with open(requests_file, "w") as f:
-                generic_request = prompt_formatter.create_generic_request(dict(), 0)
-                f.write(json.dumps(generic_request.model_dump(), default=str) + "\n")
+                generic_request = prompt_formatter.create_generic_request(
+                    dict(), 0
+                )
+                f.write(
+                    json.dumps(generic_request.model_dump(), default=str) + "\n"
+                )
             return requests_files
 
         if self.batch_size:
             num_batches = ceil(len(dataset) / self.batch_size)
-            requests_files = [f"{working_dir}/requests_{i}.jsonl" for i in range(num_batches)]
+            requests_files = [
+                f"{working_dir}/requests_{i}.jsonl" for i in range(num_batches)
+            ]
 
             async def create_all_request_files():
                 tasks = [
@@ -147,7 +157,11 @@ class BaseRequestProcessor(ABC):
 
             run_in_event_loop(create_all_request_files())
         else:
-            run_in_event_loop(self.acreate_request_file(dataset, prompt_formatter, requests_file))
+            run_in_event_loop(
+                self.acreate_request_file(
+                    dataset, prompt_formatter, requests_file
+                )
+            )
 
         return requests_files
 
@@ -170,8 +184,12 @@ class BaseRequestProcessor(ABC):
             for idx, dataset_row in enumerate(dataset):
                 dataset_row_idx = idx + start_idx
                 # Get the generic request from the map function
-                request = prompt_formatter.create_generic_request(dataset_row, dataset_row_idx)
-                await f.write(json.dumps(request.model_dump(), default=str) + "\n")
+                request = prompt_formatter.create_generic_request(
+                    dataset_row, dataset_row_idx
+                )
+                await f.write(
+                    json.dumps(request.model_dump(), default=str) + "\n"
+                )
         logger.info(f"Wrote {end_idx - start_idx} requests to {request_file}.")
 
     def create_dataset_files(
@@ -230,7 +248,9 @@ class BaseRequestProcessor(ABC):
                 with open(responses_file, "r") as f_in:
                     for generic_response_string in f_in:
                         total_responses_count += 1
-                        response = GenericResponse.model_validate_json(generic_response_string)
+                        response = GenericResponse.model_validate_json(
+                            generic_response_string
+                        )
 
                         # response.response_errors is not None IFF response.response_message is None
                         if response.response_errors is not None:
@@ -241,8 +261,10 @@ class BaseRequestProcessor(ABC):
                             # Response message is a string, which is converted to a dict
                             # The dict is then used to construct the response_format Pydantic model
                             try:
-                                response.response_message = prompt_formatter.response_format(
-                                    **response.response_message
+                                response.response_message = (
+                                    prompt_formatter.response_format(
+                                        **response.response_message
+                                    )
                                 )
                             except ValidationError as e:
                                 schema_str = json.dumps(
@@ -265,13 +287,17 @@ class BaseRequestProcessor(ABC):
                                     response.response_message,
                                 )
                             except Exception as e:
-                                logger.error(f"Exception raised in your `parse_func`. {error_help}")
+                                logger.error(
+                                    f"Exception raised in your `parse_func`. {error_help}"
+                                )
                                 os.remove(dataset_file)
                                 raise e
                             if not isinstance(dataset_rows, list):
                                 dataset_rows = [dataset_rows]
                         else:
-                            dataset_rows = [{"response": response.response_message}]
+                            dataset_rows = [
+                                {"response": response.response_message}
+                            ]
 
                         for row in dataset_rows:
                             if isinstance(row, BaseModel):
@@ -291,7 +317,9 @@ class BaseRequestProcessor(ABC):
 
                             writer.write(row)
 
-            logger.info(f"Read {total_responses_count} responses, {failed_responses_count} failed")
+            logger.info(
+                f"Read {total_responses_count} responses, {failed_responses_count} failed"
+            )
             if failed_responses_count == total_responses_count:
                 os.remove(dataset_file)
                 raise ValueError("All requests failed")
@@ -317,5 +345,7 @@ def parse_response_message(
                 f"Failed to parse response as JSON: {response_message}, skipping this response."
             )
             response_message = None
-            response_errors = [f"Failed to parse response as JSON: {response_message}"]
+            response_errors = [
+                f"Failed to parse response as JSON: {response_message}"
+            ]
     return response_message, response_errors

@@ -45,4 +45,4 @@ build-backend = "poetry.core.masonry.api"
 curator-viewer = "bespokelabs.curator.viewer.__main__:main"
 
 [tool.black]
-line-length = 100
+line-length = 80
