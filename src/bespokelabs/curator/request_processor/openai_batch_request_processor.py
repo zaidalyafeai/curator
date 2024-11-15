@@ -293,6 +293,7 @@ class BatchWatcher:
             working_dir (str): Directory containing the batch objects JSON file.
             check_interval (int): Time interval (in seconds) to check batch status.
             prompt_formatter (PromptFormatter): Prompt formatter to be used to format the prompt
+            n_submitted_requests (int): Number of requests submitted to the batches (used for progress bar)
         """
         self.client = AsyncOpenAI()
         with open(f"{working_dir}/batch_objects.jsonl", "r") as f:
