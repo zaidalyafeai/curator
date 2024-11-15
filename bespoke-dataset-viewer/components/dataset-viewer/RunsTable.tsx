@@ -21,22 +21,37 @@ const COLUMNS: Column[] = [
 ]
 
 const EXAMPLE_CODE = `from bespokelabs import curator
-import os
+from datasets import Dataset
+from pydantic import BaseModel, Field
+from typing import List
 
-# Set your OpenAI API key here
-os.environ['OPENAI_API_KEY'] = 'sk-...'
+# Create a dataset object for the topics you want to create the poems.
+topics = Dataset.from_list([{"topic": "Dreams vs. reality"},
+                            {"topic": "Urban loneliness in a bustling city"},
+                            {"topic": "Beauty of Bespoke Labs's Curator library"}])
 
-# Create a prompter instance
+# Define a class to encapsulate a list of poems.
+class Poems(BaseModel):
+    poems_list: List[str] = Field(description="A list of poems.")
+
+
+# We define a prompter that generates poems which gets applied to the topics dataset.
 poet = curator.Prompter(
-    prompt_func=lambda: {
-        "user_prompt": "Write a poem about the beauty of computer science"
-    },
+    # The prompt_func takes a row of the dataset as input.
+    # The row is a dictionary with a single key 'topic' in this case.
+    prompt_func=lambda row: f"Write two poems about {row['topic']}.",
     model_name="gpt-4o-mini",
+    response_format=Poems,
+    # `row` is the input row, and `poems` is the Poems class which 
+    # is parsed from the structured output from the LLM.
+    parse_func=lambda row, poems: [
+        {"topic": row["topic"], "poem": p} for p in poems.poems_list
+    ],
 )
 
-# Generate and print the poem
-poem = poet()
-print(poem.to_list()[0])`
+# We apply the prompter to the topics dataset.
+poems = poet(topics)
+print(poems.to_pandas())`
 
 export function RunsTable() {
   const [runs, setRuns] = useState<Run[]>([])

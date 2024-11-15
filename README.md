@@ -67,6 +67,7 @@ poet = curator.Prompter(
 
 # We apply the prompter to the topics dataset.
 poems = poet(topics)
+print(poems.to_pandas())
 ```
 Note that `topics` can be created with `curator.Prompter` as well,
 and we can scale this up to create tens of thousands of diverse poems.
