@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 MAX_REQUESTS_PER_BATCH = 50_000
 
+
 class OpenAIBatchRequestProcessor(BaseRequestProcessor):
     def __init__(
         self,
@@ -366,7 +367,9 @@ class BatchWatcher:
 
         # loop until all batches have been returned
         while self.remaining_batch_ids:
-            status_tasks = [self.check_batch_status(batch_id) for batch_id in self.remaining_batch_ids]
+            status_tasks = [
+                self.check_batch_status(batch_id) for batch_id in self.remaining_batch_ids
+            ]
             batches_to_download = await asyncio.gather(*status_tasks)
             batches_to_download = filter(None, batches_to_download)
 
@@ -386,11 +389,11 @@ class BatchWatcher:
             all_response_files.extend(await asyncio.gather(*download_tasks))
 
             if self.tracker.n_returned_batches < self.tracker.n_submitted_batches:
-                logger.info(
+                logger.debug(
                     f"Batches returned: {self.tracker.n_returned_batches}/{self.tracker.n_submitted_batches} "
                     f"Requests completed: {pbar.n}/{self.tracker.n_submitted_requests}"
                 )
-                logger.info(f"Sleeping for {self.check_interval} seconds...")
+                logger.debug(f"Sleeping for {self.check_interval} seconds...")
                 await asyncio.sleep(self.check_interval)
 
         pbar.close()
@@ -461,7 +464,9 @@ class BatchWatcher:
                 else:
                     choices = raw_response["response"]["body"]["choices"]
                     response_message = choices[0]["message"]["content"]  # Assuming N = 1
-                    response_message, response_errors = parse_response_message(response_message)
+                    response_message, response_errors = parse_response_message(
+                        response_message, self.prompt_formatter.response_format
+                    )
                     generic_response.response_message = response_message
                     generic_response.response_errors = response_errors
                 f.write(json.dumps(generic_response.model_dump(), default=str) + "\n")
