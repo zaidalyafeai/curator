@@ -147,9 +147,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
         async with aiofiles.open(batch_file, "r") as file:
             file_content = await file.read()
-            lines_count = 0
             for line in file_content.splitlines():
-                lines_count += 1
                 request = GenericRequest.model_validate_json(line)
                 api_specific_request = self.create_api_specific_request(request)
                 api_specific_requests.append(json.dumps(api_specific_request))
