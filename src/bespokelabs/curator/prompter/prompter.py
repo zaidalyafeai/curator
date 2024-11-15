@@ -15,7 +15,6 @@ from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import (
     BaseRequestProcessor,
 )
-from bespokelabs.curator.request_processor.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.openai_batch_request_processor import (
     OpenAIBatchRequestProcessor,
 )
@@ -84,6 +83,11 @@ class Prompter:
         )
         self.batch_mode = batch
         if batch:
+            if batch_size is None:
+                batch_size = 1_000
+                logger.info(
+                    f"batch=True but no batch_size provided, using default batch_size of {batch_size:,}"
+                )
             self._request_processor = OpenAIBatchRequestProcessor(
                 model=model_name,
                 batch_size=batch_size,
