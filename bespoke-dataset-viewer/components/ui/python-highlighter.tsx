@@ -1,9 +1,9 @@
+import { Button } from "@/components/ui/button";
+import { Check, Copy } from "lucide-react";
 import Prism from 'prismjs';
 import 'prismjs/components/prism-python';
 import 'prismjs/themes/prism-tomorrow.css';
 import React from 'react';
-import { Button } from "@/components/ui/button"
-import { Check, Copy } from "lucide-react"
 
 interface PythonHighlighterProps {
     code: string;
@@ -38,7 +38,7 @@ export const PythonHighlighter: React.FC<PythonHighlighterProps> = ({ code }) =>
                     )}
                 </Button>
             </div>
-            <pre className="text-sm bg-gray-900 p-4 m-0">
+            <pre className="bg-gray-900 p-4 m-0" style={{ fontSize: '12px' }}>
                 <code className="language-python">
                     {code}
                 </code>
