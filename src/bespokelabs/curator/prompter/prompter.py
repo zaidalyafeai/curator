@@ -225,7 +225,13 @@ def _get_function_hash(func) -> str:
 
 
 def _get_function_source(func) -> str:
-    """Get the source code of a function."""
+    """Get the source code of a function.
+
+    Purpose of this function is that during Python interpreter (REPL),
+    `inspect.getsource` will fail with an OSError because functions defined in the
+    interpreter don't have an associated source file. We have to use this wrapper
+    to gracefully handle this case.
+    """
     try:
         return inspect.getsource(func)
     except OSError:
