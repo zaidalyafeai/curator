@@ -1,8 +1,8 @@
 <p align="center">
   <a href="https://bespokelabs.ai/" target="_blank">
     <picture>
-      <source media="(prefers-color-scheme: light)" width="80" srcset="./docs/Bespoke-Labs-Logomark-Red.png">
-      <img alt="Bespoke Labs Logo" width="80" src="./docs/Bespoke-Labs-Logomark-Red-on-Black.png">
+      <source media="(prefers-color-scheme: light)" width="80" srcset="https://raw.githubusercontent.com/bespokelabsai/curator/main/docs/Bespoke-Labs-Logomark-Red.png">
+      <img alt="Bespoke Labs Logo" width="80" src="https://raw.githubusercontent.com/bespokelabsai/curator/main/docs/Bespoke-Labs-Logomark-Red-on-Black.png">
     </picture>
   </a>
 </p>
@@ -64,8 +64,8 @@ print(poem.to_pandas())
 ```
 Note that `topics` can be created with `curator.Prompter` as well,
 and we can scale this up to create tens of thousands of diverse poems.
-You can see a more detailed example in the [examples/poem.py](examples/poem.py) file,
-and other examples in the [examples](examples) directory.
+You can see a more detailed example in the [examples/poem.py](https://github.com/bespokelabsai/curator/blob/mahesh/update_doc/examples/poem.py) file,
+and other examples in the [examples](https://github.com/bespokelabsai/curator/blob/mahesh/update_doc/examples) directory.
 
 To run the examples, make sure to set your OpenAI API key in 
 the environment variable `OPENAI_API_KEY` by running `export OPENAI_API_KEY=sk-...` in your terminal.
