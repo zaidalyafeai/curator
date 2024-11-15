@@ -56,14 +56,11 @@ poet = curator.Prompter(
     # The prompt_func takes a row of the dataset as input.
     # The row is a dictionary with a single key 'topic' in this case.
     prompt_func=lambda row: f"Write two poems about {row['topic']}.",
-    # The prompt_func takes a row of the dataset as input.
-    # The row is a dictionary with a single key 'topic' in this case.
-    prompt_func=lambda row: f"Write two poems about {row['topic']}.",
     model_name="gpt-4o-mini",
 )
 
-poem = poet()
-print(poem["response"][0])
+poem = poet(topics)
+print(poem.to_pandas())
 ```
 Note that `topics` can be created with `curator.Prompter` as well,
 and we can scale this up to create tens of thousands of diverse poems.
@@ -73,7 +70,8 @@ and other examples in the [examples](examples) directory.
 To run the examples, make sure to set your OpenAI API key in 
 the environment variable `OPENAI_API_KEY` by running `export OPENAI_API_KEY=sk-...` in your terminal.
 
-See the [docs](https://docs.bespokelabs.ai/) for more details as well as troubleshooting.
+See the [docs](https://docs.bespokelabs.ai/) for more details as well as 
+for troubleshooting information.
 
 ## Bespoke Curator Viewer
 
