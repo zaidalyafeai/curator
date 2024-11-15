@@ -56,18 +56,14 @@ poet = curator.Prompter(
     # The prompt_func takes a row of the dataset as input.
     # The row is a dictionary with a single key 'topic' in this case.
     prompt_func=lambda row: f"Write two poems about {row['topic']}.",
+    # The prompt_func takes a row of the dataset as input.
+    # The row is a dictionary with a single key 'topic' in this case.
+    prompt_func=lambda row: f"Write two poems about {row['topic']}.",
     model_name="gpt-4o-mini",
-    response_format=Poems,
-    # `row` is the input row, and `poems` is the Poems class which 
-    # is parsed from the structured output from the LLM.
-    parse_func=lambda row, poems: [
-        {"topic": row["topic"], "poem": p} for p in poems.poems_list
-    ],
 )
 
-# We apply the prompter to the topics dataset.
-poems = poet(topics)
-print(poems.to_pandas())
+poem = poet()
+print(poem["response"][0])
 ```
 Note that `topics` can be created with `curator.Prompter` as well,
 and we can scale this up to create tens of thousands of diverse poems.
