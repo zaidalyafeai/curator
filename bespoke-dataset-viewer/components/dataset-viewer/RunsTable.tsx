@@ -26,9 +26,11 @@ from pydantic import BaseModel, Field
 from typing import List
 
 # Create a dataset object for the topics you want to create the poems.
-topics = Dataset.from_list([{"topic": "Dreams vs. reality"},
-                            {"topic": "Urban loneliness in a bustling city"},
-                            {"topic": "Beauty of Bespoke Labs's Curator library"}])
+topics = Dataset.from_dict({"topic": [
+    "Dreams vs. reality",
+    "Urban loneliness in a bustling city",
+    "Beauty of Bespoke Labs's Curator library"
+]})
 
 # Define a class to encapsulate a list of poems.
 class Poems(BaseModel):
@@ -42,7 +44,7 @@ poet = curator.Prompter(
     prompt_func=lambda row: f"Write two poems about {row['topic']}.",
     model_name="gpt-4o-mini",
     response_format=Poems,
-    # `row` is the input row, and `poems` is the Poems class which 
+    # row is the input row, and poems is the Poems class which 
     # is parsed from the structured output from the LLM.
     parse_func=lambda row, poems: [
         {"topic": row["topic"], "poem": p} for p in poems.poems_list
@@ -51,7 +53,15 @@ poet = curator.Prompter(
 
 # We apply the prompter to the topics dataset.
 poems = poet(topics)
-print(poems.to_pandas())`
+print(poems.to_pandas())
+
+# Example output:
+#                                       topic                                               poem
+# 0       Urban loneliness in a bustling city  **In the Crowd**\nBeneath the neon glow of cit...
+# 1  Beauty of Bespoke Labs's Curator library  **Whispers of Curated Dreams**\nIn a sanctuary...
+# 2  Beauty of Bespoke Labs's Curator library  **Library of Tailored Thoughts**\nNestled with...
+# 3                        Dreams vs. reality  **Whispers of Dreams**  \nIn the silent folds ...
+`
 
 export function RunsTable() {
   const [runs, setRuns] = useState<Run[]>([])
