@@ -1,58 +1,40 @@
-"""Example of using the curator library to generate diverse poems.
-
-We generate 10 diverse topics and then generate 2 poems for each topic."""
-
 from bespokelabs import curator
 from datasets import Dataset
 from pydantic import BaseModel, Field
 from typing import List
 
+# Create a dataset object for the topics you want to create the poems.
+topics = Dataset.from_dict({"topic": [
+    "Urban loneliness in a bustling city",
+    "Beauty of Bespoke Labs's Curator library"
+]})
 
-# We use Pydantic and structured outputs to define the format of the response.
-# This defines a list of topics, which is the response format for the topic generator.
-class Topics(BaseModel):
-    topics_list: List[str] = Field(description="A list of topics.")
+# Define a class to encapsulate a list of poems.
+class Poem(BaseModel):
+    poem: str = Field(description="A poem.")
 
-
-# We define a prompter that generates topics.
-topic_generator = curator.Prompter(
-    prompt_func=lambda: f"Generate 10 diverse topics that are suitable for writing poems about.",
-    model_name="gpt-4o-mini",
-    response_format=Topics,
-    parse_func=lambda _, topics: [{"topic": t} for t in topics.topics_list],
-)
-
-# We call the prompter to generate the dataset.
-# When no input dataset is provided, an "empty" dataset with a single row is used as a starting point.
-topics: Dataset = topic_generator()
-print(topics["topic"])
-
-
-# Define a list of poems.
 class Poems(BaseModel):
-    poems_list: List[str] = Field(description="A list of poems.")
+    poems_list: List[Poem] = Field(description="A list of poems.")
 
 
-# We define a prompter that generates poems which gets applied to the topics dataset.
+# We define a Prompter that generates poems which gets applied to the topics dataset.
 poet = curator.Prompter(
     # The prompt_func takes a row of the dataset as input.
     # The row is a dictionary with a single key 'topic' in this case.
     prompt_func=lambda row: f"Write two poems about {row['topic']}.",
     model_name="gpt-4o-mini",
     response_format=Poems,
-    # `row` is the input row, and `poems` is the Poems class which is parsed from the structured output from the LLM.
+    # row is the input row, and poems is the Poems class which 
+    # is parsed from the structured output from the LLM.
     parse_func=lambda row, poems: [
-        {"topic": row["topic"], "poem": p} for p in poems.poems_list
+        {"topic": row["topic"], "poem": p.poem} for p in poems.poems_list
     ],
 )
 
-# We apply the prompter to the topics dataset.
-poems = poet(topics)
-print(poems.to_pandas())
-
-# Expected output:
-#                                           topic                                               poem
-# 0                            Dreams vs. reality  In the realm where dreams take flight,\nWhere ...
-# 1                            Dreams vs. reality  Reality stands with open eyes,\nA weighty thro...
-# 2           Urban loneliness in a bustling city  In the city's heart where shadows blend,\nAmon...
-# 3           Urban loneliness in a bustling city  Among the crowds, I walk alone,\nA sea of face...
+poem = poet(topics)
+print(poem.to_pandas())
+#                                       topic                                               poem
+# 0       Urban loneliness in a bustling city  In the city's heart, where the sirens wail,\nA...
+# 1       Urban loneliness in a bustling city  City streets hum with a bittersweet song,\nHor...
+# 2  Beauty of Bespoke Labs's Curator library  In whispers of design and crafted grace,\nBesp...
+# 3  Beauty of Bespoke Labs's Curator library  In the hushed breath of parchment and ink,\nBe...
