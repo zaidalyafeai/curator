@@ -33,9 +33,7 @@ class Dataset:
         return Dataset(iterable=iterable)
 
     def from_working_dir(working_dir: str, prompt_formatter: PromptFormatter):
-        return Dataset(
-            working_dir=working_dir, prompt_formatter=prompt_formatter
-        )
+        return Dataset(working_dir=working_dir, prompt_formatter=prompt_formatter)
 
     def __iter__(self) -> Iterator[Dict[str, Any] | BaseModel]:
         if self.iterable is not None:
@@ -48,13 +46,9 @@ class Dataset:
             for line in open(response_file, "r"):
                 response = GenericResponse.model_validate_json(line)
                 if self.prompt_formatter.response_format:
-                    response.response = self.prompt_formatter.response_format(
-                        **response.response
-                    )
+                    response.response = self.prompt_formatter.response_format(**response.response)
                 if self.prompt_formatter.parse_func:
-                    response = self.prompt_formatter.parse_func(
-                        response.row, response.response
-                    )
+                    response = self.prompt_formatter.parse_func(response.row, response.response)
                 else:
                     response = [response.response]
 
@@ -97,10 +91,8 @@ class Dataset:
                         total_responses_count += 1
                         response = GenericResponse.model_validate_json(line)
                         if self.prompt_formatter.response_format:
-                            response.response = (
-                                self.prompt_formatter.response_format(
-                                    **response.response
-                                )
+                            response.response = self.prompt_formatter.response_format(
+                                **response.response
                             )
 
                         if response is None:
@@ -119,9 +111,7 @@ class Dataset:
                                 row = row.model_dump()
                             writer.write(row)
 
-            logging.info(
-                f"Read {total_responses_count} responses, {failed_responses_count} failed"
-            )
+            logging.info(f"Read {total_responses_count} responses, {failed_responses_count} failed")
             logging.info("Finalizing writer")
 
             if failed_responses_count == total_responses_count:

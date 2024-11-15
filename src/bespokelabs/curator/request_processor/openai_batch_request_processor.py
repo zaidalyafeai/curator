@@ -2,13 +2,12 @@ import asyncio
 import json
 import logging
 import os
-from typing import Type, TypeVar
+from dataclasses import dataclass
 
 import aiofiles
 from openai import AsyncOpenAI
-from pydantic import BaseModel
+from openai.types import Batch
 from tqdm import tqdm
-from dataclasses import dataclass
 
 from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
@@ -19,23 +18,28 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     parse_response_message,
 )
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
-from openai.types import Batch
 
-T = TypeVar("T")
 logger = logging.getLogger(__name__)
 
+MAX_REQUESTS_PER_BATCH = 50_000
 
 class OpenAIBatchRequestProcessor(BaseRequestProcessor):
     def __init__(
         self,
-        batch_size: int = 1000,
-        model: str = "gpt-4o-mini",
+        batch_size: int,
+        model: str,
         temperature: float | None = None,
         top_p: float | None = None,
         check_interval: int = 10,
         api_key: str = os.getenv("OPENAI_API_KEY"),
         url: str = "https://api.openai.com/v1/chat/completions",
     ):
+        if batch_size > MAX_REQUESTS_PER_BATCH:
+            raise ValueError(
+                f"batch_size {batch_size} is greater than the maximum of "
+                f"{MAX_REQUESTS_PER_BATCH:,} requests per batch that OpenAI supports. "
+                f"Please set your batch_size to be less than or equal to {MAX_REQUESTS_PER_BATCH:,}."
+            )
         super().__init__(batch_size)
         self.url: str = url
         self.api_key: str = api_key
@@ -79,17 +83,13 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         else:
             tpd = model_tpd[self.model]
 
-        logger.info(
-            f"Automatically set max_tokens_per_day to {tpd}, model: {self.model} "
-        )
+        logger.info(f"Automatically set max_tokens_per_day to {tpd}, model: {self.model} ")
 
         rate_limits = {"max_tokens_per_day": tpd}
 
         return rate_limits
 
-    def create_api_specific_request(
-        self, generic_request: GenericRequest
-    ) -> dict:
+    def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
         """
         Creates a API-specific request body from a generic request body.
 
@@ -142,7 +142,9 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
         async with aiofiles.open(batch_file, "r") as file:
             file_content = await file.read()
+            lines_count = 0
             for line in file_content.splitlines():
+                lines_count += 1
                 request = GenericRequest.model_validate_json(line)
                 api_specific_request = self.create_api_specific_request(request)
                 api_specific_requests.append(json.dumps(api_specific_request))
@@ -150,9 +152,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         # Join requests with newlines and encode to bytes for upload
         file_content = "\n".join(api_specific_requests).encode()
 
-        batch_file_upload = await async_client.files.create(
-            file=file_content, purpose="batch"
-        )
+        batch_file_upload = await async_client.files.create(file=file_content, purpose="batch")
 
         logger.info(f"File uploaded: {batch_file_upload}")
 
@@ -164,9 +164,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                 "request_file_name": batch_file
             },  # for downloading the batch to similarly named responses file
         )
-        logger.info(
-            f"Batch request submitted, received batch object: {batch_object}"
-        )
+        logger.info(f"Batch request submitted, received batch object: {batch_object}")
         # Explicitly close the client. Otherwise we get something like
         # future: <Task finished name='Task-46' coro=<AsyncClient.aclose() done ... >>
         await async_client.close()
@@ -192,9 +190,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         Returns:
             Dataset: Completed dataset
         """
-        requests_files = self.create_request_files(
-            dataset, working_dir, prompt_formatter
-        )
+        requests_files = self.create_request_files(dataset, working_dir, prompt_formatter)
         batch_objects_file = f"{working_dir}/batch_objects.jsonl"
 
         # TODO(Ryan): we should have an easy way to cancel all batches in batch_objects.jsonl if the user realized they made a mistake
@@ -206,10 +202,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             # upload requests files and submit batches
             # asyncio gather preserves order
             async def submit_all_batches():
-                tasks = [
-                    self.asubmit_batch(requests_files[i])
-                    for i in range(len(requests_files))
-                ]
+                tasks = [self.asubmit_batch(requests_files[i]) for i in range(len(requests_files))]
                 return await asyncio.gather(*tasks)
 
             batch_objects = run_in_event_loop(submit_all_batches())
@@ -247,9 +240,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
         run_in_event_loop(watch_batches())
 
-        dataset = self.create_dataset_files(
-            working_dir, parse_func_hash, prompt_formatter
-        )
+        dataset = self.create_dataset_files(working_dir, parse_func_hash, prompt_formatter)
 
         return dataset
 
@@ -276,22 +267,25 @@ class BatchStatusTracker:
 
 class BatchWatcher:
     def __init__(
-        self, working_dir: str, check_interval: int, n_submitted_requests: int
+        self,
+        working_dir: str,
+        check_interval: int,
+        prompt_formatter: PromptFormatter,
+        n_submitted_requests: int,
     ) -> None:
         """Initialize BatchWatcher with batch objects file and check interval.
 
         Args:
             working_dir (str): Directory containing the batch objects JSON file.
             check_interval (int): Time interval (in seconds) to check batch status.
-            n_submitted_requests (int): Total number of requests submitted. To keep a progress bar.
+            prompt_formatter (PromptFormatter): Prompt formatter to be used to format the prompt
         """
         self.client = AsyncOpenAI()
         with open(f"{working_dir}/batch_objects.jsonl", "r") as f:
             self.batch_objects = [json.loads(line) for line in f]
         self.batch_ids = [obj["id"] for obj in self.batch_objects]
         self.batch_id_to_request_file_name = {
-            obj["id"]: obj["metadata"]["request_file_name"]
-            for obj in self.batch_objects
+            obj["id"]: obj["metadata"]["request_file_name"] for obj in self.batch_objects
         }
         self.check_interval = check_interval
         self.working_dir = working_dir
@@ -299,6 +293,7 @@ class BatchWatcher:
         self.tracker.n_submitted_batches = len(self.batch_ids)
         self.tracker.n_submitted_requests = n_submitted_requests
         self.remaining_batch_ids = set(self.batch_ids)
+        self.prompt_formatter = prompt_formatter
 
     async def close_client(self):
         await self.client.close()
@@ -320,11 +315,12 @@ class BatchWatcher:
         n_total_requests = batch.request_counts.total
 
         logger.debug(
-            f"Batch {batch_id} status: {batch.status} requests: "
+            f"Batch {batch.id} status: {batch.status} requests: "
             f"{n_completed_requests}/{n_failed_requests}/{n_total_requests} "
             "completed/failed/total"
         )
 
+        batch_returned = False
         if batch.status == "completed":
             self.tracker.n_completed_batches += 1
             batch_returned = True
@@ -347,22 +343,18 @@ class BatchWatcher:
                 logger.warning(f"Unknown batch status: {batch.status}")
 
         if batch_returned:
-            logger.info(
-                f"Batch {batch.id} returned with status: {batch.status}"
-            )
+            logger.info(f"Batch {batch.id} returned with status: {batch.status}")
             self.tracker.n_returned_batches += 1
             self.tracker.n_completed_returned_requests += n_completed_requests
             self.tracker.n_failed_returned_requests += n_failed_requests
             self.remaining_batch_ids.remove(batch.id)
             return batch
         else:
-            self.tracker.n_completed_in_progress_requests += (
-                n_completed_requests
-            )
+            self.tracker.n_completed_in_progress_requests += n_completed_requests
             self.tracker.n_failed_in_progress_requests += n_failed_requests
             return None
 
-    async def watch(self, response_format: Type[BaseModel] | None) -> None:
+    async def watch(self) -> None:
         """Monitor the status of batches until all are completed (includes successfully, failed, expired or cancelled)."""
         # progress bar for completed requests
         pbar = tqdm(
@@ -373,14 +365,8 @@ class BatchWatcher:
         all_response_files = []
 
         # loop until all batches have been returned
-        remaining_batch_ids = set(self.batch_ids)
-        while (
-            self.tracker.n_completed_batches < self.tracker.n_submitted_batches
-        ):
-            status_tasks = [
-                self.check_batch_status(batch_id)
-                for batch_id in remaining_batch_ids
-            ]
+        while self.remaining_batch_ids:
+            status_tasks = [self.check_batch_status(batch_id) for batch_id in self.remaining_batch_ids]
             batches_to_download = await asyncio.gather(*status_tasks)
             batches_to_download = filter(None, batches_to_download)
 
@@ -393,20 +379,16 @@ class BatchWatcher:
             pbar.refresh()
 
             download_tasks = [
-                self.download_batch_to_generic_responses_file(
-                    batch, response_format
-                )
+                self.download_batch_to_generic_responses_file(batch)
                 for batch in batches_to_download
             ]
             # Failed downloads return None and print any errors that occurred
             all_response_files.extend(await asyncio.gather(*download_tasks))
 
-            if (
-                self.tracker.n_returned_batches
-                < self.tracker.n_submitted_batches
-            ):
+            if self.tracker.n_returned_batches < self.tracker.n_submitted_batches:
                 logger.info(
-                    f"Batches returned: {self.tracker.n_returned_batches}/{self.tracker.n_submitted_batches} Requests completed: {pbar.n}/{self.tracker.n_submitted_requests}"
+                    f"Batches returned: {self.tracker.n_returned_batches}/{self.tracker.n_submitted_batches} "
+                    f"Requests completed: {pbar.n}/{self.tracker.n_submitted_requests}"
                 )
                 logger.info(f"Sleeping for {self.check_interval} seconds...")
                 await asyncio.sleep(self.check_interval)
@@ -415,14 +397,11 @@ class BatchWatcher:
         response_files = filter(None, all_response_files)
         if self.tracker.n_completed_batches == 0 or not response_files:
             raise RuntimeError(
-                "None of the submitted batches completed successfully. Please check the logs above and https://platform.openai.com/batches for errors."
+                "None of the submitted batches completed successfully. "
+                "Please check the logs above and https://platform.openai.com/batches for errors."
             )
 
-    async def download_batch_to_generic_responses_file(
-        self,
-        batch: Batch,
-        response_format: Type[BaseModel] | None,
-    ) -> str | None:
+    async def download_batch_to_generic_responses_file(self, batch: Batch) -> str | None:
         """Download the result of a completed batch to file.
 
         Args:
@@ -435,13 +414,13 @@ class BatchWatcher:
             file_content = await self.client.files.content(batch.output_file_id)
         elif batch.status == "failed" and batch.error_file_id:
             file_content = await self.client.files.content(batch.error_file_id)
-            logger.warning(
-                f"Batch {batch.id} failed\n. Errors will be parsed below."
-            )
+            logger.warning(f"Batch {batch.id} failed\n. Errors will be parsed below.")
         elif batch.status == "failed" and not batch.error_file_id:
             errors = "\n".join([str(error) for error in batch.errors.data])
             logger.error(
-                f"Batch {batch.id} failed and likely failed validation. \n Batch errors: {errors}. Check https://platform.openai.com/batches/{batch.id} for more details."
+                f"Batch {batch.id} failed and likely failed validation. "
+                f"Batch errors: {errors}. "
+                f"Check https://platform.openai.com/batches/{batch.id} for more details."
             )
             return None
         elif batch.status == "cancelled" or batch.status == "expired":
@@ -457,16 +436,12 @@ class BatchWatcher:
         with open(request_file, "r") as f:
             for line in f:
                 generic_request = GenericRequest.model_validate_json(line)
-                generic_request_map[generic_request.original_row_idx] = (
-                    generic_request
-                )
+                generic_request_map[generic_request.original_row_idx] = generic_request
 
         with open(response_file, "w") as f:
             for raw_response in file_content.text.splitlines():
                 raw_response = json.loads(raw_response)
-                generic_request = generic_request_map[
-                    int(raw_response["custom_id"])
-                ]
+                generic_request = generic_request_map[int(raw_response["custom_id"])]
 
                 generic_response = GenericResponse(
                     raw_response=raw_response,
@@ -484,18 +459,10 @@ class BatchWatcher:
                         f"Request {generic_request} failed with status code {status_code}"
                     ]
                 else:
-                    # NOTE(Ryan): can we actually parse the response into a an OpenAI ChatCompletions object? Easier to access fields?
-                    # TODO(Ryan): if you add token tokens to generic response
                     choices = raw_response["response"]["body"]["choices"]
-                    # Assuming N = 1
-                    response_message = choices[0]["message"]["content"]
-                    response_message, response_errors = parse_response_message(
-                        response_message, response_format
-                    )
+                    response_message = choices[0]["message"]["content"]  # Assuming N = 1
+                    response_message, response_errors = parse_response_message(response_message)
                     generic_response.response_message = response_message
                     generic_response.response_errors = response_errors
-                f.write(
-                    json.dumps(generic_response.model_dump(), default=str)
-                    + "\n"
-                )
+                f.write(json.dumps(generic_response.model_dump(), default=str) + "\n")
         return response_file
