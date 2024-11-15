@@ -1,54 +1,6 @@
 """Example of using the curator library to generate diverse poems.
 
-We generate 10 diverse topics and then generate 2 poems for each topic.
-
-You can do this in a loop, but that is inefficient and breaks when requests fail.
-When you need to do this thousands of times (or more), you need a better abstraction.
-
-curator.Prompter takes care of this heavy lifting.
-
-# Key Components of Prompter
-
-## prompt_func
-
-Calls an LLM on each row of the input dataset in parallel. 
-
-1. Takes a dataset row as input
-2. Returns the prompt for the LLM
-
-## parse_func
-
-Converts LLM output into structured data by adding it back to the dataset.
-
-1. Takes two arguments:
-    - Input row
-    - LLM response (in response_format)
-2. Returns new rows (in list of dictionaries)
-
-
-# Data Flow Example
-Input Dataset: 
-    Row A
-    Row B
-Processing by Prompter:
-    Row A    →    prompt_func(A)    →    Response R1    →    parse_func(A, R1)    →    [C, D]
-    Row B    →    prompt_func(B)    →    Response R2    →    parse_func(B, R2)    →    [E, F]
-
-Output Dataset: 
-    Row C
-    Row D
-    Row E
-    Row F
-
-In this example:
-
-- The two input rows (A and B) are processed in parallel to prompt the LLM
-- Each generates a response (R1 and R2)
-- The parse function converts each response into (multiple) new rows (C, D, E, F)
-- The final dataset contains all generated rows
-
-You can chain prompters together to iteratively build up a dataset.
-"""
+We generate 10 diverse topics and then generate 2 poems for each topic."""
 
 from bespokelabs import curator
 from datasets import Dataset
