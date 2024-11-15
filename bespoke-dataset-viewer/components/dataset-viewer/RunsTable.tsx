@@ -21,22 +21,46 @@ const COLUMNS: Column[] = [
 ]
 
 const EXAMPLE_CODE = `from bespokelabs import curator
-import os
+from datasets import Dataset
+from pydantic import BaseModel, Field
+from typing import List
 
-# Set your OpenAI API key here
-os.environ['OPENAI_API_KEY'] = 'sk-...'
+# Create a dataset object for the topics you want to create the poems.
+topics = Dataset.from_dict({"topic": [
+    "Urban loneliness in a bustling city",
+    "Beauty of Bespoke Labs's Curator library"
+]})
 
-# Create a prompter instance
+# Define a class to encapsulate a list of poems.
+class Poem(BaseModel):
+    poem: str = Field(description="A poem.")
+
+class Poems(BaseModel):
+    poems_list: List[Poem] = Field(description="A list of poems.")
+
+
+# We define a Prompter that generates poems which gets applied to the topics dataset.
 poet = curator.Prompter(
-    prompt_func=lambda: {
-        "user_prompt": "Write a poem about the beauty of computer science"
-    },
+    # prompt_func takes a row of the dataset as input.
+    # row is a dictionary with a single key 'topic' in this case.
+    prompt_func=lambda row: f"Write two poems about {row['topic']}.",
     model_name="gpt-4o-mini",
+    response_format=Poems,
+    # row is the input row, and poems is the Poems class which 
+    # is parsed from the structured output from the LLM.
+    parse_func=lambda row, poems: [
+        {"topic": row["topic"], "poem": p.poem} for p in poems.poems_list
+    ],
 )
 
-# Generate and print the poem
-poem = poet()
-print(poem.to_list()[0])`
+poem = poet(topics)
+print(poem.to_pandas())
+# Example output:
+#                                       topic                                               poem
+# 0       Urban loneliness in a bustling city  In the city's heart, where the sirens wail,\\nA...
+# 1       Urban loneliness in a bustling city  City streets hum with a bittersweet song,\\nHor...
+# 2  Beauty of Bespoke Labs's Curator library  In whispers of design and crafted grace,\\nBesp...
+# 3  Beauty of Bespoke Labs's Curator library  In the hushed breath of parchment and ink,\\nBe...`
 
 export function RunsTable() {
   const [runs, setRuns] = useState<Run[]>([])

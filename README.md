@@ -1,8 +1,8 @@
 <p align="center">
   <a href="https://bespokelabs.ai/" target="_blank">
     <picture>
-      <source media="(prefers-color-scheme: light)" width="80" srcset="./docs/Bespoke-Labs-Logomark-Red.png">
-      <img alt="Bespoke Labs Logo" width="80" src="./docs/Bespoke-Labs-Logomark-Red-on-Black.png">
+      <source media="(prefers-color-scheme: light)" width="80" srcset="https://raw.githubusercontent.com/bespokelabsai/curator/main/docs/Bespoke-Labs-Logomark-Red.png">
+      <img alt="Bespoke Labs Logo" width="80" src="https://raw.githubusercontent.com/bespokelabsai/curator/main/docs/Bespoke-Labs-Logomark-Red-on-Black.png">
     </picture>
   </a>
 </p>
@@ -37,22 +37,57 @@ pip install bespokelabs-curator
 
 ```python
 from bespokelabs import curator
-import os
+from datasets import Dataset
+from pydantic import BaseModel, Field
+from typing import List
 
-os.environ['OPENAI_API_KEY'] = 'sk-...' # Set your OpenAI API key here
+# Create a dataset object for the topics you want to create the poems.
+topics = Dataset.from_dict({"topic": [
+    "Urban loneliness in a bustling city",
+    "Beauty of Bespoke Labs's Curator library"
+]})
 
+# Define a class to encapsulate a list of poems.
+class Poem(BaseModel):
+    poem: str = Field(description="A poem.")
+
+class Poems(BaseModel):
+    poems_list: List[Poem] = Field(description="A list of poems.")
+
+
+# We define a Prompter that generates poems which gets applied to the topics dataset.
 poet = curator.Prompter(
-    prompt_func=lambda: "Write a poem about the beauty of computer science",
+    # `prompt_func` takes a row of the dataset as input.
+    # `row` is a dictionary with a single key 'topic' in this case.
+    prompt_func=lambda row: f"Write two poems about {row['topic']}.",
     model_name="gpt-4o-mini",
+    response_format=Poems,
+    # `row` is the input row, and `poems` is the `Poems` class which 
+    # is parsed from the structured output from the LLM.
+    parse_func=lambda row, poems: [
+        {"topic": row["topic"], "poem": p.poem} for p in poems.poems_list
+    ],
 )
 
-poem = poet()
-print(poem["response"][0])
+poem = poet(topics)
+print(poem.to_pandas())
+# Example output:
+#                                       topic                                               poem
+# 0       Urban loneliness in a bustling city  In the city's heart, where the sirens wail,\nA...
+# 1       Urban loneliness in a bustling city  City streets hum with a bittersweet song,\nHor...
+# 2  Beauty of Bespoke Labs's Curator library  In whispers of design and crafted grace,\nBesp...
+# 3  Beauty of Bespoke Labs's Curator library  In the hushed breath of parchment and ink,\nBe...
 ```
+Note that `topics` can be created with `curator.Prompter` as well,
+and we can scale this up to create tens of thousands of diverse poems.
+You can see a more detailed example in the [examples/poem.py](https://github.com/bespokelabsai/curator/blob/mahesh/update_doc/examples/poem.py) file,
+and other examples in the [examples](https://github.com/bespokelabsai/curator/blob/mahesh/update_doc/examples) directory.
 
-You can see more examples in the [examples](examples) directory.
+To run the examples, make sure to set your OpenAI API key in 
+the environment variable `OPENAI_API_KEY` by running `export OPENAI_API_KEY=sk-...` in your terminal.
 
-To run the examples, make sure to set your OpenAI API key in the environment variable `OPENAI_API_KEY` by running `export OPENAI_API_KEY=sk-...` in your terminal.
+See the [docs](https://docs.bespokelabs.ai/) for more details as well as 
+for troubleshooting information.
 
 ## Bespoke Curator Viewer
 
