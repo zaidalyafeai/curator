@@ -180,11 +180,11 @@ class Prompter:
         metadata_db = MetadataDB(metadata_db_path)
 
         # Get the source code of the prompt function
-        prompt_func_source = inspect.getsource(
+        prompt_func_source = _get_function_source(
             self.prompt_formatter.prompt_func
         )
         if self.prompt_formatter.parse_func is not None:
-            parse_func_source = inspect.getsource(
+            parse_func_source = _get_function_source(
                 self.prompt_formatter.parse_func
             )
         else:
@@ -221,4 +221,18 @@ def _get_function_hash(func) -> str:
     if func is None:
         return xxh64("").hexdigest()
 
-    return xxh64(inspect.getsource(func)).hexdigest()
+    return xxh64(_get_function_source(func)).hexdigest()
+
+
+def _get_function_source(func) -> str:
+    """Get the source code of a function.
+
+    Purpose of this function is that during Python interpreter (REPL),
+    `inspect.getsource` will fail with an OSError because functions defined in the
+    interpreter don't have an associated source file. We have to use this wrapper
+    to gracefully handle this case.
+    """
+    try:
+        return inspect.getsource(func)
+    except OSError:
+        return ""
