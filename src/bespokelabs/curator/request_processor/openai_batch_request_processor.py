@@ -407,6 +407,12 @@ class BatchWatcher:
 
         # loop until all batches have been returned
         while self.remaining_batch_ids:
+
+            # need to reset in_progress numbers each time
+            self.tracker.n_completed_in_progress_requests = 0
+            self.tracker.n_failed_in_progress_requests = 0
+
+            # check batch status also updates the tracker
             status_tasks = [
                 self.check_batch_status(batch_id)
                 for batch_id in self.remaining_batch_ids
