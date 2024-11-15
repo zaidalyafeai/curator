@@ -37,22 +37,46 @@ pip install bespokelabs-curator
 
 ```python
 from bespokelabs import curator
-import os
+from datasets import Dataset
+from pydantic import BaseModel, Field
+from typing import List
 
-os.environ['OPENAI_API_KEY'] = 'sk-...' # Set your OpenAI API key here
+# Create a dataset object for the topics you want to create the poems.
+topics = Dataset.from_list([{"topic": "Dreams vs. reality"},
+                            {"topic": "Urban loneliness in a bustling city"},
+                            {"topic": "Beauty of Bespoke Labs's Curator library"}])
 
+# Define a class to encapsulate a list of poems.
+class Poems(BaseModel):
+    poems_list: List[str] = Field(description="A list of poems.")
+
+
+# We define a prompter that generates poems which gets applied to the topics dataset.
 poet = curator.Prompter(
-    prompt_func=lambda: "Write a poem about the beauty of computer science",
+    # The prompt_func takes a row of the dataset as input.
+    # The row is a dictionary with a single key 'topic' in this case.
+    prompt_func=lambda row: f"Write two poems about {row['topic']}.",
     model_name="gpt-4o-mini",
+    response_format=Poems,
+    # `row` is the input row, and `poems` is the Poems class which 
+    # is parsed from the structured output from the LLM.
+    parse_func=lambda row, poems: [
+        {"topic": row["topic"], "poem": p} for p in poems.poems_list
+    ],
 )
 
-poem = poet()
-print(poem["response"][0])
+# We apply the prompter to the topics dataset.
+poems = poet(topics)
 ```
+Note that `topics` can be created with `curator.Prompter` as well,
+and we can scale this up to create tens of thousands of diverse poems.
+You can see a more detailed example in the [examples/poem.py](examples/poem.py) file,
+and other examples in the [examples](examples) directory.
 
-You can see more examples in the [examples](examples) directory.
+To run the examples, make sure to set your OpenAI API key in 
+the environment variable `OPENAI_API_KEY` by running `export OPENAI_API_KEY=sk-...` in your terminal.
 
-To run the examples, make sure to set your OpenAI API key in the environment variable `OPENAI_API_KEY` by running `export OPENAI_API_KEY=sk-...` in your terminal.
+See the [docs](https://docs.bespokelabs.ai/) for more details as well as troubleshooting.
 
 ## Bespoke Curator Viewer
 
