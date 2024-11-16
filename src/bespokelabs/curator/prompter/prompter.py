@@ -15,7 +15,6 @@ from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import (
     BaseRequestProcessor,
 )
-from bespokelabs.curator.request_processor.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.openai_batch_request_processor import (
     OpenAIBatchRequestProcessor,
 )
@@ -84,6 +83,11 @@ class Prompter:
         )
         self.batch_mode = batch
         if batch:
+            if batch_size is None:
+                batch_size = 1_000
+                logger.info(
+                    f"batch=True but no batch_size provided, using default batch_size of {batch_size:,}"
+                )
             self._request_processor = OpenAIBatchRequestProcessor(
                 model=model_name,
                 batch_size=batch_size,
@@ -176,11 +180,11 @@ class Prompter:
         metadata_db = MetadataDB(metadata_db_path)
 
         # Get the source code of the prompt function
-        prompt_func_source = inspect.getsource(
+        prompt_func_source = _get_function_source(
             self.prompt_formatter.prompt_func
         )
         if self.prompt_formatter.parse_func is not None:
-            parse_func_source = inspect.getsource(
+            parse_func_source = _get_function_source(
                 self.prompt_formatter.parse_func
             )
         else:
@@ -217,4 +221,18 @@ def _get_function_hash(func) -> str:
     if func is None:
         return xxh64("").hexdigest()
 
-    return xxh64(inspect.getsource(func)).hexdigest()
+    return xxh64(_get_function_source(func)).hexdigest()
+
+
+def _get_function_source(func) -> str:
+    """Get the source code of a function.
+
+    Purpose of this function is that during Python interpreter (REPL),
+    `inspect.getsource` will fail with an OSError because functions defined in the
+    interpreter don't have an associated source file. We have to use this wrapper
+    to gracefully handle this case.
+    """
+    try:
+        return inspect.getsource(func)
+    except OSError:
+        return ""

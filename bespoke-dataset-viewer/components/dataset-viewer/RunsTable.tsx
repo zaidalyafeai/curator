@@ -10,6 +10,7 @@ import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Header } from "@/components/layout/Header"
 import { AlertCircle } from "lucide-react"
+import { PythonHighlighter } from "@/components/ui/python-highlighter"
 
 const COLUMNS: Column[] = [
   { key: "created_time", label: "Created" },
@@ -18,6 +19,48 @@ const COLUMNS: Column[] = [
   { key: "prompt_func", label: "Prompter Function" },
   { key: "response_format", label: "Response Format" }
 ]
+
+const EXAMPLE_CODE = `from bespokelabs import curator
+from datasets import Dataset
+from pydantic import BaseModel, Field
+from typing import List
+
+# Create a dataset object for the topics you want to create the poems.
+topics = Dataset.from_dict({"topic": [
+    "Urban loneliness in a bustling city",
+    "Beauty of Bespoke Labs's Curator library"
+]})
+
+# Define a class to encapsulate a list of poems.
+class Poem(BaseModel):
+    poem: str = Field(description="A poem.")
+
+class Poems(BaseModel):
+    poems_list: List[Poem] = Field(description="A list of poems.")
+
+
+# We define a Prompter that generates poems which gets applied to the topics dataset.
+poet = curator.Prompter(
+    # prompt_func takes a row of the dataset as input.
+    # row is a dictionary with a single key 'topic' in this case.
+    prompt_func=lambda row: f"Write two poems about {row['topic']}.",
+    model_name="gpt-4o-mini",
+    response_format=Poems,
+    # row is the input row, and poems is the Poems class which 
+    # is parsed from the structured output from the LLM.
+    parse_func=lambda row, poems: [
+        {"topic": row["topic"], "poem": p.poem} for p in poems.poems_list
+    ],
+)
+
+poem = poet(topics)
+print(poem.to_pandas())
+# Example output:
+#                                       topic                                               poem
+# 0       Urban loneliness in a bustling city  In the city's heart, where the sirens wail,\\nA...
+# 1       Urban loneliness in a bustling city  City streets hum with a bittersweet song,\\nHor...
+# 2  Beauty of Bespoke Labs's Curator library  In whispers of design and crafted grace,\\nBesp...
+# 3  Beauty of Bespoke Labs's Curator library  In the hushed breath of parchment and ink,\\nBe...`
 
 export function RunsTable() {
   const [runs, setRuns] = useState<Run[]>([])
@@ -122,7 +165,6 @@ export function RunsTable() {
   }
 
   if (error) return <div>Error: {error}</div>
-
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       <Header 
@@ -141,18 +183,25 @@ export function RunsTable() {
 
         {noCacheFound ? (
           <div className="rounded-lg border border-yellow-200 bg-yellow-50 dark:border-yellow-900/50 dark:bg-yellow-900/20 p-4 my-4">
-            <div className="flex items-start space-x-3">
-              <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5" />
-              <div>
-                <h3 className="font-medium text-yellow-600 dark:text-yellow-500">
-                  No Cache Database Found
-                </h3>
-                <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-1">
-                  {noCacheFound.message}
-                </p>
-                <p className="text-xs text-yellow-500 dark:text-yellow-400 mt-2 font-mono">
-                  Expected location: {noCacheFound.path}
-                </p>
+            <div className="flex flex-col space-y-4">
+              <div className="flex items-start space-x-3">
+                <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-yellow-600 dark:text-yellow-500">
+                    No Cache Database Found
+                  </h3>
+                  <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-1">
+                    {noCacheFound.message}
+                  </p>
+                  <p className="text-xs text-yellow-500 dark:text-yellow-400 mt-2 font-mono">
+                    Expected location: {noCacheFound.path}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="mt-4 rounded-lg p-4">
+                <p className="text-sm text-yellow-400 mb-2">Try running this example to create your first curator run:</p>
+                <PythonHighlighter code={EXAMPLE_CODE} />
               </div>
             </div>
           </div>
