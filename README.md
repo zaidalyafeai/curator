@@ -7,7 +7,7 @@
   </a>
 </p>
 
-<h1 align="center">Bespoke Labs Curator</h1>
+<h1 align="center">Bespoke Curator</h1>
 <h3 align="center" style="font-size: 20px; margin-bottom: 4px">Data Curation for Post-Training & Structured Data Extraction</h3>
 <br/>
 <p align="center">
