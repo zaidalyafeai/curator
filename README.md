@@ -1,8 +1,8 @@
 <p align="center">
   <a href="https://bespokelabs.ai/" target="_blank">
     <picture>
-      <source media="(prefers-color-scheme: light)" width="80" srcset="https://raw.githubusercontent.com/bespokelabsai/curator/main/docs/Bespoke-Labs-Logomark-Red.png">
-      <img alt="Bespoke Labs Logo" width="80" src="https://raw.githubusercontent.com/bespokelabsai/curator/main/docs/Bespoke-Labs-Logomark-Red-on-Black.png">
+      <source media="(prefers-color-scheme: light)" width="80px" srcset="https://raw.githubusercontent.com/bespokelabsai/curator/main/docs/Bespoke-Labs-Logomark-Red.png">
+      <img alt="Bespoke Labs Logo" width="80px" src="https://raw.githubusercontent.com/bespokelabsai/curator/main/docs/Bespoke-Labs-Logomark-Red-on-Black.png">
     </picture>
   </a>
 </p>
@@ -26,6 +26,22 @@
   </a>
 </p>
 
+### Overview
+
+Bespoke Curator makes it very easy to create high-quality synthetic data at scale, which you can use to finetune models or use for structured data extraction at scale.
+
+Bespoke Curator is an open-source project:
+* That comes with a rich Python based library for generating and curating synthetic data.
+* A Curator Viewer which makes it easy to view the datasets, thus aiding in the dataset creation.
+* We will also be releasing high-quality datasets that should move the needle on post-training.
+
+### Key Features
+
+1. **Programmability and Structured Outputs**: Synthetic data generation is lot more than just calling one prompt. It is a sequence of calling LLMs. You can orchestrate complex pipelines of calling LLMs and use structured output to decide on control-flow. Curator treats structured outputs as first class citizens.
+2. **Built-in Performance Optimization**: We often see calling LLMs in loops, or inefficient implementation of multi-threading. We have baked in performance optimizations so that you don't need to worry about those!
+3. **Intelligent Caching and Fault Recovery**: Given LLM calls can add up in cost and time, failures are undesirable but sometimes unavoidable. We cache the LLM requests and responses so that it is easy to recover from a failure. Moreover, when working on a multi-stage pipeline, caching of stages makes it easy to iterate.
+4. **Native HuggingFace Dataset Integration**: Work directly on HuggingFace Dataset objects throughput your pipeline. Your synthetic data is immediately ready for fine-tuning!
+5. **Interactive Curator Viewer**: Improve and iterate on your prompts using our built-in viewer. Inspect LLM requests and responses in real-time, allowing you to iterate and refine your data generation strategy with immediate feedback.
 
 ### Installation
 
@@ -134,3 +150,6 @@ node -v # should print `v22.11.0`
 # verifies the right npm version is in the environment
 npm -v # should print `10.9.0`
 ```
+
+## Contributing
+Contributions are welcome! 
