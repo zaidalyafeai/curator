@@ -33,20 +33,25 @@ def enhanced_install(package_name: str, version: Optional[str] = None) -> None:
     
     # Create a properly styled spinner with installation message
     loading_text = Text.assemble(
-        ("⠋ ", "green"),
         "Installing ",
         (package_name, "cyan"),
-        "..."
+        " ...\n",
+        "↳ Your synthetic data journey begins in moments"
     )
     spinner = Spinner("dots", text=loading_text, style="green")
     
-    # Create success text
+   # Create success text
     success_text = Text()
-    success_text.append("✓ ", style="bold green")
-    success_text.append("Installation Complete (100%)\n\n", style="bold green")
-    success_text.append("Get started with:\n", style="")
-    success_text.append("from bespokelabs.curator import Curator\n", style="bold cyan")
-    success_text.append("curator = Curator()", style="bold cyan")
+    success_text.append("✨ Curator installed successfully!\n\n", style="bold green")
+    success_text.append("Start building production-ready synthetic data pipelines:\n\n", style="dim white")
+    success_text.append("📚 Documentation: ", style="dim white")
+    success_text.append("docs.bespokelabs.ai", style="dim cyan link https://docs.bespokelabs.ai")
+    success_text.append("\n")
+    success_text.append("📦 Repository: ", style="dim white")
+    success_text.append("github.com/bespokelabsai/curator", style="dim cyan link https://github.com/bespokelabsai/curator")
+    success_text.append("\n")
+    success_text.append("💬 Get help: ", style="dim white")
+    success_text.append("discord.gg/KqpXvpzVBS", style="dim cyan link https://discord.com/invite/KqpXvpzVBS")
     
     # Show live display that we'll update
     with Live(spinner, console=console, refresh_per_second=15) as live:
