@@ -51,6 +51,8 @@ class Prompter:
         batch_size: Optional[int] = None,
         temperature: Optional[float] = None,
         top_p: Optional[float] = None,
+        presence_penalty: Optional[float] = None,
+        frequency_penalty: Optional[float] = None,
     ):
         """Initialize a Prompter.
 
@@ -64,6 +66,10 @@ class Prompter:
                 response format from the LLM.
             batch (bool): Whether to use batch processing
             batch_size (Optional[int]): The size of the batch to use, only used if batch is True
+            temperature (Optional[float]): The temperature to use for the LLM, only used if batch is False
+            top_p (Optional[float]): The top_p to use for the LLM, only used if batch is False
+            presence_penalty (Optional[float]): The presence_penalty to use for the LLM, only used if batch is False
+            frequency_penalty (Optional[float]): The frequency_penalty to use for the LLM, only used if batch is False
         """
         prompt_sig = inspect.signature(prompt_func)
         if len(prompt_sig.parameters) > 1:
@@ -93,6 +99,8 @@ class Prompter:
                 batch_size=batch_size,
                 temperature=temperature,
                 top_p=top_p,
+                presence_penalty=presence_penalty,
+                frequency_penalty=frequency_penalty,
             )
         else:
             if batch_size is not None:
@@ -100,7 +108,11 @@ class Prompter:
                     f"Prompter argument `batch_size` {batch_size} is ignored because `batch` is False"
                 )
             self._request_processor = OpenAIOnlineRequestProcessor(
-                model=model_name, temperature=temperature, top_p=top_p
+                model=model_name,
+                temperature=temperature,
+                top_p=top_p,
+                presence_penalty=presence_penalty,
+                frequency_penalty=frequency_penalty,
             )
 
     def __call__(

@@ -35,6 +35,8 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         check_interval: int = 10,
         api_key: str = os.getenv("OPENAI_API_KEY"),
         url: str = "https://api.openai.com/v1/chat/completions",
+        presence_penalty: float | None = None,
+        frequency_penalty: float | None = None,
     ):
         if batch_size > MAX_REQUESTS_PER_BATCH:
             raise ValueError(
@@ -48,6 +50,8 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         self.check_interval: int = check_interval
         self.temperature: float | None = temperature
         self.top_p: float | None = top_p
+        self.presence_penalty: float | None = presence_penalty
+        self.frequency_penalty: float | None = frequency_penalty
 
     def get_rate_limits(self) -> dict:
         """
@@ -131,6 +135,12 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
         if self.top_p is not None:
             body["top_p"] = self.top_p
+
+        if self.presence_penalty is not None:
+            body["presence_penalty"] = self.presence_penalty
+
+        if self.frequency_penalty is not None:
+            body["frequency_penalty"] = self.frequency_penalty
 
         request = {
             "custom_id": str(generic_request.original_row_idx),
