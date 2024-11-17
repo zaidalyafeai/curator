@@ -36,6 +36,8 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         url: str = "https://api.openai.com/v1/chat/completions",
         temperature: Optional[float] = None,
         top_p: Optional[float] = None,
+        presence_penalty: Optional[float] = None,
+        frequency_penalty: Optional[float] = None,
     ):
         super().__init__(batch_size=None)
         self.model: str = model
@@ -43,6 +45,8 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         self.api_key: str = api_key
         self.temperature: float = temperature
         self.top_p: float = top_p
+        self.presence_penalty: float = presence_penalty
+        self.frequency_penalty: float = frequency_penalty
 
     def get_rate_limits(self) -> dict:
         """
@@ -116,6 +120,12 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
 
         if self.top_p is not None:
             request["top_p"] = self.top_p
+
+        if self.presence_penalty is not None:
+            request["presence_penalty"] = self.presence_penalty
+
+        if self.frequency_penalty is not None:
+            request["frequency_penalty"] = self.frequency_penalty
 
         return request
 
