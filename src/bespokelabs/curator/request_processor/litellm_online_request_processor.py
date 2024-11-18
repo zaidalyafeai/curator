@@ -149,24 +149,23 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
                 try:
                     # Make request with structured output if response_format provided
                     if response_format:
-                        response = self.client.chat.completions.create(
+                        response, completion = self.client.chat.completions.create_with_completion(
                             **self.create_api_specific_request(request),
                             response_model=response_format
                         )
                         # Convert Pydantic model to dict for storage
                         response_message = response.model_dump()
                     else:
-                        response = self.client.chat.completions.create(
+                        response, completion = self.client.chat.completions.create_with_completion(
                             **self.create_api_specific_request(request)
                         )
                         response_message = response.content if hasattr(response, 'content') else str(response)
-                        
                     # Create generic response
                     generic_response = GenericResponse(
                         response_message=response_message,  # Now using the properly formatted response
                         response_errors=None,
                         raw_request=self.create_api_specific_request(request),
-                        raw_response=None,  # LiteLLM response object isn't JSON serializable
+                        raw_response=completion.json(),
                         generic_request=request,
                     )
                         
