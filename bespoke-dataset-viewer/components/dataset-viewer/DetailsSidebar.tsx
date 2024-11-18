@@ -45,13 +45,33 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
                 <p className="text-sm text-muted-foreground">{item.generic_request.model}</p>
               </div>
               <Separator />
+              {item.generic_request.messages.some(m => m.role === "system") && (
+                <>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-semibold">System Prompt</h3>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                      {item.generic_request.messages.find(m => m.role === "system")?.content}
+                    </p>
+                    <Button 
+                      onClick={() => copyToClipboard(item.generic_request.messages.find(m => m.role === "system")?.content || "")} 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-2"
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy
+                    </Button>
+                  </div>
+                  <Separator />
+                </>
+              )}
               <div className="space-y-2">
                 <h3 className="text-lg font-semibold">User Message</h3>
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                   {item.generic_request.messages.find(m => m.role === "user")?.content}
                 </p>
                 <Button 
-                                  onClick={() => copyToClipboard(item.generic_request.messages.find(m => m.role === "user")?.content || "")} 
+                  onClick={() => copyToClipboard(item.generic_request.messages.find(m => m.role === "user")?.content || "")} 
                   variant="outline" 
                   size="sm" 
                   className="mt-2"
