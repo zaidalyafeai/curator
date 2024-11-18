@@ -21,7 +21,7 @@ def parse_func(row, response):
 
 # Create prompter using LiteLLM backend
 recipe_prompter = curator.Prompter(
-    model_name="gpt-3.5-turbo",  # Could also use "anthropic/claude-2", "bedrock/claude", etc
+    model_name="claude-3-opus-20240229",  # Could also use "anthropic/claude-2", "bedrock/claude", etc
     prompt_func=prompt_func,
     parse_func=parse_func,
     response_format=Recipe,
@@ -30,4 +30,4 @@ recipe_prompter = curator.Prompter(
 
 # Generate recipes
 recipes = recipe_prompter()
-print(recipes.to_pandas()) 
+print(recipes.to_pandas())
