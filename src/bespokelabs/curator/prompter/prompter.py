@@ -21,6 +21,7 @@ from bespokelabs.curator.request_processor.openai_batch_request_processor import
 from bespokelabs.curator.request_processor.openai_online_request_processor import (
     OpenAIOnlineRequestProcessor,
 )
+from bespokelabs.curator.request_processor.litellm_online_request_processor import LiteLLMOnlineRequestProcessor
 
 _CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")
@@ -47,6 +48,7 @@ class Prompter:
             ]
         ] = None,
         response_format: Optional[Type[BaseModel]] = None,
+        backend: str = "openai",
         batch: bool = False,
         batch_size: Optional[int] = None,
         temperature: Optional[float] = None,
@@ -64,6 +66,7 @@ class Prompter:
                 response object and returns the parsed output
             response_format (Optional[Type[BaseModel]]): A Pydantic model specifying the
                 response format from the LLM.
+            backend (str): The backend to use ("openai" or "litellm")
             batch (bool): Whether to use batch processing
             batch_size (Optional[int]): The size of the batch to use, only used if batch is True
             temperature (Optional[float]): The temperature to use for the LLM, only used if batch is False
@@ -88,32 +91,47 @@ class Prompter:
             model_name, prompt_func, parse_func, response_format
         )
         self.batch_mode = batch
-        if batch:
-            if batch_size is None:
-                batch_size = 1_000
-                logger.info(
-                    f"batch=True but no batch_size provided, using default batch_size of {batch_size:,}"
+
+        # Select request processor based on backend
+        if backend == "openai":
+            if batch:
+                if batch_size is None:
+                    batch_size = 1_000
+                    logger.info(
+                        f"batch=True but no batch_size provided, using default batch_size of {batch_size:,}"
+                    )
+                self._request_processor = OpenAIBatchRequestProcessor(
+                    model=model_name,
+                    batch_size=batch_size,
+                    temperature=temperature,
+                    top_p=top_p,
+                    presence_penalty=presence_penalty,
+                    frequency_penalty=frequency_penalty,
                 )
-            self._request_processor = OpenAIBatchRequestProcessor(
+            else:
+                if batch_size is not None:
+                    logger.warning(
+                        f"Prompter argument `batch_size` {batch_size} is ignored because `batch` is False"
+                    )
+                self._request_processor = OpenAIOnlineRequestProcessor(
+                    model=model_name,
+                    temperature=temperature,
+                    top_p=top_p,
+                    presence_penalty=presence_penalty,
+                    frequency_penalty=frequency_penalty,
+                )
+        elif backend == "litellm":
+            if batch:
+                logger.warning("Batch mode is not supported with LiteLLM backend, ignoring batch=True")
+            self._request_processor = LiteLLMOnlineRequestProcessor(
                 model=model_name,
-                batch_size=batch_size,
                 temperature=temperature,
                 top_p=top_p,
                 presence_penalty=presence_penalty,
                 frequency_penalty=frequency_penalty,
             )
         else:
-            if batch_size is not None:
-                logger.warning(
-                    f"Prompter argument `batch_size` {batch_size} is ignored because `batch` is False"
-                )
-            self._request_processor = OpenAIOnlineRequestProcessor(
-                model=model_name,
-                temperature=temperature,
-                top_p=top_p,
-                presence_penalty=presence_penalty,
-                frequency_penalty=frequency_penalty,
-            )
+            raise ValueError(f"Unknown backend: {backend}")
 
     def __call__(
         self, dataset: Optional[Iterable] = None, working_dir: str = None
