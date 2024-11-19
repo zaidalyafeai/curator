@@ -500,24 +500,24 @@ class BatchWatcher:
         response_file = f"{self.working_dir}/responses_{request_file_idx}"
 
         generic_request_map = {}
+        request_creation_times = {}  # Track creation times for requests
         with open(request_file, "r") as f:
             for line in f:
                 generic_request = GenericRequest.model_validate_json(line)
-                generic_request_map[generic_request.original_row_idx] = (
-                    generic_request
-                )
+                generic_request_map[generic_request.original_row_idx] = generic_request
+                request_creation_times[generic_request.original_row_idx] = datetime.datetime.now()
 
         with open(response_file, "w") as f:
             for raw_response in file_content.text.splitlines():
                 raw_response = json.loads(raw_response)
-                generic_request = generic_request_map[
-                    int(raw_response["custom_id"])
-                ]
+                request_idx = int(raw_response["custom_id"])
+                generic_request = generic_request_map[request_idx]
 
                 generic_response = GenericResponse(
                     raw_response=raw_response,
                     raw_request=None,
                     generic_request=generic_request,
+                    created_at=request_creation_times[request_idx],
                     finished_at=datetime.datetime.now()
                 )
 

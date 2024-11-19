@@ -23,5 +23,5 @@ class GenericResponse(BaseModel):
     raw_response: Optional[Dict[str, Any]]
     raw_request: Optional[Dict[str, Any]] = None
     generic_request: GenericRequest
-    created_at: datetime.datetime = Field(default_factory=datetime.datetime.now)
-    finished_at: Optional[datetime.datetime] = None
+    created_at: datetime.datetime
+    finished_at: datetime.datetime

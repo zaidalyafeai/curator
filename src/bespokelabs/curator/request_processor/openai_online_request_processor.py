@@ -519,6 +519,7 @@ class APIRequest:
     token_consumption: int
     attempts_left: int
     result: list = field(default_factory=list)
+    created_at: datetime.datetime = field(default_factory=datetime.datetime.now)
 
     async def call_api(
         self,
@@ -571,6 +572,7 @@ class APIRequest:
                     raw_request=self.api_specific_request_json,
                     raw_response=None,
                     generic_request=self.generic_request,
+                    created_at=self.created_at,
                     finished_at=datetime.datetime.now()
                 )
                 append_generic_response(generic_response, save_filepath)
@@ -591,6 +593,7 @@ class APIRequest:
                 raw_request=self.api_specific_request_json,
                 raw_response=response,
                 generic_request=self.generic_request,
+                created_at=self.created_at,
                 finished_at=datetime.datetime.now()
             )
             append_generic_response(generic_response, save_filepath)
