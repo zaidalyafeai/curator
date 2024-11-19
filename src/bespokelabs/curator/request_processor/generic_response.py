@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from .generic_request import GenericRequest
+import datetime
 
 """A generic response model for LLM API requests.
 
@@ -22,3 +23,5 @@ class GenericResponse(BaseModel):
     raw_response: Optional[Dict[str, Any]]
     raw_request: Optional[Dict[str, Any]] = None
     generic_request: GenericRequest
+    created_at: datetime.datetime = Field(default_factory=datetime.datetime.now)
+    finished_at: Optional[datetime.datetime] = None
