@@ -63,7 +63,7 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
   const [data, setData] = useState<DataItem[]>([])
   const [theme, setTheme] = useState<"light" | "dark">("light")
   const [mounted, setMounted] = useState(false)
-  const [selectedDistribution, setSelectedDistribution] = useState<string | null>("total_tokens")
+  const [selectedDistribution, setSelectedDistribution] = useState<string | null>("requests")
   const [selectedItem, setSelectedItem] = useState<DataItem | null>(null)
   const { toast } = useToast()
   const [isPolling, setIsPolling] = useState(false)
@@ -233,7 +233,7 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
                     <Button variant="outline">
                       {selectedDistribution
                         ? selectedDistribution === "requests" 
-                          ? "Requests"
+                          ? "Requests & Responses"
                           : selectedDistribution.split('_').map(word =>
                               word.charAt(0).toUpperCase() + word.slice(1)
                             ).join(' ')
