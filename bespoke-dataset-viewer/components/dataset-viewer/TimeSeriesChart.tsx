@@ -1,7 +1,7 @@
 "use client"
 
 import { DataItem } from '@/types/dataset'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, Area, ComposedChart } from 'recharts'
+import { XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, Area, ComposedChart } from 'recharts'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 
