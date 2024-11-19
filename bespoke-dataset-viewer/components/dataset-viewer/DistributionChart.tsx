@@ -71,6 +71,18 @@ export function DistributionChart({ data, column }: DistributionChartProps) {
           <YAxis />
           <Tooltip 
             formatter={(value: number) => [`Count: ${value}`, displayName]}
+            contentStyle={{
+              backgroundColor: 'var(--tooltip-text-bg)',
+              border: '1px solid var(--border)',
+              borderRadius: '4px',
+              color: 'var(--tooltip-text)',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}
+            labelStyle={{
+              color: 'var(--tooltip-text)',
+              marginBottom: '4px'
+            }}
+            cursor={{ fill: 'var(--tooltip-bg)', opacity: 0.2 }}
           />
           <Bar 
             dataKey="count" 

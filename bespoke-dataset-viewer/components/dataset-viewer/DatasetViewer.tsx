@@ -18,6 +18,7 @@ import { FileText, Loader2, RefreshCcw } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { DetailsSidebar } from "./DetailsSidebar"
 import { DistributionChart } from "./DistributionChart"
+import { TimeSeriesChart } from './TimeSeriesChart'
 
 const COLUMNS: Column[] = [
   { key: "user_message", label: "User Message" },
@@ -70,6 +71,7 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [newItemIds, setNewItemIds] = useState<Set<number>>(new Set())
   const [processedFiles, setProcessedFiles] = useState<string[]>([])
+  const [chartType, setChartType] = useState<'distribution' | 'timeseries' | null>('distribution');
 
   useEffect(() => {
     const systemPreference = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
@@ -225,30 +227,37 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
               <p className="text-sm text-muted-foreground">View and analyze your dataset responses</p>
             </div>
             {data.length > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline">
-                    {selectedDistribution
-                      ? selectedDistribution.split('_').map(word =>
-                        word.charAt(0).toUpperCase() + word.slice(1)
-                      ).join(' ')
-                      : 'Select Metric'}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setSelectedDistribution(null)}>
-                    None
-                  </DropdownMenuItem>
-                  {["total_tokens", "prompt_tokens", "completion_tokens", "generation_time"].map((column) => (
-                    <DropdownMenuItem key={column} onClick={() => setSelectedDistribution(column)}>
-                      {column === "total_tokens" ? "Total Tokens" :
-                        column === "prompt_tokens" ? "Prompt Tokens" :
-                          column === "completion_tokens" ? "Completion Tokens" :
-                            "Generation Time (s)"}
+              <div className="flex gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                      {selectedDistribution
+                        ? selectedDistribution === "requests" 
+                          ? "Requests"
+                          : selectedDistribution.split('_').map(word =>
+                              word.charAt(0).toUpperCase() + word.slice(1)
+                            ).join(' ')
+                        : 'Select Metric'}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setSelectedDistribution(null)}>
+                      None
                     </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    <DropdownMenuItem onClick={() => setSelectedDistribution("requests")}>
+                      Requests
+                    </DropdownMenuItem>
+                    {["total_tokens", "prompt_tokens", "completion_tokens", "generation_time"].map((column) => (
+                      <DropdownMenuItem key={column} onClick={() => setSelectedDistribution(column)}>
+                        {column === "total_tokens" ? "Total Tokens" :
+                          column === "prompt_tokens" ? "Prompt Tokens" :
+                            column === "completion_tokens" ? "Completion Tokens" :
+                              "Generation Time (s)"}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             )}
           </div>
 
@@ -266,10 +275,14 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
               <div className="mb-8 space-y-4">
                 {selectedDistribution && (
                   <div className="rounded-lg border bg-card p-4">
-                    <DistributionChart
-                      data={data}
-                      column={selectedDistribution}
-                    />
+                    {selectedDistribution === "requests" ? (
+                      <TimeSeriesChart data={data} />
+                    ) : (
+                      <DistributionChart
+                        data={data}
+                        column={selectedDistribution}
+                      />
+                    )}
                   </div>
                 )}
               </div>
