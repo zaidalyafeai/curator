@@ -23,7 +23,8 @@ const COLUMNS: Column[] = [
   { key: "user_message", label: "User Message" },
   { key: "assistant_message", label: "Assistant Message" },
   { key: "prompt_tokens", label: "Prompt Tokens" },
-  { key: "completion_tokens", label: "Completion Tokens" }
+  { key: "completion_tokens", label: "Completion Tokens" },
+  { key: "generation_time", label: "Generation Time (s)" }
 ]
 
 interface DatasetViewerProps {
@@ -238,11 +239,12 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
                   <DropdownMenuItem onClick={() => setSelectedDistribution(null)}>
                     None
                   </DropdownMenuItem>
-                  {["total_tokens", "prompt_tokens", "completion_tokens"].map((column) => (
+                  {["total_tokens", "prompt_tokens", "completion_tokens", "generation_time"].map((column) => (
                     <DropdownMenuItem key={column} onClick={() => setSelectedDistribution(column)}>
                       {column === "total_tokens" ? "Total Tokens" :
                         column === "prompt_tokens" ? "Prompt Tokens" :
-                          "Completion Tokens"}
+                          column === "completion_tokens" ? "Completion Tokens" :
+                            "Generation Time (s)"}
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
