@@ -14,6 +14,8 @@ Attributes:
     raw_response: The raw response data from the API.
     raw_request: The raw request data. Will be None for BatchAPI requests.
     generic_request: The associated GenericRequest object.
+    created_at: The datetime when the request was created.
+    finished_at: The datetime when the request was finished.
 """
 
 
