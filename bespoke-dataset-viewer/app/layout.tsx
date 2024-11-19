@@ -3,7 +3,7 @@ import "./globals.css";
 
 
 export const metadata: Metadata = {
-  title: "Bella Dataset Viewer",
+  title: "Curator Viewer",
   description: "A powerful dataset viewer and analysis tool",
 };
 
