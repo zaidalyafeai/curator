@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import Any, Callable, Dict, Optional, Set, Tuple, TypeVar
 import resource
+import datetime
 
 import aiohttp
 import requests
@@ -570,6 +571,7 @@ class APIRequest:
                     raw_request=self.api_specific_request_json,
                     raw_response=None,
                     generic_request=self.generic_request,
+                    finished_at=datetime.datetime.now()
                 )
                 append_generic_response(generic_response, save_filepath)
                 status_tracker.num_tasks_in_progress -= 1
@@ -589,6 +591,7 @@ class APIRequest:
                 raw_request=self.api_specific_request_json,
                 raw_response=response,
                 generic_request=self.generic_request,
+                finished_at=datetime.datetime.now()
             )
             append_generic_response(generic_response, save_filepath)
             status_tracker.num_tasks_in_progress -= 1

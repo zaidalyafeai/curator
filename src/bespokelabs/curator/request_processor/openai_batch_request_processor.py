@@ -8,7 +8,7 @@ import aiofiles
 from openai import AsyncOpenAI
 from openai.types import Batch
 from tqdm import tqdm
-
+import datetime
 from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import (
@@ -518,6 +518,7 @@ class BatchWatcher:
                     raw_response=raw_response,
                     raw_request=None,
                     generic_request=generic_request,
+                    finished_at=datetime.datetime.now()
                 )
 
                 # TODO(Ryan): Add more specific error handling
