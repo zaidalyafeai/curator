@@ -32,6 +32,7 @@ matplotlib = "^3.9.2"
 aiofiles = "^24.1.0"
 tiktoken = "^0.8.0"
 nest-asyncio = "^1.6.0"
+rich = "^13.7.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.2.0"
