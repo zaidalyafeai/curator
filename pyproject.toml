@@ -34,6 +34,7 @@ tiktoken = "^0.8.0"
 nest-asyncio = "^1.6.0"
 litellm = "^1.52.9"
 rich = "^13.7.0"
+litellm = "^1.52.11"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.2.0"
