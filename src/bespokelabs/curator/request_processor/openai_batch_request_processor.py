@@ -545,15 +545,11 @@ class BatchWatcher:
                     )
                     
                     # Calculate cost using litellm
-                    try:
-                        cost = litellm.completion_cost(
-                            model=generic_request.model,
-                            prompt=str(generic_request.messages),  # Convert messages to string for cost calculation
-                            completion=choices[0]["message"]["content"]
-                        )
-                    except Exception as e:
-                        logger.warning(f"Failed to calculate cost using litellm: {e}")
-                        cost = None
+                    cost = litellm.completion_cost(
+                        model=generic_request.model,
+                        prompt=str(generic_request.messages),  # Convert messages to string for cost calculation
+                        completion=choices[0]["message"]["content"]
+                    )
 
                     response_message = choices[0]["message"]["content"]
                     response_message, response_errors = parse_response_message(

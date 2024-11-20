@@ -597,13 +597,9 @@ class APIRequest:
             )
             
             # Calculate cost using litellm
-            try:
-                cost = litellm.completion_cost(
-                    completion_response=response
-                )
-            except Exception as e:
-                logger.warning(f"Failed to calculate cost using litellm: {e}")
-                cost = None
+            cost = litellm.completion_cost(
+                completion_response=response
+            )
 
             generic_response = GenericResponse(
                 response_message=response_message,
