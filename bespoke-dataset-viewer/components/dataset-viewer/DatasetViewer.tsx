@@ -245,7 +245,7 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
                       None
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setSelectedDistribution("requests")}>
-                      Requests
+                      Requests & Responses
                     </DropdownMenuItem>
                     {["total_tokens", "prompt_tokens", "completion_tokens", "generation_time"].map((column) => (
                       <DropdownMenuItem key={column} onClick={() => setSelectedDistribution(column)}>
