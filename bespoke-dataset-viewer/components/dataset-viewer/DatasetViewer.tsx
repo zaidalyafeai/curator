@@ -71,7 +71,6 @@ export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [newItemIds, setNewItemIds] = useState<Set<number>>(new Set())
   const [processedFiles, setProcessedFiles] = useState<string[]>([])
-  const [chartType, setChartType] = useState<'distribution' | 'timeseries' | null>('distribution');
 
   useEffect(() => {
     const systemPreference = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
