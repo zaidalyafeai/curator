@@ -24,6 +24,8 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     parse_response_message,
 )
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
+import litellm
+from bespokelabs.curator.request_processor.generic_response import TokenUsage
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
@@ -587,6 +589,22 @@ class APIRequest:
             response_message, response_errors = parse_response_message(
                 response_message, self.generic_request.response_format
             )
+            usage = response.get("usage", {})
+            token_usage = TokenUsage(
+                prompt_tokens=usage.get("prompt_tokens", 0),
+                completion_tokens=usage.get("completion_tokens", 0),
+                total_tokens=usage.get("total_tokens", 0)
+            )
+            
+            # Calculate cost using litellm
+            try:
+                cost = litellm.completion_cost(
+                    completion_response=response
+                )
+            except Exception as e:
+                logger.warning(f"Failed to calculate cost using litellm: {e}")
+                cost = None
+
             generic_response = GenericResponse(
                 response_message=response_message,
                 response_errors=response_errors,
@@ -594,7 +612,9 @@ class APIRequest:
                 raw_response=response,
                 generic_request=self.generic_request,
                 created_at=self.created_at,
-                finished_at=datetime.datetime.now()
+                finished_at=datetime.datetime.now(),
+                token_usage=token_usage,
+                response_cost=cost
             )
             append_generic_response(generic_response, save_filepath)
             status_tracker.num_tasks_in_progress -= 1
