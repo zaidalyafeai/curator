@@ -146,8 +146,8 @@ export function TimeSeriesChart({ data }: TimeSeriesChartProps) {
             <Tooltip
               labelFormatter={(label) => `Time: ${label}`}
               formatter={(value: number, name: string) => [
-                `${value} ${name === 'requestsSent' ? 'requests' : 'responses'}`,
-                name === 'requestsSent' ? 'Requests Sent' : 'Responses Received'
+                value,
+                name
               ]}
               contentStyle={{
                 backgroundColor: 'var(--tooltip-text-bg)',
