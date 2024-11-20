@@ -91,7 +91,7 @@ class Prompter:
             model_name, prompt_func, parse_func, response_format
         )
         self.batch_mode = batch
-
+        self.backend = backend
         # Select request processor based on backend
         if backend == "openai":
             if batch:
@@ -202,6 +202,7 @@ class Prompter:
                     else "text"
                 ),
                 str(self.batch_mode),
+                str(self.backend),
             ]
         )
 
