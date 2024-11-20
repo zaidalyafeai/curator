@@ -15,7 +15,8 @@ export type DataItem = {
     original_row: Record<string, any>
     original_row_idx: number
   }
-  
+  created_at: string
+  finished_at: string
 }
 
 export interface Run {

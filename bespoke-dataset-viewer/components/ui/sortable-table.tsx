@@ -220,9 +220,9 @@ export function SortableTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedData.map(row => (
+            {paginatedData.map((row, rowIndex) => (
               <motion.tr
-                key={getRowKey(row)}
+                key={`${rowIndex}-${getRowKey(row)}`}
                 className={cn(
                   onRowClick ? "cursor-pointer hover:bg-muted/50" : "",
                   rowProps?.(row)?.className
@@ -230,8 +230,10 @@ export function SortableTable({
                 onClick={() => onRowClick?.(row)}
                 {...(rowProps?.(row) || {})}
               >
-                {orderedColumns.map(column => (
-                  <TableCell key={`${getRowKey(row)}-${column.key}`}>
+                {orderedColumns.map((column, colIndex) => (
+                  <TableCell 
+                    key={`${rowIndex}-${colIndex}-${getRowKey(row)}-${column.key}`}
+                  >
                     {renderCell(getCellContent(row, column.key), truncateConfig.enabled)}
                   </TableCell>
                 ))}
