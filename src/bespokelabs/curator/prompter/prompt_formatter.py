@@ -3,7 +3,8 @@ from typing import Any, Callable, Dict, Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel
 
-from bespokelabs.curator.request_processor.generic_request import GenericRequest
+from bespokelabs.curator.request_processor.generic_request import \
+    GenericRequest
 
 T = TypeVar("T")
 
@@ -25,9 +26,7 @@ class PromptFormatter:
     def __init__(
         self,
         model_name: str,
-        prompt_func: Callable[
-            [Union[Dict[str, Any], BaseModel]], Dict[str, str]
-        ],
+        prompt_func: Callable[[Union[Dict[str, Any], BaseModel]], Dict[str, str]],
         parse_func: Optional[
             Callable[
                 [
@@ -44,9 +43,7 @@ class PromptFormatter:
         self.parse_func = parse_func
         self.response_format = response_format
 
-    def create_generic_request(
-        self, row: Dict[str, Any] | BaseModel, idx: int
-    ) -> GenericRequest:
+    def create_generic_request(self, row: Dict[str, Any] | BaseModel, idx: int) -> GenericRequest:
         """Format the request object based off Prompter attributes."""
         sig = inspect.signature(self.prompt_func)
         if len(sig.parameters) == 0:
@@ -54,9 +51,7 @@ class PromptFormatter:
         elif len(sig.parameters) == 1:
             prompts = self.prompt_func(row)
         else:
-            raise ValueError(
-                f"Prompting function {self.prompt_func} must have 0 or 1 arguments."
-            )
+            raise ValueError(f"Prompting function {self.prompt_func} must have 0 or 1 arguments.")
 
         if isinstance(prompts, str):
             messages = [{"role": "user", "content": prompts}]
@@ -74,8 +69,6 @@ class PromptFormatter:
             original_row=row,
             original_row_idx=idx,
             response_format=(
-                self.response_format.model_json_schema()
-                if self.response_format
-                else None
+                self.response_format.model_json_schema() if self.response_format else None
             ),
         )

@@ -1,0 +1,30 @@
+name: Python Linting
+
+on: [push, pull_request]
+
+jobs:
+  PythonLinting:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project: [bespoke]  # Add other projects here
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Install dependencies
+      run: |
+        cd ${{ matrix.project }}
+        pip install poetry
+        poetry install
+    - name: Run black
+      run: |
+        cd ${{ matrix.project }}
+        poetry run black --check .
+    - name: Run isort
+      run: |
+        cd ${{ matrix.project }}
+        poetry run isort --check .
