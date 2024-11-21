@@ -15,10 +15,8 @@ from pydantic import BaseModel, ValidationError
 
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
-from bespokelabs.curator.request_processor.generic_request import \
-    GenericRequest
-from bespokelabs.curator.request_processor.generic_response import \
-    GenericResponse
+from bespokelabs.curator.request_processor.generic_request import GenericRequest
+from bespokelabs.curator.request_processor.generic_response import GenericResponse
 
 logger = logging.getLogger(__name__)
 

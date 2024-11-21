@@ -19,8 +19,11 @@ from tqdm import tqdm
 from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.prompter.prompter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import (
-    BaseRequestProcessor, GenericRequest, GenericResponse,
-    parse_response_message)
+    BaseRequestProcessor,
+    GenericRequest,
+    GenericResponse,
+    parse_response_message,
+)
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.request_processor.generic_response import TokenUsage
 

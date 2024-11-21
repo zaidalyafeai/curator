@@ -10,8 +10,7 @@ from datasets.arrow_writer import ArrowWriter, SchemaInferenceError
 from pydantic import BaseModel
 
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
-from bespokelabs.curator.request_processor.generic_response import \
-    GenericResponse
+from bespokelabs.curator.request_processor.generic_response import GenericResponse
 
 T = TypeVar("T")
 
