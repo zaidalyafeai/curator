@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        project: [bespoke]  # Add other projects here
+        project: [src/bespokelabs]  # Add other projects here
 
     steps:
     - uses: actions/checkout@v4
