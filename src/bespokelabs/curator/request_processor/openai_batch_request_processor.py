@@ -18,6 +18,8 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     parse_response_message,
 )
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
+import litellm
+from bespokelabs.curator.request_processor.generic_response import TokenUsage
 
 logger = logging.getLogger(__name__)
 
@@ -512,34 +514,59 @@ class BatchWatcher:
                 raw_response = json.loads(raw_response)
                 request_idx = int(raw_response["custom_id"])
                 generic_request = generic_request_map[request_idx]
-
-                generic_response = GenericResponse(
-                    raw_response=raw_response,
-                    raw_request=None,
-                    generic_request=generic_request,
-                    created_at=request_creation_times[request_idx],
-                    finished_at=datetime.datetime.now()
-                )
-
+                
                 # TODO(Ryan): Add more specific error handling
-                status_code = raw_response["response"]["status_code"]
-                if status_code != 200:
+                if raw_response["response"]["status_code"] != 200:
                     logger.warning(
-                        f"Request {generic_request} failed with status code {status_code}"
+                        f"Request {generic_request} failed with status code {raw_response['response']['status_code']}"
                     )
-                    generic_response.response_errors = [
-                        f"Request {generic_request} failed with status code {status_code}"
-                    ]
+                    generic_response = GenericResponse(
+                        response_message=None,
+                        response_errors=[
+                            f"Request {generic_request} failed with status code {raw_response['response']['status_code']}"
+                        ],
+                        raw_response=raw_response,
+                        raw_request=None,
+                        generic_request=generic_request,
+                        created_at=request_creation_times[request_idx],
+                        finished_at=datetime.datetime.now(),
+                        token_usage=None,
+                        response_cost=None
+                    )
                 else:
-                    choices = raw_response["response"]["body"]["choices"]
-                    response_message = choices[0]["message"][
-                        "content"
-                    ]  # Assuming N = 1
+                    response_body = raw_response["response"]["body"]
+                    choices = response_body["choices"]
+                    usage = response_body.get("usage", {})
+                    
+                    token_usage = TokenUsage(
+                        prompt_tokens=usage.get("prompt_tokens", 0),
+                        completion_tokens=usage.get("completion_tokens", 0),
+                        total_tokens=usage.get("total_tokens", 0)
+                    )
+                    
+                    # Calculate cost using litellm
+                    cost = litellm.completion_cost(
+                        model=generic_request.model,
+                        prompt=str(generic_request.messages),  # Convert messages to string for cost calculation
+                        completion=choices[0]["message"]["content"]
+                    )
+
+                    response_message = choices[0]["message"]["content"]
                     response_message, response_errors = parse_response_message(
                         response_message, self.prompt_formatter.response_format
                     )
-                    generic_response.response_message = response_message
-                    generic_response.response_errors = response_errors
+                    
+                    generic_response = GenericResponse(
+                        response_message=response_message,
+                        response_errors=response_errors,
+                        raw_response=raw_response,
+                        raw_request=None,
+                        generic_request=generic_request,
+                        created_at=request_creation_times[request_idx],
+                        finished_at=datetime.datetime.now(),
+                        token_usage=token_usage,
+                        response_cost=cost
+                    )
                 f.write(
                     json.dumps(generic_response.model_dump(), default=str)
                     + "\n"
