@@ -4,6 +4,7 @@ import inspect
 import logging
 import os
 from datetime import datetime
+from io import BytesIO
 from typing import Any, Callable, Dict, Iterable, Optional, Type, TypeVar, Union
 
 import dill
@@ -234,7 +235,9 @@ def _get_function_hash(func) -> str:
     if func is None:
         return xxh64("").hexdigest()
 
-    return xxh64(dill.dumps(func)).hexdigest()
+    file = BytesIO()
+    dill.Pickler(file, recurse=True).dump(func)
+    return xxh64(file.getvalue()).hexdigest()
 
 
 def _get_function_source(func) -> str:
