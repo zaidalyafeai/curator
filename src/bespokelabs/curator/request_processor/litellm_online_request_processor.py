@@ -23,6 +23,7 @@ from bespokelabs.curator.request_processor.base_request_processor import (
 )
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 import datetime
+from bespokelabs.curator.request_processor.generic_response import TokenUsage
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,19 @@ class APIRequest:
                 completion_obj = await completion(**self.api_specific_request)
                 response_message = completion_obj.content if hasattr(completion_obj, 'content') else str(completion_obj)
 
+            # Extract token usage
+            usage = completion_obj.usage if hasattr(completion_obj, 'usage') else {}
+            token_usage = TokenUsage(
+                prompt_tokens=usage.get('prompt_tokens', 0),
+                completion_tokens=usage.get('completion_tokens', 0),
+                total_tokens=usage.get('total_tokens', 0)
+            )
+
+            # Calculate cost using litellm
+            cost = litellm.completion_cost(
+                completion_response=completion_obj.model_dump()
+            )
+
             # Create and save response immediately
             generic_response = GenericResponse(
                 response_message=response_message,
@@ -86,7 +100,9 @@ class APIRequest:
                 raw_response=completion_obj.model_dump(),
                 generic_request=self.generic_request,
                 created_at=self.created_at,
-                finished_at=datetime.datetime.now()
+                finished_at=datetime.datetime.now(),
+                token_usage=token_usage,
+                response_cost=cost
             )
             
             await append_generic_response(generic_response, save_filepath)
@@ -108,7 +124,7 @@ class APIRequest:
                     raw_response=None,
                     generic_request=self.generic_request,
                     created_at=self.created_at,
-                    finished_at=datetime.datetime.now()
+                    finished_at=datetime.datetime.now(),
                 )
                 await append_generic_response(generic_response, save_filepath)
                 status_tracker.num_tasks_in_progress -= 1
