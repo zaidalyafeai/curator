@@ -1,14 +1,15 @@
 """Curator: Bespoke Labs Synthetic Data Generation Library."""
 
 import inspect
+import logging
 import os
 from datetime import datetime
 from typing import Any, Callable, Dict, Iterable, Optional, Type, TypeVar, Union
 
+import dill
 from datasets import Dataset
 from pydantic import BaseModel
 from xxhash import xxh64
-import logging
 
 from bespokelabs.curator.db import MetadataDB
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
@@ -233,7 +234,7 @@ def _get_function_hash(func) -> str:
     if func is None:
         return xxh64("").hexdigest()
 
-    return xxh64(_get_function_source(func)).hexdigest()
+    return xxh64(dill.dumps(func)).hexdigest()
 
 
 def _get_function_source(func) -> str:
