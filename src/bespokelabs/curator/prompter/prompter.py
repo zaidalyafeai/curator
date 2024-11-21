@@ -14,9 +14,7 @@ from xxhash import xxh64
 
 from bespokelabs.curator.db import MetadataDB
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
-from bespokelabs.curator.request_processor.base_request_processor import (
-    BaseRequestProcessor,
-)
+from bespokelabs.curator.request_processor.base_request_processor import BaseRequestProcessor
 from bespokelabs.curator.request_processor.openai_batch_request_processor import (
     OpenAIBatchRequestProcessor,
 )
@@ -36,9 +34,7 @@ class Prompter:
     def __init__(
         self,
         model_name: str,
-        prompt_func: Callable[
-            [Union[Dict[str, Any], BaseModel]], Dict[str, str]
-        ],
+        prompt_func: Callable[[Union[Dict[str, Any], BaseModel]], Dict[str, str]],
         parse_func: Optional[
             Callable[
                 [
@@ -117,9 +113,7 @@ class Prompter:
                 frequency_penalty=frequency_penalty,
             )
 
-    def __call__(
-        self, dataset: Optional[Iterable] = None, working_dir: str = None
-    ) -> Dataset:
+    def __call__(self, dataset: Optional[Iterable] = None, working_dir: str = None) -> Dataset:
         """
         Run completions on a dataset.
 
@@ -163,11 +157,7 @@ class Prompter:
         else:
             curator_cache_dir = working_dir
 
-        dataset_hash = (
-            dataset._fingerprint
-            if dataset is not None
-            else xxh64("").hexdigest()
-        )
+        dataset_hash = dataset._fingerprint if dataset is not None else xxh64("").hexdigest()
 
         prompt_func_hash = _get_function_hash(self.prompt_formatter.prompt_func)
 
@@ -194,13 +184,9 @@ class Prompter:
         metadata_db = MetadataDB(metadata_db_path)
 
         # Get the source code of the prompt function
-        prompt_func_source = _get_function_source(
-            self.prompt_formatter.prompt_func
-        )
+        prompt_func_source = _get_function_source(self.prompt_formatter.prompt_func)
         if self.prompt_formatter.parse_func is not None:
-            parse_func_source = _get_function_source(
-                self.prompt_formatter.parse_func
-            )
+            parse_func_source = _get_function_source(self.prompt_formatter.parse_func)
         else:
             parse_func_source = ""
 
