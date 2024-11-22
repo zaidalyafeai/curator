@@ -17,7 +17,7 @@ def parse_func(row, response):
         "title": response.title,
         "ingredients": response.ingredients,
         "instructions": response.instructions,
-        "cuisine": row["cuisine"]  # Keep track of cuisine type
+        "cuisine_type": row["cuisine_type"]  # Keep track of cuisine type
     }
 
 def main():
