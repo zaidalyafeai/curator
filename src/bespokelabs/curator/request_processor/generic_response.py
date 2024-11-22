@@ -1,7 +1,9 @@
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
-from .generic_request import GenericRequest
 import datetime
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
+
+from .generic_request import GenericRequest
 
 """A generic response model for LLM API requests.
 
@@ -23,12 +25,13 @@ Attributes:
 
 class TokenUsage(BaseModel):
     """Token usage information for an API request.
-    
+
     Attributes:
         prompt_tokens: Number of tokens in the prompt
         completion_tokens: Number of tokens in the completion
         total_tokens: Total number of tokens used
     """
+
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
