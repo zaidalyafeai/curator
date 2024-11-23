@@ -6,7 +6,6 @@ import asyncio
 import time
 from dataclasses import dataclass, field
 import datetime
-import aiohttp
 from tqdm import tqdm
 import litellm
 
