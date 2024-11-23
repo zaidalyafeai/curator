@@ -2,7 +2,11 @@ from typing import List
 from pydantic import BaseModel, Field
 from bespokelabs import curator
 from datasets import Dataset
-
+import logging
+import time
+# Set up logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 # Define response format using Pydantic
 class Recipe(BaseModel):
     title: str = Field(description="Title of the recipe")
@@ -33,9 +37,8 @@ def main():
                     # "claude-3-5-sonnet-20240620", # https://docs.litellm.ai/docs/providers/anthropic
                     # "claude-3-haiku-20240307",
                     # "claude-3-opus-20240229",
-                    # "claude-3-sonnet-20240229",
-                    "gpt-4o-mini", # https://docs.litellm.ai/docs/providers/openai
-                    # "gpt-4o-mini-2024-07-18	", # https://docs.litellm.ai/docs/providers/openai
+                    "claude-3-sonnet-20240229",
+                    # "gpt-4o-mini", # https://docs.litellm.ai/docs/providers/openai
                     # "gpt-4o-2024-08-06",
                     # "gpt-4-0125-preview",
                     # "gpt-3.5-turbo-1106",
@@ -44,13 +47,14 @@ def main():
                     # "gemini/gemini-1.5-pro",
                     # "sambanova/Meta-Llama-3.1-8B-Instruct", # https://docs.litellm.ai/docs/providers/sambanova; https://community.sambanova.ai/t/supported-models
                     # "sambanova/Meta-Llama-3.1-70B-Instruct",
-                    # "together/meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", # https://docs.together.ai/docs/serverless-models
-                    # "together/meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
-                    # "together/nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
+                    # "together_ai/meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", # https://docs.together.ai/docs/serverless-models
+                    # "together_ai/meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+                    # "together_ai/nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
                     ]
 
     for model_name in model_names:
         # Create prompter using LiteLLM backend
+        logger.info(f"Using model: {model_name}")
         recipe_prompter = curator.Prompter(
             model_name=model_name,
             prompt_func=prompt_func,
@@ -64,7 +68,8 @@ def main():
     
         # Print results
         df = recipes.to_pandas()
-        print(df.head())
+        print(df)
+        time.sleep(2)
 
 if __name__ == "__main__":
     main()
