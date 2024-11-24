@@ -73,11 +73,12 @@ class APIRequest:
             if self.generic_request.response_format:
                 response, completion_obj = await client.chat.completions.create_with_completion(
                     **self.api_specific_request,
-                    response_model=self.prompt_formatter.response_format
+                    response_model=self.prompt_formatter.response_format,
+                    timeout=60.0
                 )
                 response_message = response.model_dump() if hasattr(response, 'model_dump') else response
             else:
-                completion_obj = await completion(**self.api_specific_request)
+                completion_obj = await completion(**self.api_specific_request, timeout=60.0)
                 response_message = completion_obj.content if hasattr(completion_obj, 'content') else str(completion_obj)
 
             # Extract token usage
@@ -153,7 +154,6 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
         logger.info(f"Using model: {self.model}")
         logger.debug(f"Parameters - Temperature: {self.temperature}, Top P: {self.top_p}, "
                     f"Presence Penalty: {self.presence_penalty}, Frequency Penalty: {self.frequency_penalty}")
-        
         self.client = instructor.from_litellm(litellm.acompletion)
         logger.info("Instructor client initialized with LiteLLM backend")
 
