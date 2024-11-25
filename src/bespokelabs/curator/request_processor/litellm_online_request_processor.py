@@ -26,6 +26,7 @@ import datetime
 from bespokelabs.curator.request_processor.generic_response import TokenUsage
 
 logger = logging.getLogger(__name__)
+litellm.set_verbose=True
 
 @dataclass
 class StatusTracker:
@@ -163,7 +164,7 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
         
         completion = litellm.completion(
             model=self.model,
-            messages=[{"role": "user", "content": "hi"}],
+            messages=[],
         )
         
         headers = completion._hidden_params.get('additional_headers', {})
@@ -246,7 +247,7 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
         total_requests = sum(1 for _ in open(generic_requests_filepath))
         
         # Create progress bar
-        status_tracker.pbar = tqdm(total=total_requests, desc="Processing LiteLLM requests")
+        status_tracker.pbar = tqdm(initial=len(completed_request_ids), total=total_requests, desc="Processing LiteLLM requests")
 
         # Use higher connector limit for better throughput
         connector = aiohttp.TCPConnector(limit=10 * rpm)
