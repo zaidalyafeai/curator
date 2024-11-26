@@ -195,7 +195,7 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
         self.client = instructor.from_litellm(litellm.acompletion)
         logger.info("Instructor client initialized with LiteLLM backend")
 
-    def estimate_output_tokens(self, messages: list) -> int:
+    def estimate_output_tokens(self) -> int:
         """Estimate output tokens for a request"""
         try:
             return get_max_tokens(model=self.model) // 4
@@ -205,7 +205,7 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
     def estimate_total_tokens(self, messages: list) -> int:
         """Estimate total tokens for a request"""
         input_tokens = token_counter(model=self.model, messages=messages)
-        output_tokens = self.estimate_output_tokens(messages)
+        output_tokens = self.estimate_output_tokens()
         return input_tokens + output_tokens
 
     def get_rate_limits(self) -> dict:
