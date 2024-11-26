@@ -30,6 +30,8 @@ export const getColumnValue = (item: DataItem, column: string): string => {
       return item.raw_response.usage?.total_tokens?.toString() ||
         item.raw_response.response?.body?.usage?.total_tokens?.toString() ||
         "N/A";
+    case "generation_time":
+      return ((new Date(item.finished_at).getTime() - new Date(item.created_at).getTime()) / 1000).toString();
     default:
       return "N/A";
   }

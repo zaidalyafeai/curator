@@ -1,5 +1,8 @@
+import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel
+
+from pydantic import BaseModel, Field
+
 from .generic_request import GenericRequest
 
 """A generic response model for LLM API requests.
@@ -13,7 +16,25 @@ Attributes:
     raw_response: The raw response data from the API.
     raw_request: The raw request data. Will be None for BatchAPI requests.
     generic_request: The associated GenericRequest object.
+    created_at: The datetime when the request was created.
+    finished_at: The datetime when the request was finished.
+    token_usage: Token usage information for the request.
+    response_cost: The cost of the request in USD.
 """
+
+
+class TokenUsage(BaseModel):
+    """Token usage information for an API request.
+
+    Attributes:
+        prompt_tokens: Number of tokens in the prompt
+        completion_tokens: Number of tokens in the completion
+        total_tokens: Total number of tokens used
+    """
+
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
 
 
 class GenericResponse(BaseModel):
@@ -22,3 +43,7 @@ class GenericResponse(BaseModel):
     raw_response: Optional[Dict[str, Any]]
     raw_request: Optional[Dict[str, Any]] = None
     generic_request: GenericRequest
+    created_at: datetime.datetime
+    finished_at: datetime.datetime
+    token_usage: Optional[TokenUsage] = None
+    response_cost: Optional[float] = None

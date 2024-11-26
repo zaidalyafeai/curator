@@ -120,6 +120,13 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
                   </div>
                 </div>
               </div>
+              <Separator />
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold">Generation Time</h3>
+                <p className="text-2xl font-bold">
+                  {((new Date(item.finished_at).getTime() - new Date(item.created_at).getTime()) / 1000).toFixed(2)}s
+                </p>
+              </div>
             </CardContent>
           </div>
         </div>
