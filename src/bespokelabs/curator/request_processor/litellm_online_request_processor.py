@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import argparse
 from typing import Optional, Any
 import asyncio
 import time
@@ -28,6 +27,7 @@ from litellm import token_counter, get_max_tokens
 
 logger = logging.getLogger(__name__)
 # litellm.set_verbose=True
+litellm.suppress_debug_info = True
 
 @dataclass
 class StatusTracker:
@@ -197,7 +197,10 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
 
     def estimate_output_tokens(self, messages: list) -> int:
         """Estimate output tokens for a request"""
-        return get_max_tokens(model=self.model) // 5
+        try:
+            return get_max_tokens(model=self.model) // 4
+        except Exception:
+            return 0
 
     def estimate_total_tokens(self, messages: list) -> int:
         """Estimate total tokens for a request"""
@@ -211,11 +214,12 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
         
         completion = litellm.completion(
             model=self.model,
-            messages=[{"role": "user", "content": "hi"}],
+            messages=[{"role": "user", "content": "hi"}], # Some models (e.g. Claude) require an non-empty message to get rate limits.
         )
         
         headers = completion._hidden_params.get('additional_headers', {})
         logger.debug(f"Rate limit headers: {headers}")
+        print(headers)
         
         rpm = int(headers.get('x-ratelimit-limit-requests', 3000))
         tpm = int(headers.get('x-ratelimit-limit-tokens', 150_000))
@@ -323,7 +327,7 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
                     
                     # Wait for capacity if needed
                     while not status_tracker.has_capacity(token_estimate):
-                        await asyncio.sleep(0.1)  # Short sleep to prevent CPU spinning
+                        await asyncio.sleep(0.1)
                     
                     # Consume capacity before making request
                     status_tracker.consume_capacity(token_estimate)
@@ -342,20 +346,32 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
                     status_tracker.num_tasks_started += 1
                     status_tracker.num_tasks_in_progress += 1
 
+                    # Process any retries that are in the queue
+                    while not queue_of_requests_to_retry.empty():
+                        retry_request = await queue_of_requests_to_retry.get()
+                        token_estimate = self.estimate_total_tokens(retry_request.generic_request.messages)
+                        
+                        # Wait for capacity if needed
+                        while not status_tracker.has_capacity(token_estimate):
+                            await asyncio.sleep(0.1)
+                        
+                        # Consume capacity before making request
+                        status_tracker.consume_capacity(token_estimate)
+                        
+                        task = asyncio.create_task(
+                            retry_request.call_api(
+                                session=session,
+                                client=self.client,
+                                retry_queue=queue_of_requests_to_retry,
+                                save_filepath=save_filepath,
+                                status_tracker=status_tracker,
+                            )
+                        )
+                        pending_requests.append(task)
+
             # Wait for all tasks to complete
             if pending_requests:
                 await asyncio.gather(*pending_requests)
-                
-            # Process any retries if needed
-            while not queue_of_requests_to_retry.empty():
-                request = await queue_of_requests_to_retry.get()
-                await request.call_api(
-                    session=session,
-                    client=self.client,
-                    retry_queue=queue_of_requests_to_retry,
-                    save_filepath=save_filepath,
-                    status_tracker=status_tracker,
-                )
 
         status_tracker.pbar.close()
         
