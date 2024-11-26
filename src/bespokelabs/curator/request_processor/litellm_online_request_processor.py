@@ -24,9 +24,10 @@ from bespokelabs.curator.request_processor.base_request_processor import (
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 import datetime
 from bespokelabs.curator.request_processor.generic_response import TokenUsage
+from litellm import token_counter, get_max_tokens
 
 logger = logging.getLogger(__name__)
-litellm.set_verbose=True
+# litellm.set_verbose=True
 
 @dataclass
 class StatusTracker:
@@ -37,6 +38,11 @@ class StatusTracker:
     num_tasks_failed: int = 0
     num_tasks_already_completed: int = 0
     num_other_errors: int = 0
+    available_request_capacity: float = 0
+    available_token_capacity: float = 0
+    last_update_time: float = field(default_factory=time.time)
+    max_requests_per_minute: int = 0
+    max_tokens_per_minute: int = 0
     pbar: tqdm = field(default=None)
 
     def __str__(self):
@@ -48,6 +54,36 @@ class StatusTracker:
             f"Already Completed: {self.num_tasks_already_completed}\n"
             f"Errors: {self.num_other_errors}"
         )
+
+    def update_capacity(self):
+        """Update available capacity based on time elapsed"""
+        current_time = time.time()
+        seconds_since_update = current_time - self.last_update_time
+        
+        self.available_request_capacity = min(
+            self.available_request_capacity + 
+            self.max_requests_per_minute * seconds_since_update / 60.0,
+            self.max_requests_per_minute
+        )
+        
+        self.available_token_capacity = min(
+            self.available_token_capacity + 
+            self.max_tokens_per_minute * seconds_since_update / 60.0,
+            self.max_tokens_per_minute
+        )
+        
+        self.last_update_time = current_time
+
+    def has_capacity(self, token_estimate: int) -> bool:
+        """Check if there's enough capacity for a request"""
+        self.update_capacity()
+        return (self.available_request_capacity >= 1 and 
+                self.available_token_capacity >= token_estimate)
+
+    def consume_capacity(self, token_estimate: int):
+        """Consume capacity for a request"""
+        self.available_request_capacity -= 1
+        self.available_token_capacity -= token_estimate
 
 @dataclass
 class APIRequest:
@@ -151,6 +187,7 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
         self.top_p = top_p
         self.presence_penalty = presence_penalty
         self.frequency_penalty = frequency_penalty
+        self.token_estimate_cache = {}
         
         logger.info(f"Using model: {self.model}")
         logger.debug(f"Parameters - Temperature: {self.temperature}, Top P: {self.top_p}, "
@@ -158,13 +195,23 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
         self.client = instructor.from_litellm(litellm.acompletion)
         logger.info("Instructor client initialized with LiteLLM backend")
 
+    def estimate_output_tokens(self, messages: list) -> int:
+        """Estimate output tokens for a request"""
+        return get_max_tokens(model=self.model) // 5
+
+    def estimate_total_tokens(self, messages: list) -> int:
+        """Estimate total tokens for a request"""
+        input_tokens = token_counter(model=self.model, messages=messages)
+        output_tokens = self.estimate_output_tokens(messages)
+        return input_tokens + output_tokens
+
     def get_rate_limits(self) -> dict:
         """Get rate limits from LiteLLM response headers."""
         logger.info(f"Getting rate limits for model: {self.model}")
         
         completion = litellm.completion(
             model=self.model,
-            messages=[],
+            messages=[{"role": "user", "content": "hi"}],
         )
         
         headers = completion._hidden_params.get('additional_headers', {})
@@ -232,6 +279,8 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
 
         # Get rate limits
         rate_limits = self.get_rate_limits()
+        status_tracker.max_requests_per_minute = rate_limits["max_requests_per_minute"]
+        status_tracker.max_tokens_per_minute = rate_limits["max_tokens_per_minute"]
         rpm = rate_limits["max_requests_per_minute"]
 
         # Track completed requests for resume functionality
@@ -250,19 +299,18 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
         status_tracker.pbar = tqdm(initial=len(completed_request_ids), total=total_requests, desc="Processing LiteLLM requests")
 
         # Use higher connector limit for better throughput
-        connector = aiohttp.TCPConnector(limit=10 * rpm)
+        connector = aiohttp.TCPConnector(limit=rpm)
         async with aiohttp.ClientSession(connector=connector) as session:
-            # Create a list to track all tasks
-            tasks = []
-            
             async with aiofiles.open(generic_requests_filepath) as file:
+                pending_requests = []
+                
                 async for line in file:
                     generic_request = GenericRequest.model_validate_json(line)
                     
                     if resume and generic_request.original_row_idx in completed_request_ids:
                         status_tracker.num_tasks_already_completed += 1
                         continue
-                        
+                    
                     request = APIRequest(
                         task_id=status_tracker.num_tasks_started,
                         generic_request=generic_request,
@@ -271,7 +319,15 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
                         prompt_formatter=self.prompt_formatter
                     )
                     
-                    # Create and track the task
+                    token_estimate = self.estimate_total_tokens(request.generic_request.messages)
+                    
+                    # Wait for capacity if needed
+                    while not status_tracker.has_capacity(token_estimate):
+                        await asyncio.sleep(0.1)  # Short sleep to prevent CPU spinning
+                    
+                    # Consume capacity before making request
+                    status_tracker.consume_capacity(token_estimate)
+                    
                     task = asyncio.create_task(
                         request.call_api(
                             session=session,
@@ -281,14 +337,14 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
                             status_tracker=status_tracker,
                         )
                     )
-                    tasks.append(task)
+                    pending_requests.append(task)
                     
                     status_tracker.num_tasks_started += 1
                     status_tracker.num_tasks_in_progress += 1
 
             # Wait for all tasks to complete
-            if tasks:
-                await asyncio.gather(*tasks)
+            if pending_requests:
+                await asyncio.gather(*pending_requests)
                 
             # Process any retries if needed
             while not queue_of_requests_to_retry.empty():
