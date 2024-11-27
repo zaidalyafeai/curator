@@ -27,8 +27,9 @@ from litellm import token_counter, get_max_tokens
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
 litellm.suppress_debug_info = True
-# litellm.set_verbose = True
+
 @dataclass
 class StatusTracker:
     """Tracks the status of all requests."""
