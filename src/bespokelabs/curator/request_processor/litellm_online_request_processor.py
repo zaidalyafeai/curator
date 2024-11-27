@@ -199,10 +199,13 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
         self.frequency_penalty = frequency_penalty
         self.token_estimate_cache = {}
 
-        logger.info(f"Using model: {self.model}")
-        logger.debug(
-            f"Parameters - Temperature: {self.temperature}, Top P: {self.top_p}, "
-            f"Presence Penalty: {self.presence_penalty}, Frequency Penalty: {self.frequency_penalty}"
+        logger.info(
+            "Initializing LiteLLM processor with:\n"
+            f"- Model: {self.model}\n"
+            f"- Temperature: {self.temperature}\n"
+            f"- Top P: {self.top_p}\n"
+            f"- Presence Penalty: {self.presence_penalty}\n"
+            f"- Frequency Penalty: {self.frequency_penalty}"
         )
         self.client = instructor.from_litellm(litellm.acompletion)
 
