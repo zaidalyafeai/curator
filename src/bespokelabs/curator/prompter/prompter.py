@@ -21,7 +21,9 @@ from bespokelabs.curator.request_processor.openai_batch_request_processor import
 from bespokelabs.curator.request_processor.openai_online_request_processor import (
     OpenAIOnlineRequestProcessor,
 )
-from bespokelabs.curator.request_processor.litellm_online_request_processor import LiteLLMOnlineRequestProcessor
+from bespokelabs.curator.request_processor.litellm_online_request_processor import (
+    LiteLLMOnlineRequestProcessor,
+)
 
 _CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")
@@ -120,7 +122,9 @@ class Prompter:
                 )
         elif backend == "litellm":
             if batch:
-                logger.warning("Batch mode is not supported with LiteLLM backend, ignoring batch=True")
+                logger.warning(
+                    "Batch mode is not supported with LiteLLM backend, ignoring batch=True"
+                )
             self._request_processor = LiteLLMOnlineRequestProcessor(
                 model=model_name,
                 temperature=temperature,
