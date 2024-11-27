@@ -22,7 +22,7 @@ def parse_func(row, response):
 
 def main():
     # List of cuisines to generate recipes for
-    cuisines = ["Chinese"] * 1001
+    cuisines = ["Chinese"] * 1000
     
     # Create input dataset with cuisine types
     input_data = [{"cuisine": cuisine} for cuisine in cuisines]

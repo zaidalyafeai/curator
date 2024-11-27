@@ -7,6 +7,18 @@ import time
 # Set up logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+# Add StreamHandler to output logs to console
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+
+# Optional: Create a formatter and set it for the handler
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(formatter)
+
+# Add the handler to the logger
+logger.addHandler(console_handler)
+
 # Define response format using Pydantic
 class Recipe(BaseModel):
     title: str = Field(description="Title of the recipe")
@@ -34,22 +46,22 @@ def main():
 
     # List of models for testing
     model_names = [
-                    # "claude-3-5-sonnet-20240620", # https://docs.litellm.ai/docs/providers/anthropic
+                    # "claude-3-5-sonnet-20240620", # https://docs.litellm.ai/docs/providers/anthropic # anthropic has a different hidden param tokens structure. 
+                    # "claude-3-5-haiku-20241022",
                     # "claude-3-haiku-20240307",
                     # "claude-3-opus-20240229",
-                    "claude-3-sonnet-20240229",
+                    # "claude-3-sonnet-20240229",
                     # "gpt-4o-mini", # https://docs.litellm.ai/docs/providers/openai
                     # "gpt-4o-2024-08-06",
                     # "gpt-4-0125-preview",
                     # "gpt-3.5-turbo-1106",
-                    # "o1-mini",
-                    # "gemini/gemini-1.5-flash", # https://docs.litellm.ai/docs/providers/gemini; https://ai.google.dev/gemini-api/docs/models
-                    # "gemini/gemini-1.5-pro",
-                    # "sambanova/Meta-Llama-3.1-8B-Instruct", # https://docs.litellm.ai/docs/providers/sambanova; https://community.sambanova.ai/t/supported-models
-                    # "sambanova/Meta-Llama-3.1-70B-Instruct",
+                    # "gemini/gemini-1.5-flash", # https://docs.litellm.ai/docs/providers/gemini; https://ai.google.dev/gemini-api/docs/models # 20-30 iter/s
+                    # "gemini/gemini-1.5-pro", # 20-30 iter/s
                     # "together_ai/meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", # https://docs.together.ai/docs/serverless-models
                     # "together_ai/meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
                     # "together_ai/nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
+                    "together_ai/mistralai/Mixtral-8x7B-Instruct-v0.1",
+                    # "deepinfra/nvidia/Llama-3.1-Nemotron-70B-Instruct"
                     ]
 
     for model_name in model_names:
