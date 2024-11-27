@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from pydantic import BaseModel
 import instructor
 import litellm
-from litellm import completion, get_supported_openai_params
+from litellm import get_supported_openai_params
 import aiofiles
 from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.prompter.prompter import PromptFormatter
@@ -26,9 +26,9 @@ from bespokelabs.curator.request_processor.generic_response import TokenUsage
 from litellm import token_counter, get_max_tokens
 
 logger = logging.getLogger(__name__)
-# litellm.set_verbose=True
+logger.setLevel(logging.INFO)
 litellm.suppress_debug_info = True
-
+# litellm.set_verbose = True
 @dataclass
 class StatusTracker:
     """Tracks the status of all requests."""
@@ -112,11 +112,11 @@ class APIRequest:
                     **self.api_specific_request,
                     response_model=self.prompt_formatter.response_format,
                     timeout=60.0
-                )
+                    )
                 response_message = response.model_dump() if hasattr(response, 'model_dump') else response
             else:
-                completion_obj = await completion(**self.api_specific_request, timeout=60.0)
-                response_message = completion_obj.content if hasattr(completion_obj, 'content') else str(completion_obj)
+                completion_obj = await litellm.acompletion(**self.api_specific_request, timeout=60.0)
+                response_message = completion_obj['choices'][0]['message']['content']
 
             # Extract token usage
             usage = completion_obj.usage if hasattr(completion_obj, 'usage') else {}
@@ -150,6 +150,7 @@ class APIRequest:
             status_tracker.pbar.update(1)
 
         except Exception as e:
+            logger.error(f"Error in API request: {e}")
             status_tracker.num_other_errors += 1
             self.result.append(e)
             
@@ -193,7 +194,6 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
         logger.debug(f"Parameters - Temperature: {self.temperature}, Top P: {self.top_p}, "
                     f"Presence Penalty: {self.presence_penalty}, Frequency Penalty: {self.frequency_penalty}")
         self.client = instructor.from_litellm(litellm.acompletion)
-        logger.info("Instructor client initialized with LiteLLM backend")
 
     def estimate_output_tokens(self) -> int:
         """Estimate output tokens for a request"""
@@ -218,8 +218,7 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
         )
         
         headers = completion._hidden_params.get('additional_headers', {})
-        logger.debug(f"Rate limit headers: {headers}")
-        print(headers)
+        logger.info(f"Rate limit headers: {headers}")
         
         rpm = int(headers.get('x-ratelimit-limit-requests', 3000))
         tpm = int(headers.get('x-ratelimit-limit-tokens', 150_000))
@@ -242,7 +241,6 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
         """
         # Get supported parameters for this model
         supported_params = get_supported_openai_params(model=self.model)
-        
         request = {
             "model": generic_request.model,
             "messages": generic_request.messages,
@@ -262,7 +260,30 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
             request["frequency_penalty"] = self.frequency_penalty
 
         return request
-
+    
+    def check_instructor_structured_output_support(self, prompt_formatter: PromptFormatter):
+        """Check if the model supports structured output via instructor."""
+        class User(BaseModel):
+            name: str
+            age: int
+        try:
+            if prompt_formatter.response_format:
+                client = instructor.from_litellm(litellm.completion)
+                response = client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": "Extract Jason is 25 years old."}],
+                    response_model=User,
+                )
+                logger.info(f"Check instructor structure output response: {response}")
+                assert isinstance(response, User)
+                logger.info(f"Model {self.model} supports structured output via instructor, response: {response}")
+                return True
+            else:
+                return True
+        except Exception as e:
+            logger.warning(f"Model {self.model} does not support structured output via instructor: {e}")
+            return False
+    
     async def process_requests_from_file(
         self,
         generic_requests_filepath: str,
@@ -320,7 +341,7 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
                         generic_request=generic_request,
                         api_specific_request=self.create_api_specific_request(generic_request),
                         attempts_left=max_attempts,
-                        prompt_formatter=self.prompt_formatter
+                        prompt_formatter=self.prompt_formatter,
                     )
                     
                     token_estimate = self.estimate_total_tokens(request.generic_request.messages)
@@ -393,16 +414,22 @@ class LiteLLMOnlineRequestProcessor(BaseRequestProcessor):
         prompt_formatter: PromptFormatter,
     ) -> Dataset:
         """Run completions using LiteLLM with async processing."""
+        logger.info(f"Running LiteLLM completions with model: {self.model},"
+                    f" Supported params: {get_supported_openai_params(model=self.model)}")
+
         self.prompt_formatter = prompt_formatter
+        
+        if not self.check_instructor_structured_output_support(prompt_formatter):
+            raise ValueError(f"Model {self.model} does not support structured output via instructor.")
+        
         generic_requests_files = self.create_request_files(
             dataset, working_dir, prompt_formatter
         )
-        
         generic_responses_files = [
             f"{working_dir}/responses_{i}.jsonl"
             for i in range(len(generic_requests_files))
         ]
-
+        
         for request_file, response_file in zip(
             generic_requests_files, generic_responses_files
         ):
