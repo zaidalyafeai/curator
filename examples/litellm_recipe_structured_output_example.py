@@ -21,22 +21,8 @@ class Cuisines(BaseModel):
     cuisines_list: List[str] = Field(description="A list of cuisines.")
 
 
-def prompt_func(row):
-    return f"Generate a random {row['cuisine']} recipe. Be creative but keep it realistic."
-
-
-def parse_func(row, response):
-    return {
-        "title": response.title,
-        "ingredients": response.ingredients,
-        "instructions": response.instructions,
-        "cuisine": row["cuisine"],  # Keep track of cuisine type
-    }
-
-
 def main():
-    # List of cuisines to generate recipes for
-    # We define a prompter that generates topics.
+    # We define a prompter that generates cuisines
     cuisines_generator = curator.Prompter(
         prompt_func=lambda: f"Generate 10 diverse cuisines.",
         model_name="gpt-4o-mini",
@@ -45,12 +31,17 @@ def main():
         backend="litellm",
     )
     cuisines = cuisines_generator()
-    print(cuisines)
+    print(cuisines.to_pandas())
 
     recipe_prompter = curator.Prompter(
-        model_name="together_ai/mistralai/Mixtral-8x7B-Instruct-v0.1",
-        prompt_func=prompt_func,
-        parse_func=parse_func,
+        model_name="claude-3-5-haiku-20241022",
+        prompt_func=lambda row: f"Generate a random {row['cuisine']} recipe. Be creative but keep it realistic.",
+        parse_func=lambda row, response: {
+            "title": response.title,
+            "ingredients": response.ingredients,
+            "instructions": response.instructions,
+            "cuisine": row["cuisine"],
+        },
         response_format=Recipe,
         backend="litellm",
     )
@@ -59,8 +50,7 @@ def main():
     recipes = recipe_prompter(cuisines)
 
     # Print results
-    df = recipes.to_pandas()
-    print(df)
+    print(recipes.to_pandas())
 
 
 if __name__ == "__main__":

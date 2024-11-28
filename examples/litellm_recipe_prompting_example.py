@@ -4,14 +4,6 @@ from bespokelabs import curator
 from datasets import Dataset
 
 
-def prompt_func(cuisine_type):
-    return f"Generate a random {cuisine_type} recipe. Be creative but keep it realistic."
-
-
-def parse_func(row, response):
-    return {"recipe": response, "cuisine": row["cuisine"]}  # Keep track of cuisine type
-
-
 def main():
     # List of cuisines to generate recipes for
     cuisines = [
@@ -34,8 +26,11 @@ def main():
     # Create prompter using LiteLLM backend
     recipe_prompter = curator.Prompter(
         model_name="gpt-4o-mini",
-        prompt_func=prompt_func,
-        parse_func=parse_func,
+        prompt_func=lambda row: f"Generate a random {row['cuisine']} recipe. Be creative but keep it realistic.",
+        parse_func=lambda row, response: {
+            "recipe": response,
+            "cuisine": row["cuisine"],
+        },
         backend="litellm",
     )
 
@@ -43,8 +38,7 @@ def main():
     recipes = recipe_prompter(cuisines)
 
     # Print results
-    df = recipes.to_pandas()
-    print(df)
+    print(recipes.to_pandas())
 
 
 if __name__ == "__main__":
