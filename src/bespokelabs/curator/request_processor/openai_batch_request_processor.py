@@ -29,7 +29,8 @@ logger = logging.getLogger(__name__)
 MAX_REQUESTS_PER_BATCH = 50_000
 MAX_BYTES_PER_BATCH = 200 * 1024 * 1024
 
-# NOTE(Ryan): This is not finetuned since the total amount of time is dominated by batch completion time
+# NOTE(Ryan): This allows us to stay under the rate limit when submitting ~1,000 batches at a time
+# When submitting >1,000 batches the batch submission and batch download operations get rate limited
 MAX_CONCURRENT_BATCH_OPERATIONS = 100
 
 
