@@ -55,7 +55,7 @@ def api_endpoint_from_url(request_url: str) -> str:
     elif "completions" in request_url:
         return "completions"
     else:
-        raise NotImplementedError(f'API endpoint "{request_url}" not implemented in this script')
+        raise NotImplementedError(f'API endpoint "{request_url}" not implemented in Curator yet.')
 
 
 class OpenAIOnlineRequestProcessor(OnlineRequestProcessor):
@@ -73,7 +73,7 @@ class OpenAIOnlineRequestProcessor(OnlineRequestProcessor):
 
     def __init__(
         self,
-        model: str = "gpt-4",
+        model: str = "gpt-4o-mini",
         api_key: str = os.getenv("OPENAI_API_KEY"),
         url: str = "https://api.openai.com/v1/chat/completions",
         temperature: Optional[float] = None,
@@ -255,12 +255,12 @@ class OpenAIOnlineRequestProcessor(OnlineRequestProcessor):
                 headers=request_header,
                 json=request.api_specific_request,
                 timeout=60.0,
-            ) as response:
-                response_json = await response.json()
+            ) as response_obj:
+                response = await response_obj.json()
 
-                if "error" in response_json:
+                if "error" in response:
                     status_tracker.num_api_errors += 1
-                    error = response_json["error"]
+                    error = response["error"]
                     if "rate limit" in error.get("message", "").lower():
                         status_tracker.time_of_last_rate_limit_error = time.time()
                         status_tracker.num_rate_limit_errors += 1
@@ -269,11 +269,11 @@ class OpenAIOnlineRequestProcessor(OnlineRequestProcessor):
 
                 if response.status != 200:
                     raise Exception(
-                        f"API request failed with status {response.status}: {response_json}"
+                        f"API request failed with status {response.status}: {response}"
                     )
 
-                response_message = response_json["choices"][0]["message"]["content"]
-                usage = response_json["usage"]
+                response_message = response["choices"][0]["message"]["content"]
+                usage = response["usage"]
                 token_usage = TokenUsage(
                     prompt_tokens=usage["prompt_tokens"],
                     completion_tokens=usage["completion_tokens"],
@@ -281,14 +281,14 @@ class OpenAIOnlineRequestProcessor(OnlineRequestProcessor):
                 )
 
                 # Calculate cost using litellm
-                cost = litellm.completion_cost(completion_response=response_json)
+                cost = litellm.completion_cost(completion_response=response)
 
                 # Create and save response immediately
                 generic_response = GenericResponse(
                     response_message=response_message,
                     response_errors=None,
                     raw_request=request.api_specific_request,
-                    raw_response=response_json,
+                    raw_response=response,
                     generic_request=request.generic_request,
                     created_at=request.created_at,
                     finished_at=datetime.datetime.now(),

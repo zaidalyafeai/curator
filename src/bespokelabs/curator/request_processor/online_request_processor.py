@@ -108,10 +108,10 @@ class OnlineRequestProcessor(BaseRequestProcessor, ABC):
         frequency_penalty: Optional[float] = None,
     ):
         super().__init__(batch_size=None)
-        self.model = model
-        self.temperature = temperature
-        self.top_p = top_p
-        self.presence_penalty = presence_penalty
+        self.model: str = model
+        self.temperature: float | None = temperature
+        self.top_p: float | None = top_p
+        self.presence_penalty: float | None = presence_penalty
         self.frequency_penalty = frequency_penalty
         self.prompt_formatter: Optional[PromptFormatter] = None
 
@@ -181,11 +181,9 @@ class OnlineRequestProcessor(BaseRequestProcessor, ABC):
         resume: bool,
     ) -> None:
         """Processes API requests in parallel, throttling to stay under rate limits."""
-        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-        resource.setrlimit(resource.RLIMIT_NOFILE, (min(hard, 10000), hard))
 
         # Initialize trackers
-        queue_of_requests_to_retry = asyncio.Queue()
+        queue_of_requests_to_retry: asyncio.Queue[APIRequest] = asyncio.Queue()
         status_tracker = StatusTracker()
 
         # Get rate limits
@@ -193,6 +191,12 @@ class OnlineRequestProcessor(BaseRequestProcessor, ABC):
         status_tracker.max_requests_per_minute = rate_limits["max_requests_per_minute"]
         status_tracker.max_tokens_per_minute = rate_limits["max_tokens_per_minute"]
         rpm = rate_limits["max_requests_per_minute"]
+
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        resource.setrlimit(
+            resource.RLIMIT_NOFILE,
+            (min(hard, int(10 * status_tracker.max_requests_per_minute)), hard),
+        )
 
         # Track completed requests for resume functionality
         completed_request_ids = set()
