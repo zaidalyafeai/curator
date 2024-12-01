@@ -46,7 +46,6 @@ class Prompter:
         ] = None,
         response_format: Optional[Type[BaseModel]] = None,
         batch: bool = False,
-        cancel_batches: bool = False,
         batch_size: Optional[int] = None,
         temperature: Optional[float] = None,
         top_p: Optional[float] = None,
@@ -100,7 +99,6 @@ class Prompter:
                 top_p=top_p,
                 presence_penalty=presence_penalty,
                 frequency_penalty=frequency_penalty,
-                cancel_batches=cancel_batches,
             )
         else:
             if batch_size is not None:

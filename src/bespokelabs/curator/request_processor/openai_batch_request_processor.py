@@ -39,7 +39,6 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         self,
         batch_size: int,
         model: str,
-        cancel_batches: bool,
         temperature: float | None = None,
         top_p: float | None = None,
         check_interval: int = 10,
@@ -63,7 +62,6 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         self.presence_penalty: float | None = presence_penalty
         self.frequency_penalty: float | None = frequency_penalty
         self._file_lock = asyncio.Lock()
-        self.cancel_batches: bool = cancel_batches
 
     def get_rate_limits(self) -> dict:
         """
@@ -245,19 +243,6 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
             return batch_object
 
-    async def acancel_batch(self, batch_id: str, semaphore: asyncio.Semaphore | None = None) -> int:
-        async with semaphore or asyncio.Semaphore():  # Use provided semaphore or dummy one
-            async_client = AsyncOpenAI()
-            try:
-                await async_client.batches.cancel(batch_id)
-                logger.info(f"Successfully cancelled batch: {batch_id}")
-                return 0
-            except Exception as e:
-                # Successfully "completed" batches can't be cancelled
-                error_msg = str(e)
-                logger.error(f"Failed to cancel batch {batch_id}: {error_msg}")
-                return -1
-
     def run(
         self,
         dataset: Dataset | None,
@@ -287,33 +272,6 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
         requests_files = set(self.create_request_files(dataset, working_dir, prompt_formatter))
         batch_objects_file = f"{working_dir}/batch_objects.jsonl"
-
-        if self.cancel_batches:
-            if not os.path.exists(batch_objects_file):
-                raise ValueError(
-                    "Batch objects file does not exist, but cancel_batches is True. No batches to be cancelled."
-                )
-            else:
-                logger.info(f"Batch objects file exists, cancelling all batches.")
-                batch_ids = []
-                with open(batch_objects_file, "r") as f:
-                    for line in f:
-                        batch_obj = json.loads(line.strip())
-                        batch_ids.append(batch_obj["id"])
-
-                async def cancel_all_batches():
-                    semaphore = asyncio.Semaphore(MAX_CONCURRENT_BATCH_OPERATIONS)
-                    tasks = [self.acancel_batch(batch_id, semaphore) for batch_id in batch_ids]
-                    return await asyncio.gather(*tasks)
-
-                results = run_in_event_loop(cancel_all_batches())
-                failed = abs(sum(results))
-                logger.info(
-                    f"Successfully cancelled {len(results)-failed:,} out of {len(results):,} batches"
-                )
-                logger.info(f"Moving batch objects file to {batch_objects_file}.cancelled")
-                os.rename(batch_objects_file, f"{batch_objects_file}.cancelled")
-                return None  # Maybe we should do something else
 
         if os.path.exists(batch_objects_file):
             # Read existing batch objects from file
