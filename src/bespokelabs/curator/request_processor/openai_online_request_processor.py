@@ -34,12 +34,28 @@ def get_token_encoding_name(model_name: str) -> str:
         return "cl100k_base"  # Default to cl100k_base
 
 
-def api_endpoint_from_url(url: str) -> str:
-    """Extract the API endpoint from a URL."""
-    match = re.match(r"^https://[^/]+/v\d+/(.+)$", url)
+def api_endpoint_from_url(request_url: str) -> str:
+    """Extract the API endpoint from the request URL.
+    This is used to determine the number of tokens consumed by the request.
+    """
+
+    # OpenAI API
+    match = re.search("^https://[^/]+/v\\d+/(.+)$", request_url)
     if match:
-        return match.group(1)
-    return url
+        return match[1]
+
+    # for Azure OpenAI deployment urls
+    match = re.search(r"^https://[^/]+/openai/deployments/[^/]+/(.+?)(\?|$)", request_url)
+    if match:
+        return match[1]
+
+    # Catch all for other API endpoints using OpenAI OpenAPI format
+    if "chat/completions" in request_url:
+        return "chat/completions"
+    elif "completions" in request_url:
+        return "completions"
+    else:
+        raise NotImplementedError(f'API endpoint "{request_url}" not implemented in this script')
 
 
 class OpenAIOnlineRequestProcessor(OnlineRequestProcessor):
