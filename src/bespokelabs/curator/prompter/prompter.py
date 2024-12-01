@@ -180,6 +180,8 @@ class Prompter:
         )
 
         fingerprint = xxh64(fingerprint_str.encode("utf-8")).hexdigest()
+        logger.debug(f"Curator Cache Fingerprint: {fingerprint}")
+
         metadata_db_path = os.path.join(curator_cache_dir, "metadata.db")
         metadata_db = MetadataDB(metadata_db_path)
 
