@@ -219,7 +219,9 @@ class OnlineRequestProcessor(BaseRequestProcessor, ABC):
 
         # Use higher connector limit for better throughput
         connector = aiohttp.TCPConnector(limit=10 * rpm)
-        async with aiohttp.ClientSession(connector=connector) as session: # Initialize ClientSession here
+        async with aiohttp.ClientSession(
+            connector=connector
+        ) as session:  # Initialize ClientSession here
             async with aiofiles.open(generic_requests_filepath) as file:
                 pending_requests = []
 
