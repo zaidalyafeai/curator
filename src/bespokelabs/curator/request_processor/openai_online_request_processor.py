@@ -7,8 +7,7 @@ import re
 import resource
 import time
 from dataclasses import dataclass, field
-from functools import partial
-from typing import Any, Callable, Dict, Optional, Set, Tuple, TypeVar
+from typing import Any, Optional, Set, Tuple, TypeVar
 
 import aiohttp
 import litellm
@@ -46,10 +45,10 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         self.model: str = model
         self.url: str = url
         self.api_key: str = api_key
-        self.temperature: float = temperature
-        self.top_p: float = top_p
-        self.presence_penalty: float = presence_penalty
-        self.frequency_penalty: float = frequency_penalty
+        self.temperature: float | None = temperature
+        self.top_p: float | None = top_p
+        self.presence_penalty: float | None = presence_penalty
+        self.frequency_penalty: float | None = frequency_penalty
 
     def get_rate_limits(self) -> dict:
         """
@@ -101,7 +100,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         Returns:
             dict: API specific request body
         """
-        request = {
+        request: dict[str, Any] = {
             "model": generic_request.model,
             "messages": generic_request.messages,
         }
@@ -177,8 +176,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                 )
             )
 
-        dataset = self.create_dataset_files(working_dir, parse_func_hash, prompt_formatter)
-        return dataset
+        return self.create_dataset_files(working_dir, parse_func_hash, prompt_formatter)
 
     async def process_generic_requests_from_file(
         self,
@@ -198,7 +196,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         resource.setrlimit(
             resource.RLIMIT_NOFILE,
-            (min(hard, 10 * max_requests_per_minute), hard),
+            (min(hard, int(10 * max_requests_per_minute)), hard),
         )
 
         # constants
@@ -215,7 +213,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
             request_header = {"api-key": f"{self.api_key}"}
 
         # initialize trackers
-        queue_of_requests_to_retry = asyncio.Queue()
+        queue_of_requests_to_retry: asyncio.Queue[APIRequest] = asyncio.Queue()
         task_id_generator = task_id_generator_function()  # generates integer IDs of 0, 1, 2, ...
         status_tracker = StatusTracker()  # single instance to track a collection of variables
         next_request = None  # variable to hold the next request to call
@@ -227,9 +225,10 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
 
         # initialize flags
         file_not_finished = True  # after file is empty, we'll skip reading it
-        logger.debug(f"Initialization complete.")
+        logger.debug("Initialization complete.")
 
         completed_request_ids: Set[int] = set()
+        temp_filepath = f"{save_filepath}.temp"
         if os.path.exists(save_filepath):
             if resume:
                 # save all successfully completed requests to a temporary file, then overwrite the original file with the temporary file
@@ -237,7 +236,6 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                 logger.debug(
                     f"Removing all failed requests from {save_filepath} so they can be retried"
                 )
-                temp_filepath = f"{save_filepath}.temp"
                 num_previously_failed_requests = 0
                 with open(save_filepath, "r") as input_file, open(
                     temp_filepath, "w"
@@ -271,7 +269,8 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                         if isinstance(data[1], list):
                             # this means that the request failed and we have a list of errors
                             logger.debug(
-                                f"Request {data[2].get('request_idx')} previously failed due to errors: {data[1]}, will NOT retry"
+                                f"Request {data[2].get('request_idx')} previously "
+                                "failed due to errors: {data[1]}, will NOT retry."
                             )
                             num_previously_failed_requests += 1
                         completed_request_ids.add(data[2].get("request_idx"))
@@ -291,7 +290,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         with open(generic_requests_filepath) as file:
             # `requests` will provide requests one at a time
             generic_requests = file.__iter__()
-            logger.debug(f"File opened. Entering main loop")
+            logger.debug("File opened. Entering main loop")
 
             # Count total number of requests
             total_requests = sum(1 for _ in open(generic_requests_filepath))
@@ -305,7 +304,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                 desc="Processing parallel requests to OpenAI",
             )
 
-            connector = aiohttp.TCPConnector(limit=10 * max_requests_per_minute)
+            connector = aiohttp.TCPConnector(limit=int(10 * max_requests_per_minute))
             async with aiohttp.ClientSession(
                 connector=connector
             ) as session:  # Initialize ClientSession here
@@ -493,8 +492,8 @@ class APIRequest:
                 url=request_url,
                 headers=request_header,
                 json=self.api_specific_request_json,
-            ) as response:
-                response = await response.json()
+            ) as response_obj:
+                response = await response_obj.json()
             if "error" in response:
                 logger.warning(f"Request {self.task_id} failed with error {response['error']}")
                 status_tracker.num_api_errors += 1
@@ -644,7 +643,7 @@ def api_endpoint_from_url(request_url: str) -> str:
     elif "completions" in request_url:
         return "completions"
     else:
-        raise NotImplementedError(f'API endpoint "{request_url}" not implemented in this script')
+        raise NotImplementedError(f'API endpoint "{request_url}" not implemented in Curator yet.')
 
 
 def append_generic_response(data: GenericResponse, filename: str) -> None:

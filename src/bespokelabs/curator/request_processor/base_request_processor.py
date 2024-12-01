@@ -177,7 +177,7 @@ class BaseRequestProcessor(ABC):
         working_dir: str,
         parse_func_hash: str,
         prompt_formatter: PromptFormatter,
-    ) -> None:
+    ) -> Dataset:
         """
         Creates the request files if they don't already exist or use existing.
         A single request file (requests_0.jsonl) or multiple request files
@@ -217,7 +217,7 @@ class BaseRequestProcessor(ABC):
                 return output_dataset
 
         error_help = (
-            f"Please check your `parse_func` is returning a valid row (dict) "
+            "Please check your `parse_func` is returning a valid row (dict) "
             "or list of rows (list of dicts) and re-run. "
             "Dataset will be regenerated from cached LLM responses."
         )
@@ -298,9 +298,7 @@ class BaseRequestProcessor(ABC):
 
             writer.finalize()
 
-        output_dataset = Dataset.from_file(dataset_file)
-
-        return output_dataset
+        return Dataset.from_file(dataset_file)
 
 
 def parse_response_message(
