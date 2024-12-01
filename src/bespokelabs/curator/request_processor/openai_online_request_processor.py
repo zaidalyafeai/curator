@@ -41,9 +41,10 @@ def api_endpoint_from_url(url: str) -> str:
         return match.group(1)
     return url
 
+
 class OpenAIOnlineRequestProcessor(OnlineRequestProcessor):
     """OpenAI-specific implementation of the OnlineRequestProcessor.
-    
+
     Handles API requests to OpenAI's chat completion endpoints with rate limiting,
     token counting, and error handling specific to OpenAI's API.
 
@@ -83,10 +84,10 @@ class OpenAIOnlineRequestProcessor(OnlineRequestProcessor):
 
     def get_rate_limits(self) -> dict:
         """Get rate limits from OpenAI API headers.
-        
+
         Returns:
             dict: Contains 'max_requests_per_minute' and 'max_tokens_per_minute'
-            
+
         Note:
             - Makes a dummy request to get actual rate limits
             - Falls back to default values if headers are missing
@@ -116,10 +117,10 @@ class OpenAIOnlineRequestProcessor(OnlineRequestProcessor):
 
     def estimate_output_tokens(self) -> int:
         """Estimate number of tokens in the response.
-        
+
         Returns:
             int: Estimated number of output tokens
-            
+
         Note:
             Default implementation returns a conservative estimate.
             Override this method for more accurate model-specific estimates.
@@ -131,13 +132,13 @@ class OpenAIOnlineRequestProcessor(OnlineRequestProcessor):
 
     def estimate_total_tokens(self, messages: list) -> int:
         """Estimate total tokens for a request using OpenAI's token counting rules.
-        
+
         Args:
             messages (list): List of message dictionaries with role and content
 
         Returns:
             int: Estimated total tokens including message formatting tokens
-            
+
         Note:
             Includes:
             - 4 tokens per message for formatting
@@ -171,7 +172,7 @@ class OpenAIOnlineRequestProcessor(OnlineRequestProcessor):
 
         Returns:
             dict: OpenAI API-compatible request dictionary
-            
+
         Note:
             - Handles JSON schema response format if specified
             - Applies optional parameters (temperature, top_p, etc.)
@@ -213,14 +214,14 @@ class OpenAIOnlineRequestProcessor(OnlineRequestProcessor):
         status_tracker: StatusTracker,
     ) -> None:
         """Process a single OpenAI API request with error handling and retry logic.
-        
+
         Args:
             request (APIRequest): The request to process
             session (aiohttp.ClientSession): Async HTTP session
             retry_queue (asyncio.Queue): Queue for failed requests to retry
             save_filepath (str): Path to save response
             status_tracker (StatusTracker): Tracks request status and rate limits
-        
+
         Note:
             - Handles rate limit errors with exponential backoff
             - Tracks token usage and costs

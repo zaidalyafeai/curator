@@ -27,7 +27,7 @@ litellm.suppress_debug_info = True
 
 class LiteLLMOnlineRequestProcessor(OnlineRequestProcessor):
     """LiteLLM implementation of the OnlineRequestProcessor for multi-provider LLM support.
-    
+
     This processor uses LiteLLM to handle requests across different LLM providers (OpenAI, Anthropic, etc.)
     with unified interface and structured output support via instructor.
 
@@ -37,7 +37,7 @@ class LiteLLMOnlineRequestProcessor(OnlineRequestProcessor):
         - Automatic token counting and rate limiting
         - Provider-specific parameter handling
         - Cost tracking per request
-    
+
     Attributes:
         model (str): The model identifier (e.g., "gpt-4", "claude-2")
         temperature (Optional[float]): Temperature for response randomness
@@ -66,18 +66,18 @@ class LiteLLMOnlineRequestProcessor(OnlineRequestProcessor):
 
     def check_structured_output_support(self, prompt_formatter: PromptFormatter):
         """Verify if the model supports structured output via instructor.
-        
+
         Tests the model's capability to handle structured output by making a test request
         with a simple schema.
-        
+
         Args:
             prompt_formatter (PromptFormatter): Contains response format requirements
-            
+
         Returns:
             bool: True if structured output is supported, False otherwise
-            
+
         Note:
-            - Uses a simple User schema as test case 
+            - Uses a simple User schema as test case
             - Logs detailed information about support status
             - Required for models that will use JSON schema responses
         """
@@ -108,13 +108,13 @@ class LiteLLMOnlineRequestProcessor(OnlineRequestProcessor):
 
     def estimate_output_tokens(self) -> int:
         """Estimate the number of tokens in the model's response.
-        
+
         Uses LiteLLM's get_max_tokens and applies a conservative estimate
         by dividing by 4 to avoid hitting context limits.
-        
+
         Returns:
             int: Estimated number of output tokens
-            
+
         Note:
             Falls back to 0 if token estimation fails
         """
@@ -125,13 +125,13 @@ class LiteLLMOnlineRequestProcessor(OnlineRequestProcessor):
 
     def estimate_total_tokens(self, messages: list) -> int:
         """Calculate the total token usage for a request.
-        
+
         Uses LiteLLM's token_counter for accurate input token counting
         and adds estimated output tokens.
-        
+
         Args:
             messages (list): List of message dictionaries
-            
+
         Returns:
             int: Total estimated tokens (input + output)
         """
@@ -141,12 +141,12 @@ class LiteLLMOnlineRequestProcessor(OnlineRequestProcessor):
 
     def get_rate_limits(self) -> dict:
         """Retrieve rate limits from the LLM provider via LiteLLM.
-        
+
         Makes a test request to get rate limit information from response headers.
-        
+
         Returns:
             dict: Contains 'max_requests_per_minute' and 'max_tokens_per_minute'
-            
+
         Note:
             - Falls back to default values if headers are missing
             - Some providers (e.g., Claude) require non-empty messages
@@ -172,16 +172,16 @@ class LiteLLMOnlineRequestProcessor(OnlineRequestProcessor):
 
     def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
         """Convert a generic request into a LiteLLM-compatible format.
-        
+
         Checks supported parameters for the specific model and only includes
         applicable parameters.
-        
+
         Args:
             generic_request (GenericRequest): The generic request to convert
-            
+
         Returns:
             dict: LiteLLM-compatible request parameters
-            
+
         Note:
             Uses LiteLLM's get_supported_openai_params to check parameter support
         """
@@ -216,17 +216,17 @@ class LiteLLMOnlineRequestProcessor(OnlineRequestProcessor):
         status_tracker: StatusTracker,
     ) -> None:
         """Process a single request through LiteLLM with error handling.
-        
+
         Handles both structured and unstructured outputs, tracks token usage
         and costs, and manages retries.
-        
+
         Args:
             request (APIRequest): Request to process
             session (aiohttp.ClientSession): Async HTTP session
             retry_queue (asyncio.Queue): Queue for failed requests
             save_filepath (str): Path to save responses
             status_tracker (StatusTracker): Tracks request status and limits
-            
+
         Note:
             - Supports both instructor-based structured output and raw completions
             - Calculates and tracks costs using LiteLLM's completion_cost
