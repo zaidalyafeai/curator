@@ -606,6 +606,8 @@ class BatchWatcher:
                             ),  # Convert messages to string for cost calculation
                             completion=choices[0]["message"]["content"],
                         )
+                        # Batch requests are 50% off
+                        cost = cost * 0.5
 
                         response_message = choices[0]["message"]["content"]
                         response_message, response_errors = parse_response_message(
