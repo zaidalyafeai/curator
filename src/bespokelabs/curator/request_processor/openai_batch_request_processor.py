@@ -7,6 +7,7 @@ import resource
 from dataclasses import dataclass
 
 import aiofiles
+import glob
 import litellm
 from openai import AsyncOpenAI
 from openai.types import Batch
@@ -494,7 +495,26 @@ class BatchWatcher:
             desc="Completed OpenAI requests in batches",
             unit="request",
         )
-        all_response_files = []
+
+        # resume from already downloaded batches
+        response_files_found = 0
+        all_response_files = set(glob.glob(f"{self.working_dir}/responses_*.jsonl"))
+        for batch_id, request_file in self.batch_id_to_request_file_name.items():
+            request_file_idx = request_file.split("/")[-1].split("_", 1)[1]
+            response_file = f"{self.working_dir}/responses_{request_file_idx}"
+            if response_file in all_response_files:
+                logger.info(
+                    f"File {response_file} found for batch {batch_id}, skipping status check and download."
+                )
+                self.remaining_batch_ids.remove(batch_id)
+                response_files_found += 1
+        if response_files_found > 0:
+            logger.info(
+                f"Found {response_files_found} out of {self.tracker.n_submitted_batches} completed batches, resuming polling for the remaining {len(self.remaining_batch_ids)} batches."
+            )
+            self.tracker.n_completed_batches += response_files_found  # here we are assuming they are completed, but they also could have failed
+            self.tracker.n_returned_batches += response_files_found
+        all_response_files = list(all_response_files)
 
         # loop until all batches have been returned
         while self.remaining_batch_ids:
