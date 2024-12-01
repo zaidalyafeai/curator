@@ -267,9 +267,9 @@ class OpenAIOnlineRequestProcessor(OnlineRequestProcessor):
                         status_tracker.num_api_errors -= 1
                     raise Exception(f"API error: {error}")
 
-                if response.status != 200:
+                if response_obj.status != 200:
                     raise Exception(
-                        f"API request failed with status {response.status}: {response}"
+                        f"API request failed with status {response_obj.status}: {response}"
                     )
 
                 response_message = response["choices"][0]["message"]["content"]
