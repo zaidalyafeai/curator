@@ -194,7 +194,7 @@ class OpenAIOnlineRequestProcessor(OnlineRequestProcessor):
             - Applies optional parameters (temperature, top_p, etc.)
             - Maintains compatibility with both chat and completion endpoints
         """
-        request = {
+        request: dict[str, Any] = {
             "model": generic_request.model,
             "messages": generic_request.messages,
         }

@@ -18,7 +18,7 @@ class Topics(BaseModel):
 
 # We define a prompter that generates topics.
 topic_generator = curator.Prompter(
-    prompt_func=lambda: f"Generate 10 diverse topics that are suitable for writing poems about.",
+    prompt_func=lambda: "Generate 10 diverse topics that are suitable for writing poems about.",
     model_name="gpt-4o-mini",
     response_format=Topics,
     parse_func=lambda _, topics: [{"topic": t} for t in topics.topics_list],
