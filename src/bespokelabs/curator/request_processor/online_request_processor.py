@@ -112,7 +112,7 @@ class OnlineRequestProcessor(BaseRequestProcessor, ABC):
         self.temperature: float | None = temperature
         self.top_p: float | None = top_p
         self.presence_penalty: float | None = presence_penalty
-        self.frequency_penalty = frequency_penalty
+        self.frequency_penalty: float | None = frequency_penalty
         self.prompt_formatter: Optional[PromptFormatter] = None
 
     @abstractmethod
@@ -218,8 +218,8 @@ class OnlineRequestProcessor(BaseRequestProcessor, ABC):
         )
 
         # Use higher connector limit for better throughput
-        connector = aiohttp.TCPConnector(limit=rpm)
-        async with aiohttp.ClientSession(connector=connector) as session:
+        connector = aiohttp.TCPConnector(limit=10 * rpm)
+        async with aiohttp.ClientSession(connector=connector) as session: # Initialize ClientSession here
             async with aiofiles.open(generic_requests_filepath) as file:
                 pending_requests = []
 
