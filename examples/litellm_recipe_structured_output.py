@@ -1,7 +1,6 @@
 from typing import List
 from pydantic import BaseModel, Field
 from bespokelabs import curator
-from datasets import Dataset
 import logging
 
 logger = logging.getLogger(__name__)
