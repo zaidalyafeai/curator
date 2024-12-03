@@ -6,7 +6,7 @@ import litellm
 from litellm import get_supported_openai_params
 import datetime
 import instructor
-from bespokelabs.curator.request_processor.online_request_processor import (
+from bespokelabs.curator.request_processor.base_online_request_processor import (
     OnlineRequestProcessor,
     APIRequest,
     StatusTracker,

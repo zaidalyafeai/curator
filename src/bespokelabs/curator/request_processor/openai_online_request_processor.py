@@ -12,7 +12,7 @@ import tiktoken
 import litellm
 import time
 
-from bespokelabs.curator.request_processor.online_request_processor import (
+from bespokelabs.curator.request_processor.base_online_request_processor import (
     OnlineRequestProcessor,
     APIRequest,
     StatusTracker,
