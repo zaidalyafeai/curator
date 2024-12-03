@@ -183,17 +183,17 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
 
     def check_structured_output_support(self) -> bool:
         """Check if the model supports structured output based on model name and date.
-        
+
         Returns:
             bool: True if model supports structured output, False otherwise
-            
+
         Note:
             Supports:
             - gpt-4o-mini with date >= 2024-07-18 or latest
             - gpt-4o with date >= 2024-08-06 or latest
         """
         model_name = self.model.lower()
-        
+
         # Check gpt-4o-mini support
         if model_name == "gpt-4o-mini":  # Latest version
             return True
@@ -201,7 +201,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
             mini_date = datetime.strptime(model_name.split("gpt-4o-mini-")[1], "%Y-%m-%d")
             if mini_date >= datetime(2024, 7, 18):
                 return True
-                
+
         # Check gpt-4o support
         if model_name == "gpt-4o":  # Latest version
             return True
@@ -209,7 +209,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
             base_date = datetime.strptime(model_name.split("gpt-4o-")[1], "%Y-%m-%d")
             if base_date >= datetime(2024, 8, 6):
                 return True
-                
+
         return False
 
     def create_api_specific_request(self, generic_request: GenericRequest) -> dict:

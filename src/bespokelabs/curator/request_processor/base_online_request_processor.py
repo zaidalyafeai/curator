@@ -22,6 +22,7 @@ import aiofiles
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+
 @dataclass
 class StatusTracker:
     """Tracks the status of all requests."""
@@ -203,12 +204,15 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         if os.path.exists(save_filepath):
             if resume:
                 logger.debug(f"Resuming progress from existing file: {save_filepath}")
-                logger.debug(f"Removing all failed requests from {save_filepath} so they can be retried")
+                logger.debug(
+                    f"Removing all failed requests from {save_filepath} so they can be retried"
+                )
                 temp_filepath = f"{save_filepath}.temp"
                 num_previously_failed_requests = 0
-                
-                with open(save_filepath, "r") as input_file, \
-                     open(temp_filepath, "w") as output_file:
+
+                with open(save_filepath, "r") as input_file, open(
+                    temp_filepath, "w"
+                ) as output_file:
                     for line in input_file:
                         response = GenericResponse.model_validate_json(line)
                         if response.response_errors:
@@ -220,16 +224,20 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                         else:
                             completed_request_ids.add(response.generic_request.original_row_idx)
                             output_file.write(line)
-                            
-                logger.info(f"Found {len(completed_request_ids)} completed requests and "
-                           f"{num_previously_failed_requests} previously failed requests")
+
+                logger.info(
+                    f"Found {len(completed_request_ids)} completed requests and "
+                    f"{num_previously_failed_requests} previously failed requests"
+                )
                 logger.info("Failed requests and remaining requests will now be processed.")
                 os.replace(temp_filepath, save_filepath)
-                
+
             elif resume_no_retry:
-                logger.warning(f"Resuming progress from existing file: {save_filepath}, without retrying failed requests")
+                logger.warning(
+                    f"Resuming progress from existing file: {save_filepath}, without retrying failed requests"
+                )
                 num_previously_failed_requests = 0
-                
+
                 with open(save_filepath, "r") as input_file:
                     for line in input_file:
                         response = GenericResponse.model_validate_json(line)
@@ -240,11 +248,13 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                             )
                             num_previously_failed_requests += 1
                         completed_request_ids.add(response.generic_request.original_row_idx)
-                        
-                logger.info(f"Found {len(completed_request_ids)} total requests and "
-                           f"{num_previously_failed_requests} previously failed requests")
+
+                logger.info(
+                    f"Found {len(completed_request_ids)} total requests and "
+                    f"{num_previously_failed_requests} previously failed requests"
+                )
                 logger.info("Remaining requests will now be processed.")
-                
+
             else:
                 user_input = input(
                     f"File {save_filepath} already exists.\n"
@@ -404,7 +414,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 request.attempts_left -= 1
                 retry_queue.put_nowait(request)
             else:
-                logger.debug(f"Request {request.task_id} failed permanently after all retries exhausted")
+                logger.debug(
+                    f"Request {request.task_id} failed permanently after all retries exhausted"
+                )
                 generic_response = GenericResponse(
                     response_message=None,
                     response_errors=[str(e) for e in request.result],
@@ -417,7 +429,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 await self.append_generic_response(generic_response, save_filepath)
                 status_tracker.num_tasks_in_progress -= 1
                 status_tracker.num_tasks_failed += 1
-                
 
     @abstractmethod
     async def call_single_request(
