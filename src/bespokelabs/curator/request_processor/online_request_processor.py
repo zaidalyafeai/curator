@@ -73,9 +73,16 @@ class StatusTracker:
     def has_capacity(self, token_estimate: int) -> bool:
         """Check if there's enough capacity for a request"""
         self.update_capacity()
-        return (
+        has_capacity = (
             self.available_request_capacity >= 1 and self.available_token_capacity >= token_estimate
         )
+        if not has_capacity:
+            logger.debug(
+                f"No capacity for request with {token_estimate} tokens. "
+                f"Available capacity: {self.available_token_capacity} tokens, "
+                f"{self.available_request_capacity} requests."
+            )
+        return has_capacity
 
     def consume_capacity(self, token_estimate: int):
         """Consume capacity for a request"""
