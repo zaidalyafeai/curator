@@ -17,7 +17,6 @@ from pydantic import BaseModel
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 litellm.suppress_debug_info = True
 

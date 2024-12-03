@@ -29,7 +29,6 @@ _CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 class Prompter:

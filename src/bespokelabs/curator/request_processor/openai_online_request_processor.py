@@ -11,7 +11,6 @@ import requests
 import tiktoken
 import litellm
 import time
-from datetime import datetime
 
 from bespokelabs.curator.request_processor.base_online_request_processor import (
     BaseOnlineRequestProcessor,
@@ -22,7 +21,6 @@ from bespokelabs.curator.request_processor.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.generic_response import TokenUsage, GenericResponse
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 def get_token_encoding_name(model_name: str) -> str:
@@ -198,7 +196,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
         if model_name == "gpt-4o-mini":  # Latest version
             return True
         if "gpt-4o-mini-" in model_name:
-            mini_date = datetime.strptime(model_name.split("gpt-4o-mini-")[1], "%Y-%m-%d")
+            mini_date = datetime.datetime.strptime(model_name.split("gpt-4o-mini-")[1], "%Y-%m-%d")
             if mini_date >= datetime(2024, 7, 18):
                 return True
 
@@ -206,7 +204,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
         if model_name == "gpt-4o":  # Latest version
             return True
         if "gpt-4o-" in model_name:
-            base_date = datetime.strptime(model_name.split("gpt-4o-")[1], "%Y-%m-%d")
+            base_date = datetime.datetime.strptime(model_name.split("gpt-4o-")[1], "%Y-%m-%d")
             if base_date >= datetime(2024, 8, 6):
                 return True
 
