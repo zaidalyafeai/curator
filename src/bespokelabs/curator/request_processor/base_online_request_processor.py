@@ -40,6 +40,8 @@ class StatusTracker:
     max_tokens_per_minute: int = 0
     pbar: tqdm = field(default=None)
     response_cost: float = 0
+    time_of_last_rate_limit_error: float = field(default=None)
+    num_rate_limit_errors: int = 0
 
     def __str__(self):
         return (
@@ -392,7 +394,9 @@ class OnlineRequestProcessor(BaseRequestProcessor, ABC):
             status_tracker.pbar.update(1)
 
         except Exception as e:
-            logger.error(f"Error in API request: {e}")
+            logger.warning(
+                f"Request {request.task_id} failed with Exception {e}, attempts left {request.attempts_left}"
+            )
             status_tracker.num_other_errors += 1
             request.result.append(e)
 
@@ -400,6 +404,7 @@ class OnlineRequestProcessor(BaseRequestProcessor, ABC):
                 request.attempts_left -= 1
                 retry_queue.put_nowait(request)
             else:
+                logger.debug(f"Request {request.task_id} failed permanently after all retries exhausted")
                 generic_response = GenericResponse(
                     response_message=None,
                     response_errors=[str(e) for e in request.result],
@@ -412,6 +417,7 @@ class OnlineRequestProcessor(BaseRequestProcessor, ABC):
                 await self.append_generic_response(generic_response, save_filepath)
                 status_tracker.num_tasks_in_progress -= 1
                 status_tracker.num_tasks_failed += 1
+                
 
     @abstractmethod
     async def call_single_request(
