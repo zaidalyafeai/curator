@@ -32,7 +32,6 @@ class LiteLLMOnlineRequestProcessor(OnlineRequestProcessor):
         - Multi-provider support through LiteLLM
         - Structured output via instructor
         - Automatic token counting and rate limiting
-        - Provider-specific parameter handling
         - Cost tracking per request
 
     Attributes:
