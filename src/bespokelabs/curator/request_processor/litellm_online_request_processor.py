@@ -60,14 +60,11 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         )
         self.client = instructor.from_litellm(litellm.acompletion)
 
-    def check_structured_output_support(self, prompt_formatter: PromptFormatter):
+    def check_structured_output_support(self):
         """Verify if the model supports structured output via instructor.
 
         Tests the model's capability to handle structured output by making a test request
         with a simple schema.
-
-        Args:
-            prompt_formatter (PromptFormatter): Contains response format requirements
 
         Returns:
             bool: True if structured output is supported, False otherwise
@@ -77,7 +74,6 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             - Logs detailed information about support status
             - Required for models that will use JSON schema responses
         """
-        assert prompt_formatter.response_format
 
         class User(BaseModel):
             name: str

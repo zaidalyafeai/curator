@@ -11,6 +11,7 @@ import requests
 import tiktoken
 import litellm
 import time
+from datetime import datetime
 
 from bespokelabs.curator.request_processor.base_online_request_processor import (
     BaseOnlineRequestProcessor,
@@ -179,6 +180,37 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
         num_tokens += 2  # every reply is primed with <im_start>assistant
         output_tokens = self.estimate_output_tokens()
         return num_tokens + output_tokens
+
+    def check_structured_output_support(self) -> bool:
+        """Check if the model supports structured output based on model name and date.
+        
+        Returns:
+            bool: True if model supports structured output, False otherwise
+            
+        Note:
+            Supports:
+            - gpt-4o-mini with date >= 2024-07-18 or latest
+            - gpt-4o with date >= 2024-08-06 or latest
+        """
+        model_name = self.model.lower()
+        
+        # Check gpt-4o-mini support
+        if model_name == "gpt-4o-mini":  # Latest version
+            return True
+        if "gpt-4o-mini-" in model_name:
+            mini_date = datetime.strptime(model_name.split("gpt-4o-mini-")[1], "%Y-%m-%d")
+            if mini_date >= datetime(2024, 7, 18):
+                return True
+                
+        # Check gpt-4o support
+        if model_name == "gpt-4o":  # Latest version
+            return True
+        if "gpt-4o-" in model_name:
+            base_date = datetime.strptime(model_name.split("gpt-4o-")[1], "%Y-%m-%d")
+            if base_date >= datetime(2024, 8, 6):
+                return True
+                
+        return False
 
     def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
         """Create an OpenAI-specific request from a generic request.

@@ -134,7 +134,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         """Estimate output tokens for a request"""
         pass
 
-    def check_structured_output_support(self, prompt_formatter: PromptFormatter) -> bool:
+    def check_structured_output_support(self) -> bool:
         """Check if the model supports structured output"""
         return True
 
@@ -150,7 +150,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
 
         self.prompt_formatter = prompt_formatter
         if self.prompt_formatter.response_format:
-            if not self.check_structured_output_support(prompt_formatter):
+            if not self.check_structured_output_support():
                 raise ValueError(
                     f"Model {self.model} does not support structured output, "
                     f"response_format: {self.prompt_formatter.response_format}"

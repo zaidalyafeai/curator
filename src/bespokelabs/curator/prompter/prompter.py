@@ -29,10 +29,37 @@ _CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
-
+logger.setLevel(logging.INFO)
 
 class Prompter:
     """Interface for prompting LLMs."""
+
+    @staticmethod
+    def _determine_backend(model_name: str, response_format: Optional[Type[BaseModel]] = None) -> str:
+        """Determine which backend to use based on model name and response format.
+        
+        Args:
+            model_name (str): Name of the model
+            response_format (Optional[Type[BaseModel]]): Response format if specified
+            
+        Returns:
+            str: Backend to use ("openai" or "litellm")
+        """
+        model_name = model_name.lower()
+        
+        # GPT-4o models with response format should use OpenAI
+        if response_format and OpenAIOnlineRequestProcessor(model_name).check_structured_output_support():
+            logger.info(f"Requesting structured output from {model_name}, using OpenAI backend")
+            return "openai"
+        
+        # GPT models and O1 models without response format should use OpenAI
+        if not response_format and any(x in model_name for x in ["gpt-", "o1-preview", "o1-mini"]):
+            logger.info(f"Requesting text output from {model_name}, using OpenAI backend")
+            return "openai"
+            
+        # Default to LiteLLM for all other cases
+        logger.info(f"Requesting {f'structured' if response_format else 'text'} output from {model_name}, using LiteLLM backend")
+        return "litellm"
 
     def __init__(
         self,
@@ -48,7 +75,7 @@ class Prompter:
             ]
         ] = None,
         response_format: Optional[Type[BaseModel]] = None,
-        backend: str = "openai",
+        backend: Optional[str] = None,
         batch: bool = False,
         batch_size: Optional[int] = None,
         temperature: Optional[float] = None,
@@ -66,7 +93,7 @@ class Prompter:
                 response object and returns the parsed output
             response_format (Optional[Type[BaseModel]]): A Pydantic model specifying the
                 response format from the LLM.
-            backend (str): The backend to use ("openai" or "litellm")
+            backend (Optional[str]): The backend to use ("openai" or "litellm"). If None, will be auto-determined
             batch (bool): Whether to use batch processing
             batch_size (Optional[int]): The size of the batch to use, only used if batch is True
             temperature (Optional[float]): The temperature to use for the LLM, only used if batch is False
@@ -91,9 +118,16 @@ class Prompter:
             model_name, prompt_func, parse_func, response_format
         )
         self.batch_mode = batch
-        self.backend = backend
+        
+        # Auto-determine backend if not specified
+        # Use provided backend or auto-determine based on model and format
+        if backend is not None:
+            self.backend = backend
+        else:
+            self.backend = self._determine_backend(model_name, response_format)
+        
         # Select request processor based on backend
-        if backend == "openai":
+        if self.backend == "openai":
             if batch:
                 if batch_size is None:
                     batch_size = 1_000
@@ -120,7 +154,7 @@ class Prompter:
                     presence_penalty=presence_penalty,
                     frequency_penalty=frequency_penalty,
                 )
-        elif backend == "litellm":
+        elif self.backend == "litellm":
             if batch:
                 logger.warning(
                     "Batch mode is not supported with LiteLLM backend, ignoring batch=True"
@@ -133,7 +167,7 @@ class Prompter:
                 frequency_penalty=frequency_penalty,
             )
         else:
-            raise ValueError(f"Unknown backend: {backend}")
+            raise ValueError(f"Unknown backend: {self.backend}")
 
     def __call__(self, dataset: Optional[Iterable] = None, working_dir: str = None) -> Dataset:
         """
