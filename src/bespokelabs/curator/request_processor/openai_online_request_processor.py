@@ -220,104 +220,69 @@ class OpenAIOnlineRequestProcessor(OnlineRequestProcessor):
 
         return request
 
-    async def process_single_request(
+    async def call_single_request(
         self,
         request: APIRequest,
         session: aiohttp.ClientSession,
-        retry_queue: asyncio.Queue,
-        save_filepath: str,
         status_tracker: StatusTracker,
-    ) -> None:
-        """Process a single OpenAI API request with error handling and retry logic.
+    ) -> GenericResponse:
+        """Make a single OpenAI API request.
 
         Args:
             request (APIRequest): The request to process
             session (aiohttp.ClientSession): Async HTTP session
-            retry_queue (asyncio.Queue): Queue for failed requests to retry
-            save_filepath (str): Path to save response
-            status_tracker (StatusTracker): Tracks request status and rate limits
-
-        Note:
-            - Handles rate limit errors with exponential backoff
-            - Tracks token usage and costs
-            - Saves responses immediately to avoid data loss
-            - Updates status tracker for monitoring
+            status_tracker (StatusTracker): Tracks request status
+            
+        Returns:
+            GenericResponse: The response from OpenAI
         """
-        try:
-            api_endpoint = api_endpoint_from_url(self.url)
-            request_header = {"Authorization": f"Bearer {self.api_key}"}
-            if "/deployments" in self.url:  # Azure deployment
-                request_header = {"api-key": f"{self.api_key}"}
+        api_endpoint = api_endpoint_from_url(self.url)
+        request_header = {"Authorization": f"Bearer {self.api_key}"}
+        if "/deployments" in self.url:  # Azure deployment
+            request_header = {"api-key": f"{self.api_key}"}
 
-            async with session.post(
-                self.url,
-                headers=request_header,
-                json=request.api_specific_request,
-                timeout=60.0,
-            ) as response_obj:
-                response = await response_obj.json()
+        async with session.post(
+            self.url,
+            headers=request_header,
+            json=request.api_specific_request,
+            timeout=60.0,
+        ) as response_obj:
+            response = await response_obj.json()
 
-                if "error" in response:
-                    status_tracker.num_api_errors += 1
-                    error = response["error"]
-                    if "rate limit" in error.get("message", "").lower():
-                        status_tracker.time_of_last_rate_limit_error = time.time()
-                        status_tracker.num_rate_limit_errors += 1
-                        status_tracker.num_api_errors -= 1
-                    raise Exception(f"API error: {error}")
+            if "error" in response:
+                status_tracker.num_api_errors += 1
+                error = response["error"]
+                if "rate limit" in error.get("message", "").lower():
+                    status_tracker.time_of_last_rate_limit_error = time.time()
+                    status_tracker.num_rate_limit_errors += 1
+                    status_tracker.num_api_errors -= 1
+                raise Exception(f"API error: {error}")
 
-                if response_obj.status != 200:
-                    raise Exception(
-                        f"API request failed with status {response_obj.status}: {response}"
-                    )
-
-                response_message = response["choices"][0]["message"]["content"]
-                usage = response["usage"]
-                token_usage = TokenUsage(
-                    prompt_tokens=usage["prompt_tokens"],
-                    completion_tokens=usage["completion_tokens"],
-                    total_tokens=usage["total_tokens"],
+            if response_obj.status != 200:
+                raise Exception(
+                    f"API request failed with status {response_obj.status}: {response}"
                 )
 
-                # Calculate cost using litellm
-                cost = litellm.completion_cost(completion_response=response)
+            response_message = response["choices"][0]["message"]["content"]
+            usage = response["usage"]
+            token_usage = TokenUsage(
+                prompt_tokens=usage["prompt_tokens"],
+                completion_tokens=usage["completion_tokens"],
+                total_tokens=usage["total_tokens"],
+            )
 
-                # Create and save response immediately
-                generic_response = GenericResponse(
-                    response_message=response_message,
-                    response_errors=None,
-                    raw_request=request.api_specific_request,
-                    raw_response=response,
-                    generic_request=request.generic_request,
-                    created_at=request.created_at,
-                    finished_at=datetime.datetime.now(),
-                    token_usage=token_usage,
-                    response_cost=cost,
-                )
+            # Calculate cost using litellm
+            cost = litellm.completion_cost(completion_response=response)
 
-                await self.append_generic_response(generic_response, save_filepath)
-                status_tracker.num_tasks_in_progress -= 1
-                status_tracker.num_tasks_succeeded += 1
-                status_tracker.pbar.update(1)
-
-        except Exception as e:
-            logger.error(f"Error in API request: {e}")
-            status_tracker.num_other_errors += 1
-            request.result.append(e)
-
-            if request.attempts_left > 0:
-                request.attempts_left -= 1
-                retry_queue.put_nowait(request)
-            else:
-                generic_response = GenericResponse(
-                    response_message=None,
-                    response_errors=[str(e) for e in request.result],
-                    raw_request=request.api_specific_request,
-                    raw_response=None,
-                    generic_request=request.generic_request,
-                    created_at=request.created_at,
-                    finished_at=datetime.datetime.now(),
-                )
-                await self.append_generic_response(generic_response, save_filepath)
-                status_tracker.num_tasks_in_progress -= 1
-                status_tracker.num_tasks_failed += 1
+            # Create and return response
+            return GenericResponse(
+                response_message=response_message,
+                response_errors=None,
+                raw_request=request.api_specific_request,
+                raw_response=response,
+                generic_request=request.generic_request,
+                created_at=request.created_at,
+                finished_at=datetime.datetime.now(),
+                token_usage=token_usage,
+                response_cost=cost,
+            )

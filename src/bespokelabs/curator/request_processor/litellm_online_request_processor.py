@@ -203,98 +203,59 @@ class LiteLLMOnlineRequestProcessor(OnlineRequestProcessor):
 
         return request
 
-    async def process_single_request(
+    async def call_single_request(
         self,
         request: APIRequest,
         session: aiohttp.ClientSession,
-        retry_queue: asyncio.Queue,
-        save_filepath: str,
         status_tracker: StatusTracker,
-    ) -> None:
-        """Process a single request through LiteLLM with error handling.
+    ) -> GenericResponse:
+        """Make a single request through LiteLLM.
 
         Handles both structured and unstructured outputs, tracks token usage
-        and costs, and manages retries.
+        and costs.
 
         Args:
             request (APIRequest): Request to process
             session (aiohttp.ClientSession): Async HTTP session
-            retry_queue (asyncio.Queue): Queue for failed requests
-            save_filepath (str): Path to save responses
-            status_tracker (StatusTracker): Tracks request status and limits
-
-        Note:
-            - Supports both instructor-based structured output and raw completions
-            - Calculates and tracks costs using LiteLLM's completion_cost
-            - Implements retry logic for failed requests
-            - Saves responses immediately to prevent data loss
+            status_tracker (StatusTracker): Tracks request status
+            
+        Returns:
+            GenericResponse: The response from LiteLLM
         """
-        try:
-            # Get response directly without extra logging
-            if request.generic_request.response_format:
-                response, completion_obj = (
-                    await self.client.chat.completions.create_with_completion(
-                        **request.api_specific_request,
-                        response_model=request.prompt_formatter.response_format,
-                        timeout=60.0,
-                    )
-                )
-                response_message = (
-                    response.model_dump() if hasattr(response, "model_dump") else response
-                )
-            else:
-                completion_obj = await litellm.acompletion(
-                    **request.api_specific_request, timeout=60.0
-                )
-                response_message = completion_obj["choices"][0]["message"]["content"]
-
-            # Extract token usage
-            usage = completion_obj.usage if hasattr(completion_obj, "usage") else {}
-            token_usage = TokenUsage(
-                prompt_tokens=usage.prompt_tokens,
-                completion_tokens=usage.completion_tokens,
-                total_tokens=usage.total_tokens,
+        # Get response directly without extra logging
+        if request.generic_request.response_format:
+            response, completion_obj = await self.client.chat.completions.create_with_completion(
+                **request.api_specific_request,
+                response_model=request.prompt_formatter.response_format,
+                timeout=60.0,
             )
-
-            # Calculate cost using litellm
-            cost = litellm.completion_cost(completion_response=completion_obj.model_dump())
-
-            # Create and save response immediately
-            generic_response = GenericResponse(
-                response_message=response_message,
-                response_errors=None,
-                raw_request=request.api_specific_request,
-                raw_response=completion_obj.model_dump(),
-                generic_request=request.generic_request,
-                created_at=request.created_at,
-                finished_at=datetime.datetime.now(),
-                token_usage=token_usage,
-                response_cost=cost,
+            response_message = response.model_dump() if hasattr(response, "model_dump") else response
+        else:
+            completion_obj = await litellm.acompletion(
+                **request.api_specific_request, timeout=60.0
             )
+            response_message = completion_obj["choices"][0]["message"]["content"]
 
-            await self.append_generic_response(generic_response, save_filepath)
-            status_tracker.num_tasks_in_progress -= 1
-            status_tracker.num_tasks_succeeded += 1
-            status_tracker.pbar.update(1)
+        # Extract token usage
+        usage = completion_obj.usage if hasattr(completion_obj, "usage") else {}
+        token_usage = TokenUsage(
+            prompt_tokens=usage.prompt_tokens,
+            completion_tokens=usage.completion_tokens,
+            total_tokens=usage.total_tokens,
+        )
 
-        except Exception as e:
-            logger.error(f"Error in API request: {e}")
-            status_tracker.num_other_errors += 1
-            request.result.append(e)
+        # Calculate cost using litellm
+        cost = litellm.completion_cost(completion_response=completion_obj.model_dump())
 
-            if request.attempts_left > 0:
-                request.attempts_left -= 1
-                retry_queue.put_nowait(request)
-            else:
-                generic_response = GenericResponse(
-                    response_message=None,
-                    response_errors=[str(e) for e in request.result],
-                    raw_request=request.api_specific_request,
-                    raw_response=None,
-                    generic_request=request.generic_request,
-                    created_at=request.created_at,
-                    finished_at=datetime.datetime.now(),
-                )
-                await self.append_generic_response(generic_response, save_filepath)
-                status_tracker.num_tasks_in_progress -= 1
-                status_tracker.num_tasks_failed += 1
+        # Create and return response
+        return GenericResponse(
+            response_message=response_message,
+            response_errors=None,
+            raw_request=request.api_specific_request,
+            raw_response=completion_obj.model_dump(),
+            generic_request=request.generic_request,
+            created_at=request.created_at,
+            finished_at=datetime.datetime.now(),
+            token_usage=token_usage,
+            response_cost=cost,
+        )

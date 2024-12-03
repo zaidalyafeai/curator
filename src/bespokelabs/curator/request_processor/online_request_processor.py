@@ -125,18 +125,6 @@ class OnlineRequestProcessor(BaseRequestProcessor, ABC):
         """Estimate output tokens for a request"""
         pass
 
-    @abstractmethod
-    def process_single_request(
-        self,
-        request: APIRequest,
-        session: aiohttp.ClientSession,
-        retry_queue: asyncio.Queue,
-        save_filepath: str,
-        status_tracker: StatusTracker,
-    ) -> None:
-        """Process a single API request"""
-        pass
-
     def check_structured_output_support(self, prompt_formatter: PromptFormatter) -> bool:
         """Check if the model supports structured output"""
         return True
@@ -250,7 +238,7 @@ class OnlineRequestProcessor(BaseRequestProcessor, ABC):
                     status_tracker.consume_capacity(token_estimate)
 
                     task = asyncio.create_task(
-                        self.process_single_request(
+                        self.handle_single_request_with_retries(
                             request=request,
                             session=session,
                             retry_queue=queue_of_requests_to_retry,
@@ -278,7 +266,7 @@ class OnlineRequestProcessor(BaseRequestProcessor, ABC):
                         status_tracker.consume_capacity(token_estimate)
 
                         task = asyncio.create_task(
-                            self.process_single_request(
+                            self.handle_single_request_with_retries(
                                 request=retry_request,
                                 session=session,
                                 retry_queue=queue_of_requests_to_retry,
@@ -310,3 +298,81 @@ class OnlineRequestProcessor(BaseRequestProcessor, ABC):
         async with aiofiles.open(filename, "a") as f:
             await f.write(json_string + "\n")
         logger.debug(f"Successfully appended response to {filename}")
+
+    async def handle_single_request_with_retries(
+        self,
+        request: APIRequest,
+        session: aiohttp.ClientSession,
+        retry_queue: asyncio.Queue,
+        save_filepath: str,
+        status_tracker: StatusTracker,
+    ) -> None:
+        """Common wrapper for handling a single request with error handling and retries.
+        
+        This method implements the common try/except logic and retry mechanism,
+        while delegating the actual API call to call_single_request.
+        
+        Args:
+            request (APIRequest): The request to process
+            session (aiohttp.ClientSession): Async HTTP session
+            retry_queue (asyncio.Queue): Queue for failed requests
+            save_filepath (str): Path to save responses
+            status_tracker (StatusTracker): Tracks request status
+        """
+        try:
+            generic_response = await self.call_single_request(
+                request=request,
+                session=session,
+                status_tracker=status_tracker,
+            )
+            
+            # Save response in the base class
+            await self.append_generic_response(generic_response, save_filepath)
+            
+            status_tracker.num_tasks_in_progress -= 1
+            status_tracker.num_tasks_succeeded += 1
+            status_tracker.pbar.update(1)
+
+        except Exception as e:
+            logger.error(f"Error in API request: {e}")
+            status_tracker.num_other_errors += 1
+            request.result.append(e)
+
+            if request.attempts_left > 0:
+                request.attempts_left -= 1
+                retry_queue.put_nowait(request)
+            else:
+                generic_response = GenericResponse(
+                    response_message=None,
+                    response_errors=[str(e) for e in request.result],
+                    raw_request=request.api_specific_request,
+                    raw_response=None,
+                    generic_request=request.generic_request,
+                    created_at=request.created_at,
+                    finished_at=datetime.datetime.now(),
+                )
+                await self.append_generic_response(generic_response, save_filepath)
+                status_tracker.num_tasks_in_progress -= 1
+                status_tracker.num_tasks_failed += 1
+
+    @abstractmethod
+    async def call_single_request(
+        self,
+        request: APIRequest,
+        session: aiohttp.ClientSession,
+        status_tracker: StatusTracker,
+    ) -> GenericResponse:
+        """Make a single API request without error handling.
+        
+        This method should implement the actual API call logic
+        without handling retries or errors.
+        
+        Args:
+            request (APIRequest): Request to process
+            session (aiohttp.ClientSession): Async HTTP session
+            status_tracker (StatusTracker): Tracks request status
+            
+        Returns:
+            GenericResponse: The response from the API call
+        """
+        pass
