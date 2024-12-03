@@ -141,9 +141,11 @@ class OnlineRequestProcessor(BaseRequestProcessor, ABC):
 
         self.prompt_formatter = prompt_formatter
         if self.prompt_formatter.response_format:
-            assert self.check_structured_output_support(
-                prompt_formatter
-            ), f"Model {self.model} does not support structured output, response_format: {self.prompt_formatter.response_format}"
+            if not self.check_structured_output_support(prompt_formatter):
+                raise ValueError(
+                    f"Model {self.model} does not support structured output, "
+                    f"response_format: {self.prompt_formatter.response_format}"
+                )
         generic_requests_files = self.create_request_files(dataset, working_dir, prompt_formatter)
         generic_responses_files = [
             f"{working_dir}/responses_{i}.jsonl" for i in range(len(generic_requests_files))
