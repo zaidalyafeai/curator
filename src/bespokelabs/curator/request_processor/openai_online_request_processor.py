@@ -232,7 +232,7 @@ class OpenAIOnlineRequestProcessor(OnlineRequestProcessor):
             request (APIRequest): The request to process
             session (aiohttp.ClientSession): Async HTTP session
             status_tracker (StatusTracker): Tracks request status
-            
+
         Returns:
             GenericResponse: The response from OpenAI
         """
@@ -259,9 +259,7 @@ class OpenAIOnlineRequestProcessor(OnlineRequestProcessor):
                 raise Exception(f"API error: {error}")
 
             if response_obj.status != 200:
-                raise Exception(
-                    f"API request failed with status {response_obj.status}: {response}"
-                )
+                raise Exception(f"API request failed with status {response_obj.status}: {response}")
 
             response_message = response["choices"][0]["message"]["content"]
             usage = response["usage"]

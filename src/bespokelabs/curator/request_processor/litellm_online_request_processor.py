@@ -218,7 +218,7 @@ class LiteLLMOnlineRequestProcessor(OnlineRequestProcessor):
             request (APIRequest): Request to process
             session (aiohttp.ClientSession): Async HTTP session
             status_tracker (StatusTracker): Tracks request status
-            
+
         Returns:
             GenericResponse: The response from LiteLLM
         """
@@ -229,11 +229,11 @@ class LiteLLMOnlineRequestProcessor(OnlineRequestProcessor):
                 response_model=request.prompt_formatter.response_format,
                 timeout=60.0,
             )
-            response_message = response.model_dump() if hasattr(response, "model_dump") else response
-        else:
-            completion_obj = await litellm.acompletion(
-                **request.api_specific_request, timeout=60.0
+            response_message = (
+                response.model_dump() if hasattr(response, "model_dump") else response
             )
+        else:
+            completion_obj = await litellm.acompletion(**request.api_specific_request, timeout=60.0)
             response_message = completion_obj["choices"][0]["message"]["content"]
 
         # Extract token usage

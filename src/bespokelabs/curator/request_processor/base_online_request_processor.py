@@ -317,10 +317,10 @@ class OnlineRequestProcessor(BaseRequestProcessor, ABC):
         status_tracker: StatusTracker,
     ) -> None:
         """Common wrapper for handling a single request with error handling and retries.
-        
+
         This method implements the common try/except logic and retry mechanism,
         while delegating the actual API call to call_single_request.
-        
+
         Args:
             request (APIRequest): The request to process
             session (aiohttp.ClientSession): Async HTTP session
@@ -334,10 +334,10 @@ class OnlineRequestProcessor(BaseRequestProcessor, ABC):
                 session=session,
                 status_tracker=status_tracker,
             )
-            
+
             # Save response in the base class
             await self.append_generic_response(generic_response, save_filepath)
-            
+
             status_tracker.num_tasks_in_progress -= 1
             status_tracker.num_tasks_succeeded += 1
             status_tracker.pbar.update(1)
@@ -372,15 +372,15 @@ class OnlineRequestProcessor(BaseRequestProcessor, ABC):
         status_tracker: StatusTracker,
     ) -> GenericResponse:
         """Make a single API request without error handling.
-        
+
         This method should implement the actual API call logic
         without handling retries or errors.
-        
+
         Args:
             request (APIRequest): Request to process
             session (aiohttp.ClientSession): Async HTTP session
             status_tracker (StatusTracker): Tracks request status
-            
+
         Returns:
             GenericResponse: The response from the API call
         """
