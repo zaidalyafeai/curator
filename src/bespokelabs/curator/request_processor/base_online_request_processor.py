@@ -105,7 +105,7 @@ class APIRequest:
     created_at: datetime.datetime = field(default_factory=datetime.datetime.now)
 
 
-class OnlineRequestProcessor(BaseRequestProcessor, ABC):
+class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
     """Abstract base class for online request processors that make real-time API calls."""
 
     def __init__(

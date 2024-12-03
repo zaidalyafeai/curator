@@ -7,7 +7,7 @@ from litellm import get_supported_openai_params
 import datetime
 import instructor
 from bespokelabs.curator.request_processor.base_online_request_processor import (
-    OnlineRequestProcessor,
+    BaseOnlineRequestProcessor,
     APIRequest,
     StatusTracker,
 )
@@ -22,7 +22,7 @@ logger.setLevel(logging.INFO)
 litellm.suppress_debug_info = True
 
 
-class LiteLLMOnlineRequestProcessor(OnlineRequestProcessor):
+class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
     """LiteLLM implementation of the OnlineRequestProcessor for multi-provider LLM support.
 
     This processor uses LiteLLM to handle requests across different LLM providers (OpenAI, Anthropic, etc.)

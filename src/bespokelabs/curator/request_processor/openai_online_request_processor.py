@@ -13,7 +13,7 @@ import litellm
 import time
 
 from bespokelabs.curator.request_processor.base_online_request_processor import (
-    OnlineRequestProcessor,
+    BaseOnlineRequestProcessor,
     APIRequest,
     StatusTracker,
 )
@@ -58,7 +58,7 @@ def api_endpoint_from_url(request_url: str) -> str:
         raise NotImplementedError(f'API endpoint "{request_url}" not implemented in Curator yet.')
 
 
-class OpenAIOnlineRequestProcessor(OnlineRequestProcessor):
+class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
     """OpenAI-specific implementation of the OnlineRequestProcessor.
 
     Handles API requests to OpenAI's chat completion endpoints with rate limiting,
