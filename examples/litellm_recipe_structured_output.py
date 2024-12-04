@@ -24,7 +24,7 @@ def main():
     # We define a prompter that generates cuisines
     cuisines_generator = curator.Prompter(
         prompt_func=lambda: f"Generate 10 diverse cuisines.",
-        model_name="gemini/gemini-1.5-flash",
+        model_name="claude-3-5-haiku-20241022",
         response_format=Cuisines,
         parse_func=lambda _, cuisines: [{"cuisine": t} for t in cuisines.cuisines_list],
         backend="litellm",
@@ -33,7 +33,7 @@ def main():
     print(cuisines.to_pandas())
 
     recipe_prompter = curator.Prompter(
-        model_name="claude-3-5-haiku-20241022",
+        model_name="gemini/gemini-1.5-flash",
         prompt_func=lambda row: f"Generate a random {row['cuisine']} recipe. Be creative but keep it realistic.",
         parse_func=lambda row, response: {
             "title": response.title,
