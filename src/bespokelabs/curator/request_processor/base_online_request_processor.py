@@ -331,16 +331,18 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             # Process any remaining retries in the queue
             while not queue_of_requests_to_retry.empty():
                 pending_retries = []
-                retry_batch = [] # one iteration of retries
-                
+                retry_batch = []  # one iteration of retries
+
                 # Get all current iteration of retries
                 while not queue_of_requests_to_retry.empty():
                     retry_request = await queue_of_requests_to_retry.get()
                     retry_batch.append(retry_request)
-                    
+
                 # Process this batch of retries
                 for retry_request in retry_batch:
-                    token_estimate = self.estimate_total_tokens(retry_request.generic_request.messages)
+                    token_estimate = self.estimate_total_tokens(
+                        retry_request.generic_request.messages
+                    )
                     attempt_number = 6 - retry_request.attempts_left
                     logger.info(
                         f"Processing retry for request {retry_request.task_id} "
