@@ -540,6 +540,18 @@ class BatchManager:
 
     async def requests_from_api_specific_request_file(self, request_file: str) -> list[dict]:
         return (await aiofiles.open(request_file, "r").read()).splitlines()
+    
+    async def cancel_batch(self, batch_id: str) -> int:
+        async with self.semaphore:
+            try:
+                await self.client.batches.cancel(batch_id)
+                logger.info(f"Successfully cancelled batch: {batch_id}")
+                return 0
+            except Exception as e:
+                # Successfully "completed" batches can't be cancelled
+                error_msg = str(e)
+                logger.error(f"Failed to cancel batch {batch_id}: {error_msg}")
+                return -1
 
     async def submit_batch_from_request_file(
         self,
