@@ -358,7 +358,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     )
                 )
                 pending_retries.append(task)
-                await asyncio.sleep(0.1)  # Allow other tasks to run
 
             # Wait for all retry tasks to complete
             if pending_retries:
