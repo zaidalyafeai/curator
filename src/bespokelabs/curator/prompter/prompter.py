@@ -51,6 +51,8 @@ class Prompter:
         top_p: Optional[float] = None,
         presence_penalty: Optional[float] = None,
         frequency_penalty: Optional[float] = None,
+        delete_successful_batch_files: bool = True,
+        delete_failed_batch_files: bool = False,  # To allow users to debug failed batches
     ):
         """Initialize a Prompter.
 
@@ -99,6 +101,8 @@ class Prompter:
                 top_p=top_p,
                 presence_penalty=presence_penalty,
                 frequency_penalty=frequency_penalty,
+                delete_successful_batch_files=delete_successful_batch_files,
+                delete_failed_batch_files=delete_failed_batch_files,
             )
         else:
             if batch_size is not None:
