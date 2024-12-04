@@ -91,11 +91,18 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
                 f"Model {self.model} supports structured output via instructor, response: {response}"
             )
             return True
-        except Exception as e:
-            logger.warning(
-                f"Model {self.model} does not support structured output via instructor: {e}"
-            )
-            return False
+        except instructor.exceptions.InstructorRetryException as e:
+            if "litellm.AuthenticationError" in str(e):
+                logger.warning(
+                    f"Please provide a valid API key for model {self.model}."
+                )
+                raise e
+            else:
+                logger.warning(
+                    f"Model {self.model} does not support structured output via instructor: {e} {type(e)} {e.__cause__}"
+                )
+                return False
+
 
     def estimate_output_tokens(self) -> int:
         """Estimate the number of tokens in the model's response.
