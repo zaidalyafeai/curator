@@ -32,6 +32,7 @@ MAX_BYTES_PER_BATCH = 200 * 1024 * 1024
 # NOTE(Ryan): This allows us to stay under the rate limit when submitting ~1,000 batches at a time
 # When submitting >1,000 batches the batch submission and batch download operations get rate limited
 MAX_CONCURRENT_BATCH_OPERATIONS = 100
+MAX_RETRIES_PER_OPERATION = 5
 
 
 class OpenAIBatchRequestProcessor(BaseRequestProcessor):
@@ -161,7 +162,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         self, batch_file: str, semaphore: asyncio.Semaphore | None = None
     ) -> dict:
         async with semaphore or asyncio.Semaphore():  # Use provided semaphore or dummy one
-            async_client = AsyncOpenAI()
+            async_client = AsyncOpenAI(max_retries=MAX_RETRIES_PER_OPERATION)
             # Create a list to store API-specific requests
             api_specific_requests = []
 
