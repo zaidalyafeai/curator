@@ -27,7 +27,7 @@ from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.request_processor.generic_response import TokenUsage
 
 T = TypeVar("T")
-logger = logging.getLogger(__name__)
+logger = logger = logging.getLogger("bespokelabs.curator")
 
 
 class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
@@ -150,9 +150,9 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         if output_dataset is not None:
             return output_dataset
 
-        generic_requests_files = self.create_request_files(dataset, working_dir, prompt_formatter)
+        generic_request_files = self.create_request_files(dataset, working_dir, prompt_formatter)
         generic_responses_files = [
-            f"{working_dir}/responses_{i}.jsonl" for i in range(len(generic_requests_files))
+            f"{working_dir}/responses_{i}.jsonl" for i in range(len(generic_request_files))
         ]
 
         rate_limits = self.get_rate_limits()
@@ -164,12 +164,12 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         # NOTE(Ryan): If you wanted to do this on batches, you could run a for loop here about request_files. Although I don't recommend it because you are waiting for straggler requests to finish for each batch.
         # NOTE(Ryan): And if you wanted to do batches in parallel, you would have to divide rpm and tpm by the number of parallel batches.
         # TODO(Ryan): Can we abstract retries from process_api_requests_from_file so you can use it even if you use liteLLM.
-        for generic_requests_file, generic_responses_file in zip(
-            generic_requests_files, generic_responses_files
+        for generic_request_file, generic_responses_file in zip(
+            generic_request_files, generic_responses_files
         ):
             run_in_event_loop(
                 self.process_generic_requests_from_file(
-                    generic_requests_filepath=generic_requests_file,
+                    generic_request_filepath=generic_request_file,
                     save_filepath=generic_responses_file,
                     request_url=self.url,
                     max_requests_per_minute=rpm,
@@ -184,7 +184,7 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
 
     async def process_generic_requests_from_file(
         self,
-        generic_requests_filepath: str,
+        generic_request_filepath: str,
         save_filepath: str,
         request_url: str,
         max_requests_per_minute: float,
@@ -195,14 +195,6 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         resume_no_retry: bool = False,
     ) -> None:
         """Processes API requests in parallel, throttling to stay under rate limits."""
-
-        # Increase the number of open file descriptors to avoid "Too many open files" errors
-        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-        resource.setrlimit(
-            resource.RLIMIT_NOFILE,
-            (min(hard, int(10 * max_requests_per_minute)), hard),
-        )
-
         # constants
         seconds_to_pause_after_rate_limit_error = 15
         seconds_to_sleep_each_loop = (
@@ -291,13 +283,13 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
                     return
 
         # initialize file reading
-        with open(generic_requests_filepath) as file:
+        with open(generic_request_filepath) as file:
             # `requests` will provide requests one at a time
             generic_requests = file.__iter__()
             logger.debug("File opened. Entering main loop")
 
             # Count total number of requests
-            total_requests = sum(1 for _ in open(generic_requests_filepath))
+            total_requests = sum(1 for _ in open(generic_request_filepath))
             if total_requests == len(completed_request_ids):
                 logger.debug("All requests have already been completed so will just reuse cache.")
                 return

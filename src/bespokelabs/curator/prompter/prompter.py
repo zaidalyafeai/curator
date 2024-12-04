@@ -25,7 +25,7 @@ from bespokelabs.curator.request_processor.openai_online_request_processor impor
 _CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")
 
-logger = logging.getLogger(__name__)
+logger = logger = logging.getLogger("bespokelabs.curator")
 
 
 class Prompter:
@@ -47,12 +47,13 @@ class Prompter:
         response_format: Optional[Type[BaseModel]] = None,
         batch: bool = False,
         batch_size: Optional[int] = None,
+        batch_check_interval: Optional[int] = 60,
+        delete_successful_batch_files: bool = True,
+        delete_failed_batch_files: bool = False,  # To allow users to debug failed batches
         temperature: Optional[float] = None,
         top_p: Optional[float] = None,
         presence_penalty: Optional[float] = None,
         frequency_penalty: Optional[float] = None,
-        delete_successful_batch_files: bool = True,
-        delete_failed_batch_files: bool = False,  # To allow users to debug failed batches
     ):
         """Initialize a Prompter.
 
@@ -97,6 +98,7 @@ class Prompter:
             self._request_processor = OpenAIBatchRequestProcessor(
                 model=model_name,
                 batch_size=batch_size,
+                batch_check_interval=batch_check_interval,
                 temperature=temperature,
                 top_p=top_p,
                 presence_penalty=presence_penalty,
