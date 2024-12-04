@@ -150,6 +150,8 @@ class Prompter:
                     top_p=top_p,
                     presence_penalty=presence_penalty,
                     frequency_penalty=frequency_penalty,
+                    delete_successful_batch_files=delete_successful_batch_files,
+                    delete_failed_batch_files=delete_failed_batch_files,
                 )
             else:
                 if batch_size is not None:
@@ -174,8 +176,6 @@ class Prompter:
                 top_p=top_p,
                 presence_penalty=presence_penalty,
                 frequency_penalty=frequency_penalty,
-                delete_successful_batch_files=delete_successful_batch_files,
-                delete_failed_batch_files=delete_failed_batch_files,
             )
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
