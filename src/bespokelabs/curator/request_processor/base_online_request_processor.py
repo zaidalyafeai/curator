@@ -333,7 +333,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 pending_retries = []
                 retry_batch = [] # one iteration of retries
                 
-                # Get all current retries (but leave room for new ones to be added)
+                # Get all current iteration of retries
                 while not queue_of_requests_to_retry.empty():
                     retry_request = await queue_of_requests_to_retry.get()
                     retry_batch.append(retry_request)
@@ -366,7 +366,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     )
                     pending_retries.append(task)
 
-                # Wait for this batch of retries to complete
+                # Wait for this iteration of retries to complete
                 if pending_retries:
                     await asyncio.gather(*pending_retries)
 
