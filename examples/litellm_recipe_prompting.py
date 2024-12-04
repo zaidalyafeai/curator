@@ -25,7 +25,7 @@ def main():
 
     # Create prompter using LiteLLM backend
     recipe_prompter = curator.Prompter(
-        model_name="gpt-4o-mini",
+        model_name="gemini/gemini-1.5-flash",
         prompt_func=lambda row: f"Generate a random {row['cuisine']} recipe. Be creative but keep it realistic.",
         parse_func=lambda row, response: {
             "recipe": response,

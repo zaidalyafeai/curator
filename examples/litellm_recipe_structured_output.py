@@ -24,7 +24,7 @@ def main():
     # We define a prompter that generates cuisines
     cuisines_generator = curator.Prompter(
         prompt_func=lambda: f"Generate 10 diverse cuisines.",
-        model_name="gpt-4o-mini",
+        model_name="gemini/gemini-1.5-flash",
         response_format=Cuisines,
         parse_func=lambda _, cuisines: [{"cuisine": t} for t in cuisines.cuisines_list],
         backend="litellm",
