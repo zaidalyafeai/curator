@@ -10,7 +10,7 @@ import glob
 import os
 import litellm
 from openai import AsyncOpenAI
-from openai.types import Batch, BatchRequestCounts
+from openai.types import Batch
 from tqdm import tqdm
 
 from bespokelabs.curator.dataset import Dataset
@@ -56,6 +56,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                 f"Please set your batch_size to be less than or equal to {MAX_REQUESTS_PER_BATCH:,}."
             )
         super().__init__(batch_size)
+        self.model = model
         self.url: str = url
         self.check_interval: int = batch_check_interval
         self.temperature: float | None = temperature
@@ -642,15 +643,17 @@ class BatchManager:
 
         # submit remaining batches
         self.batch_submit_pbar = tqdm(
-            total=len(self.tracker.unsubmitted_request_files),
+            total=self.tracker.n_total_batches,
             desc="Submitting batches",
             unit="batch",
+            initial=self.tracker.n_submitted_batch_ids,
         )
         tasks = [
             self.submit_batch_from_request_file(f, requests_from_request_file_func)
             for f in self.tracker.unsubmitted_request_files
         ]
         await asyncio.gather(*tasks)
+        self.batch_submit_pbar.close()
         assert self.tracker.unsubmitted_request_files == set()
         logger.debug(
             f"All batch objects submitted and written to {self.submitted_batch_objects_file}"
@@ -720,6 +723,7 @@ class BatchManager:
             total=self.tracker.n_total_requests,
             desc="Finished requests in batches",
             unit="request",
+            initial=self.tracker.n_finished_requests + self.tracker.n_downloaded_requests,
         )
 
         # loop until all batches have been returned
