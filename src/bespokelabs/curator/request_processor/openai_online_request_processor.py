@@ -91,12 +91,6 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
         self.api_key = api_key
         self.token_encoding = tiktoken.get_encoding(get_token_encoding_name(model))
 
-        # Set resource limits for file descriptors
-        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-        resource.setrlimit(
-            resource.RLIMIT_NOFILE, (min(hard, 10 * 3000), hard)
-        )  # default to 3000 rpm
-
     def get_rate_limits(self) -> dict:
         """Get rate limits from OpenAI API headers.
 
