@@ -329,6 +329,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 await asyncio.gather(*pending_requests)
 
             # Process any remaining retries in the queue
+            pending_retries = []
             while not queue_of_requests_to_retry.empty():
                 retry_request = await queue_of_requests_to_retry.get()
                 token_estimate = self.estimate_total_tokens(retry_request.generic_request.messages)
@@ -356,7 +357,12 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                         status_tracker=status_tracker,
                     )
                 )
-                await task
+                pending_retries.append(task)
+                await asyncio.sleep(0.1)  # Allow other tasks to run
+
+            # Wait for all retry tasks to complete
+            if pending_retries:
+                await asyncio.gather(*pending_retries)
 
         status_tracker.pbar.close()
 
@@ -406,7 +412,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
 
         except Exception as e:
             logger.warning(
-                f"Request {request.task_id} failed with Exception {e}, attempts left {request.attempts_left-1}"
+                f"Request {request.task_id} failed with Exception {e}, attempts left {request.attempts_left}"
             )
             status_tracker.num_other_errors += 1
             request.result.append(e)
