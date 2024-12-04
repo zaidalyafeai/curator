@@ -4,7 +4,7 @@ import logging
 import os
 import re
 import resource
-from typing import Optional
+from typing import Optional, Any
 
 import aiohttp
 import requests
