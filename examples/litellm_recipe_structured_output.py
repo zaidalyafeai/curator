@@ -22,6 +22,12 @@ class Cuisines(BaseModel):
 
 def main():
     # We define a prompter that generates cuisines
+    #############################################
+    # To use Claude models:
+    # 1. Go to https://console.anthropic.com/settings/keys
+    # 2. Generate an API key or use an existing API key
+    # 3. Set environment variable: ANTHROPIC_API_KEY
+    #############################################
     cuisines_generator = curator.Prompter(
         prompt_func=lambda: f"Generate 10 diverse cuisines.",
         model_name="claude-3-5-haiku-20241022",
@@ -31,7 +37,13 @@ def main():
     )
     cuisines = cuisines_generator()
     print(cuisines.to_pandas())
-
+    
+    #############################################
+    # To use Gemini models:
+    # 1. Go to https://aistudio.google.com/app/apikey
+    # 2. Generate an API key or use an existing API key
+    # 3. Set environment variable: GEMINI_API_KEY
+    #############################################
     recipe_prompter = curator.Prompter(
         model_name="gemini/gemini-1.5-flash",
         prompt_func=lambda row: f"Generate a random {row['cuisine']} recipe. Be creative but keep it realistic.",

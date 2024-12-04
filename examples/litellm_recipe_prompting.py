@@ -10,7 +10,7 @@ def main():
         {"cuisine": cuisine}
         for cuisine in [
             "Chinese",
-            "Italian",
+            "Italian", 
             "Mexican",
             "French",
             "Japanese",
@@ -24,6 +24,13 @@ def main():
     cuisines = Dataset.from_list(cuisines)
 
     # Create prompter using LiteLLM backend
+    #############################################
+    # To use Gemini models:
+    # 1. Go to https://aistudio.google.com/app/apikey
+    # 2. Generate an API key
+    # 3. Set environment variable: GEMINI_API_KEY
+    #############################################
+
     recipe_prompter = curator.Prompter(
         model_name="gemini/gemini-1.5-flash",
         prompt_func=lambda row: f"Generate a random {row['cuisine']} recipe. Be creative but keep it realistic.",
