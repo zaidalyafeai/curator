@@ -34,6 +34,7 @@ class StatusTracker:
     num_tasks_already_completed: int = 0
     num_api_errors: int = 0
     num_other_errors: int = 0
+    num_rate_limit_errors: int = 0
     available_request_capacity: float = 0
     available_token_capacity: float = 0
     last_update_time: float = field(default_factory=time.time)
@@ -42,7 +43,6 @@ class StatusTracker:
     pbar: tqdm = field(default=None)
     response_cost: float = 0
     time_of_last_rate_limit_error: float = field(default=None)
-    num_rate_limit_errors: int = 0
 
     def __str__(self):
         return (
@@ -51,7 +51,10 @@ class StatusTracker:
             f"Succeeded: {self.num_tasks_succeeded}, "
             f"Failed: {self.num_tasks_failed}, "
             f"Already Completed: {self.num_tasks_already_completed}\n"
-            f"Errors: {self.num_other_errors}"
+            f"Errors - API: {self.num_api_errors}, "
+            f"Rate Limit: {self.num_rate_limit_errors}, "
+            f"Other: {self.num_other_errors}, "
+            f"Total: {self.num_other_errors + self.num_api_errors + self.num_rate_limit_errors}"
         )
 
     def update_capacity(self):
@@ -321,34 +324,39 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     status_tracker.num_tasks_started += 1
                     status_tracker.num_tasks_in_progress += 1
 
-                    # Process any retries that are in the queue
-                    while not queue_of_requests_to_retry.empty():
-                        retry_request = await queue_of_requests_to_retry.get()
-                        token_estimate = self.estimate_total_tokens(
-                            retry_request.generic_request.messages
-                        )
-
-                        # Wait for capacity if needed
-                        while not status_tracker.has_capacity(token_estimate):
-                            await asyncio.sleep(0.1)
-
-                        # Consume capacity before making request
-                        status_tracker.consume_capacity(token_estimate)
-
-                        task = asyncio.create_task(
-                            self.handle_single_request_with_retries(
-                                request=retry_request,
-                                session=session,
-                                retry_queue=queue_of_requests_to_retry,
-                                save_filepath=save_filepath,
-                                status_tracker=status_tracker,
-                            )
-                        )
-                        pending_requests.append(task)
-
             # Wait for all tasks to complete
             if pending_requests:
                 await asyncio.gather(*pending_requests)
+
+            # Process any remaining retries in the queue
+            while not queue_of_requests_to_retry.empty():
+                retry_request = await queue_of_requests_to_retry.get()
+                token_estimate = self.estimate_total_tokens(retry_request.generic_request.messages)
+
+                attempt_number = 6 - retry_request.attempts_left
+                logger.info(
+                    f"Processing final retry for request {retry_request.task_id} "
+                    f"(attempt #{attempt_number} of 5). "
+                    f"Previous errors: {retry_request.result}"
+                )
+
+                # Wait for capacity if needed
+                while not status_tracker.has_capacity(token_estimate):
+                    await asyncio.sleep(0.1)
+
+                # Consume capacity before making request
+                status_tracker.consume_capacity(token_estimate)
+
+                task = asyncio.create_task(
+                    self.handle_single_request_with_retries(
+                        request=retry_request,
+                        session=session,
+                        retry_queue=queue_of_requests_to_retry,
+                        save_filepath=save_filepath,
+                        status_tracker=status_tracker,
+                    )
+                )
+                await task
 
         status_tracker.pbar.close()
 
@@ -361,13 +369,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 f"{status_tracker.num_tasks_failed} / {status_tracker.num_tasks_started} "
                 f"requests failed. Errors logged to {save_filepath}."
             )
-
-    async def append_generic_response(self, data: GenericResponse, filename: str) -> None:
-        """Append a response to a jsonl file with async file operations."""
-        json_string = json.dumps(data.model_dump(), default=str)
-        async with aiofiles.open(filename, "a") as f:
-            await f.write(json_string + "\n")
-        logger.debug(f"Successfully appended response to {filename}")
 
     async def handle_single_request_with_retries(
         self,
@@ -405,17 +406,23 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
 
         except Exception as e:
             logger.warning(
-                f"Request {request.task_id} failed with Exception {e}, attempts left {request.attempts_left}"
+                f"Request {request.task_id} failed with Exception {e}, attempts left {request.attempts_left-1}"
             )
             status_tracker.num_other_errors += 1
             request.result.append(e)
 
             if request.attempts_left > 0:
                 request.attempts_left -= 1
+                # Add retry queue logging
+                logger.info(
+                    f"Adding request {request.task_id} to retry queue. Will retry in next available slot. "
+                    f"Attempts remaining: {request.attempts_left}"
+                )
                 retry_queue.put_nowait(request)
             else:
-                logger.debug(
-                    f"Request {request.task_id} failed permanently after all retries exhausted"
+                logger.error(
+                    f"Request {request.task_id} failed permanently after exhausting all 5 retry attempts. "
+                    f"Errors: {[str(e) for e in request.result]}"
                 )
                 generic_response = GenericResponse(
                     response_message=None,
@@ -451,3 +458,10 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             GenericResponse: The response from the API call
         """
         pass
+
+    async def append_generic_response(self, data: GenericResponse, filename: str) -> None:
+        """Append a response to a jsonl file with async file operations."""
+        json_string = json.dumps(data.model_dump(), default=str)
+        async with aiofiles.open(filename, "a") as f:
+            await f.write(json_string + "\n")
+        logger.debug(f"Successfully appended response to {filename}")
