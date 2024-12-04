@@ -146,6 +146,10 @@ class OpenAIOnlineRequestProcessor(BaseRequestProcessor):
         Returns:
             Dataset: Completed dataset
         """
+        output_dataset = self.attempt_loading_cached_dataset(working_dir, parse_func_hash)
+        if output_dataset is not None:
+            return output_dataset
+
         generic_requests_files = self.create_request_files(dataset, working_dir, prompt_formatter)
         generic_responses_files = [
             f"{working_dir}/responses_{i}.jsonl" for i in range(len(generic_requests_files))

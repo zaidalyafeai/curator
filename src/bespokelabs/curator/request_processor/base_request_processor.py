@@ -97,7 +97,7 @@ class BaseRequestProcessor(ABC):
         # By default use existing requests in working_dir
         if len(requests_files) > 0:
             logger.info(
-                f"Using existing requests in {working_dir} by default. Found {len(requests_files)} request files."
+                f"Using existing requests in {working_dir} by default. Found {len(requests_files)} request files. "
                 f"If this is not what you want, delete the directory or specify a new one and re-run."
             )
             # count existing jobs in file and print first job
@@ -111,8 +111,8 @@ class BaseRequestProcessor(ABC):
                     num_jobs = i + 1
 
                 if num_jobs > 0:
-                    logger.info(f"There are {num_jobs} existing requests in {requests_files[0]}")
                     logger.info(
+                        f"There are {num_jobs} existing requests in {requests_files[0]}\n"
                         f"Example request in {requests_files[0]}:\n{json.dumps(first_job, default=str, indent=2)}"
                     )
                     return requests_files
@@ -172,6 +172,23 @@ class BaseRequestProcessor(ABC):
                 await f.write(json.dumps(request.model_dump(), default=str) + "\n")
         logger.info(f"Wrote {end_idx - start_idx} requests to {request_file}.")
 
+    def attempt_loading_cached_dataset(
+        self, working_dir: str, parse_func_hash: str
+    ) -> Optional[Dataset]:
+        dataset_file = f"{working_dir}/{parse_func_hash}.arrow"
+        if os.path.exists(dataset_file):
+            logger.info(f"Using existing dataset file {dataset_file}")
+            try:
+                output_dataset = Dataset.from_file(dataset_file)
+                return output_dataset
+            except pyarrow.lib.ArrowInvalid as e:
+                os.remove(dataset_file)
+                logger.warning(
+                    f"Failed to load dataset from {dataset_file}, "
+                    "which was likely corrupted by a failed previous run. "
+                    "Deleted file and attempting to regenerate dataset from cached LLM responses."
+                )
+
     def create_dataset_files(
         self,
         working_dir: str,
@@ -198,23 +215,6 @@ class BaseRequestProcessor(ABC):
         responses_files = glob.glob(f"{working_dir}/responses_*.jsonl")
         if len(responses_files) == 0:
             raise ValueError(f"No responses files found in {working_dir}")
-        dataset_file = f"{working_dir}/{parse_func_hash}.arrow"
-        if os.path.exists(dataset_file):
-            logger.info(f"Using existing dataset file {dataset_file}")
-            successful_dataset_cache_load = False
-            try:
-                output_dataset = Dataset.from_file(dataset_file)
-                successful_dataset_cache_load = True
-            except pyarrow.lib.ArrowInvalid as e:
-                os.remove(dataset_file)
-                logger.warning(
-                    f"Failed to load dataset from {dataset_file}, "
-                    "which was likely corrupted by a failed previous run. "
-                    "Deleted file and attempting to regenerate dataset from cached LLM responses."
-                )
-
-            if successful_dataset_cache_load:
-                return output_dataset
 
         error_help = (
             "Please check your `parse_func` is returning a valid row (dict) "
@@ -223,6 +223,7 @@ class BaseRequestProcessor(ABC):
         )
 
         # Process all response files
+        dataset_file = f"{working_dir}/{parse_func_hash}.arrow"
         with ArrowWriter(path=dataset_file) as writer:
             for responses_file in responses_files:
                 with open(responses_file, "r") as f_in:
