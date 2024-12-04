@@ -27,7 +27,7 @@ from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.request_processor.generic_response import TokenUsage
 
 T = TypeVar("T")
-logger = logger = logging.getLogger("bespokelabs.curator")
+logger = logger = logging.getLogger(__name__)
 
 
 class OpenAIOnlineRequestProcessor(BaseRequestProcessor):

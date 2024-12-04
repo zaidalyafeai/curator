@@ -19,7 +19,7 @@ from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.request_processor.generic_response import GenericResponse
 import aiofiles
 
-logger = logger = logging.getLogger("bespokelabs.curator")
+logger = logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 

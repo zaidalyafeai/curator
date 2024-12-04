@@ -25,7 +25,7 @@ from bespokelabs.curator.request_processor.openai_online_request_processor impor
 _CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")
 
-logger = logger = logging.getLogger("bespokelabs.curator")
+logger = logger = logging.getLogger(__name__)
 
 
 class Prompter:
