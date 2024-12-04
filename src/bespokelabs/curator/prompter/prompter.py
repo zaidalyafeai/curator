@@ -21,6 +21,9 @@ from bespokelabs.curator.request_processor.openai_batch_request_processor import
 from bespokelabs.curator.request_processor.openai_online_request_processor import (
     OpenAIOnlineRequestProcessor,
 )
+from bespokelabs.curator.request_processor.litellm_online_request_processor import (
+    LiteLLMOnlineRequestProcessor,
+)
 
 _CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")
@@ -30,6 +33,40 @@ logger = logging.getLogger(__name__)
 
 class Prompter:
     """Interface for prompting LLMs."""
+
+    @staticmethod
+    def _determine_backend(
+        model_name: str, response_format: Optional[Type[BaseModel]] = None
+    ) -> str:
+        """Determine which backend to use based on model name and response format.
+
+        Args:
+            model_name (str): Name of the model
+            response_format (Optional[Type[BaseModel]]): Response format if specified
+
+        Returns:
+            str: Backend to use ("openai" or "litellm")
+        """
+        model_name = model_name.lower()
+
+        # GPT-4o models with response format should use OpenAI
+        if (
+            response_format
+            and OpenAIOnlineRequestProcessor(model_name).check_structured_output_support()
+        ):
+            logger.info(f"Requesting structured output from {model_name}, using OpenAI backend")
+            return "openai"
+
+        # GPT models and O1 models without response format should use OpenAI
+        if not response_format and any(x in model_name for x in ["gpt-", "o1-preview", "o1-mini"]):
+            logger.info(f"Requesting text output from {model_name}, using OpenAI backend")
+            return "openai"
+
+        # Default to LiteLLM for all other cases
+        logger.info(
+            f"Requesting {f'structured' if response_format else 'text'} output from {model_name}, using LiteLLM backend"
+        )
+        return "litellm"
 
     def __init__(
         self,
@@ -45,6 +82,7 @@ class Prompter:
             ]
         ] = None,
         response_format: Optional[Type[BaseModel]] = None,
+        backend: Optional[str] = None,
         batch: bool = False,
         batch_size: Optional[int] = None,
         temperature: Optional[float] = None,
@@ -64,6 +102,7 @@ class Prompter:
                 response object and returns the parsed output
             response_format (Optional[Type[BaseModel]]): A Pydantic model specifying the
                 response format from the LLM.
+            backend (Optional[str]): The backend to use ("openai" or "litellm"). If None, will be auto-determined
             batch (bool): Whether to use batch processing
             batch_size (Optional[int]): The size of the batch to use, only used if batch is True
             temperature (Optional[float]): The temperature to use for the LLM, only used if batch is False
@@ -88,15 +127,49 @@ class Prompter:
             model_name, prompt_func, parse_func, response_format
         )
         self.batch_mode = batch
-        if batch:
-            if batch_size is None:
-                batch_size = 1_000
-                logger.info(
-                    f"batch=True but no batch_size provided, using default batch_size of {batch_size:,}"
+
+        # Auto-determine backend if not specified
+        # Use provided backend or auto-determine based on model and format
+        if backend is not None:
+            self.backend = backend
+        else:
+            self.backend = self._determine_backend(model_name, response_format)
+
+        # Select request processor based on backend
+        if self.backend == "openai":
+            if batch:
+                if batch_size is None:
+                    batch_size = 1_000
+                    logger.info(
+                        f"batch=True but no batch_size provided, using default batch_size of {batch_size:,}"
+                    )
+                self._request_processor = OpenAIBatchRequestProcessor(
+                    model=model_name,
+                    batch_size=batch_size,
+                    temperature=temperature,
+                    top_p=top_p,
+                    presence_penalty=presence_penalty,
+                    frequency_penalty=frequency_penalty,
                 )
-            self._request_processor = OpenAIBatchRequestProcessor(
+            else:
+                if batch_size is not None:
+                    logger.warning(
+                        f"Prompter argument `batch_size` {batch_size} is ignored because `batch` is False"
+                    )
+                self._request_processor = OpenAIOnlineRequestProcessor(
+                    model=model_name,
+                    temperature=temperature,
+                    top_p=top_p,
+                    presence_penalty=presence_penalty,
+                    frequency_penalty=frequency_penalty,
+                )
+        elif self.backend == "litellm":
+            if batch:
+                logger.warning(
+                    "Batch mode is not supported with LiteLLM backend, ignoring batch=True"
+                )
+            self._request_processor = LiteLLMOnlineRequestProcessor(
                 model=model_name,
-                batch_size=batch_size,
                 temperature=temperature,
                 top_p=top_p,
                 presence_penalty=presence_penalty,
@@ -105,17 +178,7 @@ class Prompter:
                 delete_failed_batch_files=delete_failed_batch_files,
             )
         else:
-            if batch_size is not None:
-                logger.warning(
-                    f"Prompter argument `batch_size` {batch_size} is ignored because `batch` is False"
-                )
-            self._request_processor = OpenAIOnlineRequestProcessor(
-                model=model_name,
-                temperature=temperature,
-                top_p=top_p,
-                presence_penalty=presence_penalty,
-                frequency_penalty=frequency_penalty,
-            )
+            raise ValueError(f"Unknown backend: {self.backend}")
 
     def __call__(self, dataset: Optional[Iterable] = None, working_dir: str = None) -> Dataset:
         """
@@ -180,6 +243,7 @@ class Prompter:
                     else "text"
                 ),
                 str(self.batch_mode),
+                str(self.backend),
             ]
         )
 
