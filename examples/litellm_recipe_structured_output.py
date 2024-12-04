@@ -37,7 +37,7 @@ def main():
     )
     cuisines = cuisines_generator()
     print(cuisines.to_pandas())
-    
+
     #############################################
     # To use Gemini models:
     # 1. Go to https://aistudio.google.com/app/apikey

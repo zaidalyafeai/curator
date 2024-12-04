@@ -10,7 +10,7 @@ def main():
         {"cuisine": cuisine}
         for cuisine in [
             "Chinese",
-            "Italian", 
+            "Italian",
             "Mexican",
             "French",
             "Japanese",
