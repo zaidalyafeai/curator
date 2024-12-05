@@ -329,39 +329,42 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 await asyncio.gather(*pending_requests)
 
             # Process any remaining retries in the queue
-            pending_retries = []
-            while not queue_of_requests_to_retry.empty():
-                retry_request = await queue_of_requests_to_retry.get()
-                token_estimate = self.estimate_total_tokens(retry_request.generic_request.messages)
-
-                attempt_number = 6 - retry_request.attempts_left
-                logger.info(
-                    f"Processing final retry for request {retry_request.task_id} "
-                    f"(attempt #{attempt_number} of 5). "
-                    f"Previous errors: {retry_request.result}"
-                )
-
-                # Wait for capacity if needed
-                while not status_tracker.has_capacity(token_estimate):
-                    await asyncio.sleep(0.1)
-
-                # Consume capacity before making request
-                status_tracker.consume_capacity(token_estimate)
-
-                task = asyncio.create_task(
-                    self.handle_single_request_with_retries(
-                        request=retry_request,
-                        session=session,
-                        retry_queue=queue_of_requests_to_retry,
-                        save_filepath=save_filepath,
-                        status_tracker=status_tracker,
+            pending_retries = set()
+            while not queue_of_requests_to_retry.empty() or pending_retries:
+                # Process new items from the queue if we have capacity
+                if not queue_of_requests_to_retry.empty():
+                    retry_request = await queue_of_requests_to_retry.get()
+                    token_estimate = self.estimate_total_tokens(
+                        retry_request.generic_request.messages
                     )
-                )
-                pending_retries.append(task)
+                    attempt_number = 6 - retry_request.attempts_left
+                    logger.info(
+                        f"Processing retry for request {retry_request.task_id} "
+                        f"(attempt #{attempt_number} of 5). "
+                        f"Previous errors: {retry_request.result}"
+                    )
 
-            # Wait for all retry tasks to complete
-            if pending_retries:
-                await asyncio.gather(*pending_retries)
+                    # Wait for capacity if needed
+                    while not status_tracker.has_capacity(token_estimate):
+                        await asyncio.sleep(0.1)
+
+                    # Consume capacity before making request
+                    status_tracker.consume_capacity(token_estimate)
+
+                    task = asyncio.create_task(
+                        self.handle_single_request_with_retries(
+                            request=retry_request,
+                            session=session,
+                            retry_queue=queue_of_requests_to_retry,
+                            save_filepath=save_filepath,
+                            status_tracker=status_tracker,
+                        )
+                    )
+                    pending_retries.add(task)
+
+                # Wait for some tasks to complete
+                if pending_retries:
+                    done, pending_retries = await asyncio.wait(pending_retries, timeout=0.1)
 
         status_tracker.pbar.close()
 
