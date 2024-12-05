@@ -279,6 +279,13 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                 json.dump(generic_response.model_dump(), f, default=str)
                 f.write("\n")
 
+    async def run_batch_operations(self, batch_manager, request_files):
+        # For running in a single event loop (so sempahore does not change)
+        await batch_manager.submit_batches_from_request_files(
+            request_files, self.requests_from_generic_request_file
+        )
+        await batch_manager.poll_and_process_batches(self.generic_response_file_from_responses)
+
     def run(
         self,
         dataset: Dataset | None,
@@ -313,6 +320,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             return output_dataset
 
         request_files = set(self.create_request_files(dataset, working_dir, prompt_formatter))
+        self.prompt_formatter = prompt_formatter
 
         batch_manager = BatchManager(
             working_dir,
@@ -322,15 +330,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             delete_failed_batch_files=self.delete_failed_batch_files,
         )
 
-        run_in_event_loop(
-            batch_manager.submit_batches_from_request_files(
-                request_files, self.requests_from_generic_request_file
-            )
-        )
-        self.prompt_formatter = prompt_formatter
-        run_in_event_loop(
-            batch_manager.poll_and_process_batches(self.generic_response_file_from_responses)
-        )
+        run_in_event_loop(self.run_batch_operations(batch_manager, request_files))
 
         return self.create_dataset_files(working_dir, parse_func_hash, prompt_formatter)
 
@@ -670,12 +670,6 @@ class BatchManager:
             failed = abs(sum(results))
             logger.warning(
                 f"{len(results)-failed:,} out of {len(results):,} batches successfully cancelled"
-            )
-            logger.info(
-                f"Moving batch objects file to {self.submitted_batch_objects_file}.cancelled"
-            )
-            os.rename(
-                self.submitted_batch_objects_file, f"{self.submitted_batch_objects_file}.cancelled"
             )
 
     async def retrieve_batch(self, batch_id: str) -> Batch:
