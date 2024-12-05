@@ -247,8 +247,24 @@ class BaseRequestProcessor(ABC):
                             # Response message is a string, which is converted to a dict
                             # The dict is then used to construct the response_format Pydantic model
                             try:
+                                # First try to parse the response message as JSON
+                                if isinstance(response.response_message, str):
+                                    try:
+                                        response_dict = json.loads(response.response_message)
+                                    except json.JSONDecodeError as e:
+                                        warning_msg = (
+                                            f"Failed to parse response message as JSON: {response.response_message}. "
+                                            f"The model likely returned an invalid JSON format. Will skip this response."
+                                        )
+                                        logger.warning(warning_msg)
+                                        failed_responses_count += 1
+                                        continue
+                                else:
+                                    response_dict = response.response_message
+
+                                # Then construct the Pydantic model from the parsed dict
                                 response.response_message = prompt_formatter.response_format(
-                                    **response.response_message
+                                    **response_dict
                                 )
                             except ValidationError as e:
                                 schema_str = json.dumps(
@@ -256,7 +272,7 @@ class BaseRequestProcessor(ABC):
                                     indent=2,
                                 )
                                 warning_msg = (
-                                    f"Pydantic failed to parse response message {response.response_message} with `response_format` {schema_str}."
+                                    f"Pydantic failed to parse response message {response.response_message} with `response_format` {schema_str}. "
                                     f"The model likely returned a JSON that does not match the schema of the `response_format`. Will skip this response."
                                 )
                                 logger.warning(warning_msg)

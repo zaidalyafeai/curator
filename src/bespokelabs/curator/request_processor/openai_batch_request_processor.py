@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import glob
 import json
 import logging
 from dataclasses import dataclass, field
@@ -31,7 +32,7 @@ MAX_BYTES_PER_BATCH = 200 * 1024 * 1024
 # NOTE(Ryan): This allows us to stay under the rate limit when submitting ~1,000 batches at a time
 # When submitting >1,000 batches the batch submission and batch download operations get rate limited
 MAX_CONCURRENT_BATCH_OPERATIONS = 100
-MAX_RETRIES_PER_OPERATION = 5
+MAX_RETRIES_PER_OPERATION = 50
 
 
 class OpenAIBatchRequestProcessor(BaseRequestProcessor):
