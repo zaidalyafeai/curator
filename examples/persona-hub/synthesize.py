@@ -43,7 +43,9 @@ def main(args):
     template = get_template(args.template)
     generator = get_generator(template)
     # Load the persona dataset
-    persona_dataset = load_dataset("proj-persona/PersonaHub", data_files="persona.jsonl", split="train")
+    persona_dataset = load_dataset(
+        "proj-persona/PersonaHub", data_files="persona.jsonl", split="train"
+    )
     if args.sample_size > 0:
         persona_dataset = persona_dataset.take(args.sample_size)
     print(f"Total number of input personas: {len(persona_dataset['persona'])}")
