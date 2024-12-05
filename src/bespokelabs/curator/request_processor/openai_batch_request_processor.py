@@ -400,6 +400,11 @@ class BatchStatusTracker:
         """Number of batches that have been submitted or finished or downloaded."""
         return self.n_submitted_batches + self.n_finished_batches + self.n_downloaded_batches
 
+    @property
+    def n_finished_or_downloaded_batches(self) -> int:
+        """Number of requests that are finished or downloaded."""
+        return self.n_finished_requests + self.n_downloaded_requests
+
     def mark_as_submitted(self, request_file: str, batch_object: Batch):
         """Mark a request file as submitted."""
         assert request_file in self.unsubmitted_request_files
@@ -902,8 +907,8 @@ class BatchManager:
             all_response_files.extend(await asyncio.gather(*download_tasks))
             if self.tracker.n_finished_or_downloaded_requests < self.tracker.n_total_requests:
                 logger.debug(
-                    f"Batches returned: {len(self.tracker.finished_batch_ids) + len(self.tracker.downloaded_batch_ids)}/{len(self.tracker.submitted_batch_ids) + len(self.tracker.finished_batch_ids) + len(self.tracker.downloaded_batch_ids)} "
-                    f"Requests completed: {self.tracker.n_finished_or_downloaded_requests}/{self.tracker.n_total_requests}"
+                    f"Batches returned: {self.tracker.n_finished_or_downloaded_batches:,}/{self.tracker.n_total_batches:,} "
+                    f"Requests completed: {self.tracker.n_finished_or_downloaded_requests:,}/{self.tracker.n_total_requests:,}"
                 )
                 logger.debug(f"Sleeping for {self.check_interval} seconds...")
                 await asyncio.sleep(self.check_interval)
