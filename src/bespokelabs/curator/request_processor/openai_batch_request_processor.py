@@ -419,23 +419,24 @@ class BatchStatusTracker:
         self.unsubmitted_request_files.remove(request_file)
         self.submitted_batches[batch_object.id] = batch_object
         self.n_total_requests += n_requests
-        logger.debug(f"Marked {request_file} as submitted with batch ID {batch_object.id}")
+        logger.debug(f"Marked {request_file} as submitted with batch {batch_object.id}")
 
     def mark_as_finished(self, batch_object: Batch):
         assert batch_object.id in self.submitted_batches
         self.submitted_batches.pop(batch_object.id)
         self.finished_batches[batch_object.id] = batch_object
-        logger.debug(f"Marked batch ID {batch_object.id} as finished")
+        logger.debug(f"Marked batch {batch_object.id} as finished")
 
     def mark_as_downloaded(self, batch_object: Batch):
         assert batch_object.id in self.finished_batches
         self.finished_batches.pop(batch_object.id)
         self.downloaded_batches[batch_object.id] = batch_object
-        logger.debug(f"Marked batch ID {batch_object.id} as downloaded")
+        logger.debug(f"Marked batch {batch_object.id} as downloaded")
 
     def update_submitted(self, batch_object: Batch):
         assert batch_object.id in self.submitted_batches
         self.submitted_batches[batch_object.id] = batch_object
+        logger.debug(f"Updated submitted batch {batch_object.id} with new request counts")
 
     def __str__(self) -> str:
         """Returns a human-readable string representation of the batch status."""
