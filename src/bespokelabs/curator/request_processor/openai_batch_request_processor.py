@@ -3,6 +3,7 @@ import datetime
 import json
 import logging
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Callable
 
 import glob
@@ -188,6 +189,80 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
         return api_specific_requests
 
+    async def generic_response_file_from_responses(
+        self, responses: str, batch: Batch, response_file: str
+    ) -> str | None:
+        request_file = batch.metadata["request_file_name"]
+        generic_request_map = {}
+        batch_created_at = datetime.datetime.fromtimestamp(batch.created_at)
+        with open(request_file, "r") as f:
+            for line in f:
+                generic_request = GenericRequest.model_validate_json(line)
+                generic_request_map[generic_request.original_row_idx] = generic_request
+
+        with open(response_file, "w") as f:
+            for raw_response in responses.text.splitlines():
+                raw_response = json.loads(raw_response)
+                request_idx = int(raw_response["custom_id"])
+                generic_request = generic_request_map[request_idx]
+
+                if raw_response["response"]["status_code"] != 200:
+                    logger.warning(
+                        f"Request {generic_request} failed with status code {raw_response['response']['status_code']}"
+                    )
+                    generic_response = GenericResponse(
+                        response_message=None,
+                        response_errors=[
+                            f"Request {generic_request} failed with status code {raw_response['response']['status_code']}"
+                        ],
+                        raw_response=raw_response,
+                        raw_request=None,
+                        generic_request=generic_request,
+                        created_at=batch_created_at,
+                        finished_at=datetime.datetime.now(),
+                        token_usage=None,
+                        response_cost=None,
+                    )
+                else:
+                    response_body = raw_response["response"]["body"]
+                    choices = response_body["choices"]
+                    usage = response_body.get("usage", {})
+
+                    token_usage = TokenUsage(
+                        prompt_tokens=usage.get("prompt_tokens", 0),
+                        completion_tokens=usage.get("completion_tokens", 0),
+                        total_tokens=usage.get("total_tokens", 0),
+                    )
+
+                    # Calculate cost using litellm (50% off for batch)
+                    cost = (
+                        litellm.completion_cost(
+                            model=generic_request.model,
+                            prompt=str(generic_request.messages),
+                            completion=choices[0]["message"]["content"],
+                        )
+                        * 0.5
+                    )
+
+                    response_message = choices[0]["message"]["content"]
+                    response_message, response_errors = parse_response_message(
+                        response_message, self.prompt_formatter.response_format
+                    )
+
+                    generic_response = GenericResponse(
+                        response_message=response_message,
+                        response_errors=response_errors,
+                        raw_response=raw_response,
+                        raw_request=None,
+                        generic_request=generic_request,
+                        created_at=batch_created_at,
+                        finished_at=datetime.datetime.now(),
+                        token_usage=token_usage,
+                        response_cost=cost,
+                    )
+                json.dump(generic_response.model_dump(), f, default=str)
+                f.write("\n")
+
     def run(
         self,
         dataset: Dataset | None,
@@ -241,7 +316,9 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                     request_files, self.requests_from_generic_request_file
                 )
             )
-            run_in_event_loop(batch_manager.poll_and_process_batches())
+            run_in_event_loop(
+                batch_manager.poll_and_process_batches(self.generic_response_file_from_responses)
+            )
             run_in_event_loop(batch_manager.close_client())
 
         return self.create_dataset_files(working_dir, parse_func_hash, prompt_formatter)
@@ -357,6 +434,17 @@ def response_file_to_request_file(response_file: str, working_dir: str) -> str:
     """
     response_file_idx = response_file.split("/")[-1].split("_", 1)[1]
     return f"{working_dir}/requests_{response_file_idx}"
+
+
+async def requests_from_api_specific_request_file(self, request_file: str) -> list[dict]:
+    with open(request_file, "r") as file:
+        return file.read().splitlines()
+
+
+async def api_specific_response_file_from_responses(
+    responses: str, batch: Batch, response_file: str
+) -> str | None:
+    open(response_file, "w").write(responses)
 
 
 class BatchManager:
@@ -525,10 +613,6 @@ class BatchManager:
 
             return batch_object
 
-    async def requests_from_api_specific_request_file(self, request_file: str) -> list[dict]:
-        with open(request_file, "r") as file:
-            return file.read().splitlines()
-
     async def cancel_batches(self):
         if not os.path.exists(self.submitted_batch_objects_file):
             raise ValueError(
@@ -612,7 +696,8 @@ class BatchManager:
                     batch_object = Batch.model_validate(json.loads(line))
                     request_file_name = batch_object.metadata["request_file_name"]
                     logger.debug(
-                        f"Already submitted batch {batch_object.id} for request file {request_file_name}"
+                        f"Already submitted batch {batch_object.id} for request file {request_file_name}. "
+                        f"Getting batch object to update tracker."
                     )
                     batch_object = await self.retrieve_batch(batch_object.id)
                     if request_file_name in self.tracker.unsubmitted_request_files:
@@ -733,7 +818,10 @@ class BatchManager:
                 self.tracker.finished_batch_ids.add(batch.id)
                 return batch
 
-    async def poll_and_process_batches(self) -> None:
+    async def poll_and_process_batches(
+        self,
+        response_file_from_responses_func: Callable = api_specific_response_file_from_responses,
+    ) -> None:
         """Monitors and processes batches until all are completed.
 
         Continuously polls the status of submitted batches and downloads their results
@@ -849,93 +937,6 @@ class BatchManager:
 
         return file_content
 
-    async def api_specific_response_file_from_responses(
-        self, responses: str, batch: Batch
-    ) -> str | None:
-        request_file = batch.metadata["request_file_name"]
-        response_file = request_file_to_response_file(request_file, self.working_dir)
-        # Simplified file writing
-        with open(response_file, "w") as f:
-            f.write(responses)
-        return response_file
-
-    async def generic_response_file_from_responses(
-        self, responses: str, batch: Batch
-    ) -> str | None:
-        request_file = batch.metadata["request_file_name"]
-        response_file = request_file_to_response_file(request_file, self.working_dir)
-
-        generic_request_map = {}
-        batch_created_at = datetime.datetime.fromtimestamp(batch.created_at)
-        with open(request_file, "r") as f:
-            for line in f:
-                generic_request = GenericRequest.model_validate_json(line)
-                generic_request_map[generic_request.original_row_idx] = generic_request
-
-        with open(response_file, "w") as f:
-            for raw_response in responses.splitlines():
-                raw_response = json.loads(raw_response)
-                request_idx = int(raw_response["custom_id"])
-                generic_request = generic_request_map[request_idx]
-
-                if raw_response["response"]["status_code"] != 200:
-                    logger.warning(
-                        f"Request {generic_request} failed with status code {raw_response['response']['status_code']}"
-                    )
-                    generic_response = GenericResponse(
-                        response_message=None,
-                        response_errors=[
-                            f"Request {generic_request} failed with status code {raw_response['response']['status_code']}"
-                        ],
-                        raw_response=raw_response,
-                        raw_request=None,
-                        generic_request=generic_request,
-                        created_at=batch_created_at,
-                        finished_at=datetime.datetime.now(),
-                        token_usage=None,
-                        response_cost=None,
-                    )
-                else:
-                    response_body = raw_response["response"]["body"]
-                    choices = response_body["choices"]
-                    usage = response_body.get("usage", {})
-
-                    token_usage = TokenUsage(
-                        prompt_tokens=usage.get("prompt_tokens", 0),
-                        completion_tokens=usage.get("completion_tokens", 0),
-                        total_tokens=usage.get("total_tokens", 0),
-                    )
-
-                    # Calculate cost using litellm (50% off for batch)
-                    cost = (
-                        litellm.completion_cost(
-                            model=generic_request.model,
-                            prompt=str(generic_request.messages),
-                            completion=choices[0]["message"]["content"],
-                        )
-                        * 0.5
-                    )
-
-                    response_message = choices[0]["message"]["content"]
-                    response_message, response_errors = parse_response_message(
-                        response_message, self.prompt_formatter.response_format
-                    )
-
-                    generic_response = GenericResponse(
-                        response_message=response_message,
-                        response_errors=response_errors,
-                        raw_response=raw_response,
-                        raw_request=None,
-                        generic_request=generic_request,
-                        created_at=batch_created_at,
-                        finished_at=datetime.datetime.now(),
-                        token_usage=token_usage,
-                        response_cost=cost,
-                    )
-                json.dump(generic_response.model_dump(), f, default=str)
-                f.write("\n")
-        return response_file
-
     async def download_batch_to_response_file(
         self,
         batch: Batch,
@@ -964,7 +965,9 @@ class BatchManager:
         if file_content is None:
             return None
 
-        response_file = await response_file_from_responses_func(file_content, batch)
+        request_file = batch.metadata["request_file_name"]
+        response_file = request_file_to_response_file(request_file, self.working_dir)
+        await response_file_from_responses_func(file_content, batch, response_file)
 
         logger.debug(f"Batch {batch.id} written to {response_file}")
 
