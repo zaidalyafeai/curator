@@ -355,9 +355,6 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
 @dataclass
 class BatchStatusTracker:
-    # total number of request files
-    n_total_batches: int = 0
-
     # total number of requests in all request files
     n_total_requests: int = 0
 
@@ -368,6 +365,15 @@ class BatchStatusTracker:
     submitted_batches: dict[str, Batch] = field(default_factory=dict)
     finished_batches: dict[str, Batch] = field(default_factory=dict)
     downloaded_batches: dict[str, Batch] = field(default_factory=dict)
+
+    @property
+    def n_total_batches(self) -> int:
+        return (
+            self.n_unsubmitted_request_files
+            + self.n_submitted_batches
+            + self.n_finished_batches
+            + self.n_downloaded_batches
+        )
 
     @property
     def n_unsubmitted_request_files(self) -> int:
@@ -412,7 +418,6 @@ class BatchStatusTracker:
         assert n_requests > 0
         self.unsubmitted_request_files.remove(request_file)
         self.submitted_batches[batch_object.id] = batch_object
-        self.n_total_batches += 1
         self.n_total_requests += n_requests
         logger.debug(f"Marked {request_file} as submitted with batch ID {batch_object.id}")
 
@@ -748,7 +753,6 @@ class BatchManager:
                         # batch objects if not unsubmitted, should be downloaded
                         assert batch_object.id in self.tracker.downloaded_batches
 
-        self.tracker.n_total_batches += len(self.tracker.unsubmitted_request_files)
         if self.tracker.n_submitted_batches > 0:
             logger.info(
                 f"{self.tracker.n_submitted_batches:,} out of {self.tracker.n_total_batches - self.tracker.n_downloaded_batches:,} remaining batches are already submitted."
