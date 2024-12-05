@@ -189,6 +189,25 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
     async def generic_response_file_from_responses(
         self, responses: str, batch: Batch, response_file: str
     ) -> str | None:
+        """Processes API-specific responses and creates a generic response file.
+
+        Takes raw API responses from a batch request and converts them into GenericResponse objects,
+        writing them to a response file. Handles both successful and failed responses, including
+        token usage tracking and cost calculation.
+
+        Args:
+            responses (str): Raw response text from the API containing JSONL formatted responses.
+            batch (Batch): The OpenAI batch object containing metadata about the request batch.
+            response_file (str): Path where the generic response file should be written.
+
+        Returns:
+            str | None: Path to the created response file, or None if creation failed.
+
+        Note:
+            The response file will contain one GenericResponse per line in JSONL format.
+            Failed requests will have response_message=None and include error details.
+            Costs are calculated using litellm with 50% discount applied for batch requests.
+        """
         request_file = batch.metadata["request_file_name"]
         generic_request_map = {}
         batch_created_at = datetime.datetime.fromtimestamp(batch.created_at)
@@ -370,6 +389,11 @@ class BatchStatusTracker:
     def n_downloaded_batch_ids(self) -> int:
         """Number of batch IDs that have been downloaded."""
         return len(self.downloaded_batch_ids)
+
+    @property
+    def n_finished_or_downloaded_requests(self) -> int:
+        """Number of requests that are finished or downloaded."""
+        return self.n_finished_requests + self.n_downloaded_requests
 
     def mark_as_submitted(self, request_file: str, batch_object: Batch):
         """Mark a request file as submitted."""
@@ -819,8 +843,7 @@ class BatchManager:
 
             if batch_returned:
                 logger.debug(f"Batch {batch.id} returned with status: {batch.status}")
-                self.tracker.submitted_batch_ids.remove(batch.id)
-                self.tracker.finished_batch_ids.add(batch.id)
+                self.tracker.mark_as_finished(batch)
                 return batch
 
     async def poll_and_process_batches(
@@ -849,7 +872,7 @@ class BatchManager:
             total=self.tracker.n_total_requests,
             desc="Finished requests in batches",
             unit="request",
-            initial=self.tracker.n_finished_requests + self.tracker.n_downloaded_requests,
+            initial=self.n_finished_or_downloaded_requests,
         )
 
         # loop until all batches have been returned
@@ -863,9 +886,7 @@ class BatchManager:
             batches_to_download = filter(None, batches_to_download)
 
             # update progress bar
-            self.request_pbar.n = (
-                self.tracker.n_finished_requests + self.tracker.n_downloaded_requests
-            )
+            self.request_pbar.n = self.n_finished_or_downloaded_requests
             self.request_pbar.refresh()
 
             download_tasks = [
@@ -874,13 +895,10 @@ class BatchManager:
             ]
             # Failed downloads return None and print any errors that occurred
             all_response_files.extend(await asyncio.gather(*download_tasks))
-            if (
-                self.tracker.n_finished_requests + self.tracker.n_downloaded_requests
-                < self.tracker.n_total_requests
-            ):
+            if self.n_finished_or_downloaded_requests < self.tracker.n_total_requests:
                 logger.debug(
                     f"Batches returned: {len(self.tracker.finished_batch_ids) + len(self.tracker.downloaded_batch_ids)}/{len(self.tracker.submitted_batch_ids) + len(self.tracker.finished_batch_ids) + len(self.tracker.downloaded_batch_ids)} "
-                    f"Requests completed: {self.tracker.n_finished_requests + self.tracker.n_downloaded_requests}/{self.tracker.n_total_requests}"
+                    f"Requests completed: {self.n_finished_or_downloaded_requests}/{self.tracker.n_total_requests}"
                 )
                 logger.debug(f"Sleeping for {self.check_interval} seconds...")
                 await asyncio.sleep(self.check_interval)
