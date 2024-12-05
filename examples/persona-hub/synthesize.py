@@ -1,5 +1,9 @@
-# Reimplementation of persona-hub openai_synthesize.py using curator.
-# Source: https://github.com/tencent-ailab/persona-hub/blob/main/code/openai_synthesize.py
+""" Reimplementation of persona-hub openai_synthesize.py using curator.
+Source: https://github.com/tencent-ailab/persona-hub/blob/main/code/openai_synthesize.py
+How to run:
+`python synthesize.py --template "math" --output_path "math.jsonl"`
+Use `curator-viewer` to view the output.
+"""
 
 import argparse
 from bespokelabs import curator
@@ -39,9 +43,9 @@ def main(args):
     template = get_template(args.template)
     generator = get_generator(template)
     # Load the persona dataset
-    persona_dataset = load_dataset("proj-persona/PersonaHub", data_files="persona.jsonl")["train"]
+    persona_dataset = load_dataset("proj-persona/PersonaHub", data_files="persona.jsonl", split="train")
     if args.sample_size > 0:
-        persona_dataset = persona_dataset.select(range(args.sample_size))
+        persona_dataset = persona_dataset.take(args.sample_size)
     print(f"Total number of input personas: {len(persona_dataset['persona'])}")
     output = generator(persona_dataset)
     # You can now view this via the curator-viewer (use `curator-viewer` command) or store directly to hf hub.
