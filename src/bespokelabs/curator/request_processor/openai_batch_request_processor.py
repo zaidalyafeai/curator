@@ -647,7 +647,6 @@ class BatchManager:
                 f.write("\n")
                 f.flush()
 
-            self.tracker.n_total_requests += len(requests)
             return batch_object
 
     async def cancel_batches(self):

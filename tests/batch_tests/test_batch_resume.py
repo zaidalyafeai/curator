@@ -43,13 +43,23 @@ def clean_caches():
 
 
 def test_batch_resume(clean_caches):
+    script = [
+        "python",
+        "tests/batch_tests/simple_batch.py",
+        "--log-level",
+        "DEBUG",
+        "--n-requests",
+        "3",
+        "--batch-size",
+        "1",
+        "--batch-check-interval",
+        "10",
+    ]
+
     # First run should process 1 batch and exit
     print("FIRST RUN")
     stop_line_pattern = r"Marked batch ID batch_[a-f0-9]{32} as downloaded"
-    output1, return_code1 = run_script(
-        ["python", "tests/batch_tests/three_small_batches.py", "--log-level", "DEBUG"],
-        stop_line_pattern,
-    )
+    output1, _ = run_script(script, stop_line_pattern)
     print(output1)
 
     # Small delay to ensure files are written
@@ -57,10 +67,10 @@ def test_batch_resume(clean_caches):
 
     # Second run should process the remaining batch
     print("SECOND RUN")
-    output2, return_code1 = run_script(
-        ["python", "tests/batch_tests/three_small_batches.py", "--log-level", "DEBUG"]
-    )
+    output2, _ = run_script(script)
     print(output2)
+
+    # checks
     assert "2 out of 2 remaining batches are already submitted." in output2
     assert "1 out of 1 batches already downloaded." in output2
 
