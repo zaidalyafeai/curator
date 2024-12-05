@@ -364,10 +364,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
 
                 # Wait for some tasks to complete
                 if pending_retries:
-                    done, pending_retries = await asyncio.wait(
-                        pending_retries, 
-                        timeout=0.1
-                    )
+                    done, pending_retries = await asyncio.wait(pending_retries, timeout=0.1)
 
         status_tracker.pbar.close()
 
