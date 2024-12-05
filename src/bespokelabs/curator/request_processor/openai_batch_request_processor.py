@@ -166,7 +166,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
         return request
 
-    async def requests_from_generic_request_file(self, request_file: str) -> list[dict]:
+    def requests_from_generic_request_file(self, request_file: str) -> list[dict]:
         """
         Reads and converts generic requests from a file into API-specific request format.
 
@@ -186,7 +186,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
         return api_specific_requests
 
-    async def generic_response_file_from_responses(
+    def generic_response_file_from_responses(
         self, responses: str, batch: Batch, response_file: str
     ) -> str | None:
         """Processes API-specific responses and creates a generic response file.
@@ -475,12 +475,12 @@ def response_file_to_request_file(response_file: str, working_dir: str) -> str:
     return f"{working_dir}/requests_{response_file_idx}"
 
 
-async def requests_from_api_specific_request_file(self, request_file: str) -> list[dict]:
+def requests_from_api_specific_request_file(self, request_file: str) -> list[dict]:
     with open(request_file, "r") as file:
         return file.read().splitlines()
 
 
-async def api_specific_response_file_from_responses(
+def api_specific_response_file_from_responses(
     responses: str, batch: Batch, response_file: str
 ) -> str | None:
     open(response_file, "w").write(responses.text)
@@ -526,7 +526,7 @@ class BatchManager:
         self.batch_submit_pbar: tqdm | None = None
         self.request_pbar: tqdm | None = None
 
-    async def create_batch_file(self, api_specific_requests: list[dict]) -> str:
+    def create_batch_file(self, api_specific_requests: list[dict]) -> str:
         """
         Creates a batch file from a list of API-specific requests.
 
@@ -634,7 +634,7 @@ class BatchManager:
             - Appends batch object to submitted_batch_objects_file
         """
         async with self.semaphore:
-            file_content = await self.create_batch_file(requests)
+            file_content = self.create_batch_file(requests)
             batch_file_upload = await self.upload_batch_file(file_content)
             batch_object = await self.create_batch(batch_file_upload.id, metadata)
 
@@ -712,7 +712,7 @@ class BatchManager:
             - Updates tracker with submitted batch status
         """
         metadata = {"request_file_name": request_file}
-        requests = await requests_from_request_file_func(request_file)
+        requests = requests_from_request_file_func(request_file)
         batch_object = await self.submit_batch(requests, metadata)
         self.tracker.mark_as_submitted(request_file, batch_object)
         self.batch_submit_pbar.update(1)
@@ -743,7 +743,7 @@ class BatchManager:
                 f"{self.tracker.n_submitted_batches:,} out of {self.tracker.n_total_batches - self.tracker.n_downloaded_batches:,} remaining batches are already submitted."
             )
 
-    async def track_already_downloaded_batches(self):
+    def track_already_downloaded_batches(self):
         """
         Tracks previously downloaded batches from the downloaded batch objects files.
 
@@ -787,7 +787,7 @@ class BatchManager:
             - Creates and updates batch submission progress bar
         """
         self.tracker.unsubmitted_request_files = request_files
-        await self.track_already_downloaded_batches()
+        self.track_already_downloaded_batches()
         await self.track_already_submitted_batches()
         # exit early
         if self.tracker.n_unsubmitted_request_files == 0:
@@ -996,7 +996,7 @@ class BatchManager:
 
         request_file = batch.metadata["request_file_name"]
         response_file = request_file_to_response_file(request_file, self.working_dir)
-        await response_file_from_responses_func(file_content, batch, response_file)
+        response_file_from_responses_func(file_content, batch, response_file)
 
         logger.debug(f"Batch {batch.id} written to {response_file}")
 
