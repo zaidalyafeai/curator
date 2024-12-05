@@ -5,7 +5,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import Callable
 
-import aiofiles
 import glob
 import os
 import litellm
@@ -67,48 +66,6 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         self.frequency_penalty: float | None = frequency_penalty
         self.delete_successful_batch_files: bool = delete_successful_batch_files
         self.delete_failed_batch_files: bool = delete_failed_batch_files
-
-    def get_rate_limits(self) -> dict:
-        """
-        Function to get rate limits for a given annotator. Not available via response headers, so
-        the following is based on tier 5 limits on Nov 6th, 2024.
-
-        These rate limits vary per model
-        and are determined by your organization's usage tier. View the following:
-        https://platform.openai.com/docs/guides/rate-limits/usage-tiers
-        https://platform.openai.com/settings/organization/limits
-
-        Args:
-            model (str): The model for which to get the rate limits.
-            request_url (str): The request URL for which to get the rate limits.
-
-        Returns:
-            tuple[int, int]: A tuple containing the maximum number of requests and tokens per minute.
-        """
-        model_tpd = {
-            "gpt-3.5-turbo": 5_000_000_000,
-            "gpt-3.5-turbo-0125": 5_000_000_000,
-            "gpt-3.5-turbo-1106": 5_000_000_000,
-            "gpt-3.5-turbo-16k": 5_000_000_000,
-            "gpt-3.5-turbo-instruct": 200_000,
-            "gpt-3.5-turbo-instruct-0914": 200_000,
-            "gpt-4": 150_000_000,
-            "gpt-4-0613": 150_000_000,
-            "gpt-4-turbo": 300_000_000,
-            "gpt-4o": 10_000_000_000,
-            "gpt-4o-mini": 15_000_000_000,
-        }
-
-        if self.model not in model_tpd:
-            tpd = 1_000_000_000
-        else:
-            tpd = model_tpd[self.model]
-
-        logger.debug(f"Automatically set max_tokens_per_day to {tpd}, model: {self.model} ")
-
-        rate_limits = {"max_tokens_per_day": tpd}
-
-        return rate_limits
 
     def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
         """
@@ -181,10 +138,9 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         """
         api_specific_requests = []
 
-        async with aiofiles.open(request_file, "r") as file:
-            file_content = await file.read()
-            for line in file_content.splitlines():
-                request = GenericRequest.model_validate_json(line)
+        with open(request_file, "r") as file:
+            for line in file:
+                request = GenericRequest.model_validate_json(line.strip())
                 api_specific_request = self.create_api_specific_request(request)
                 api_specific_requests.append(json.dumps(api_specific_request))
 
@@ -243,7 +199,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                     request_files, self.requests_from_generic_request_file
                 )
             )
-            run_in_event_loop(batch_manager.poll_and_download_batches())
+            run_in_event_loop(batch_manager.poll_and_process_batches())
             run_in_event_loop(batch_manager.close_client())
 
         return self.create_dataset_files(working_dir, parse_func_hash, prompt_formatter)
@@ -289,7 +245,6 @@ class BatchStatusTracker:
     def mark_as_submitted(self, request_file: str, batch_object: Batch):
         """Mark a request file as submitted."""
         assert request_file in self.unsubmitted_request_files
-        self.batch_id_to_request_file_name[batch_object.id] = request_file
         self.unsubmitted_request_files.remove(request_file)
         self.submitted_batch_ids.add(batch_object.id)
         self.n_total_batches += 1
@@ -517,10 +472,11 @@ class BatchManager:
             batch_file_upload = await self.upload_batch_file(file_content)
             batch_object = await self.create_batch(batch_file_upload.id, metadata)
 
-            async with self._submitted_batch_objects_file_lock:
-                async with aiofiles.open(self.submitted_batch_objects_file, "a") as f:
-                    await f.write(json.dumps(batch_object.model_dump(), default=str) + "\n")
-                    await f.flush()
+            # Simplified file writing
+            with open(self.submitted_batch_objects_file, "a") as f:
+                json.dump(batch_object.model_dump(), f, default=str)
+                f.write("\n")
+                f.flush()
 
             self.tracker.n_total_requests += len(requests)
             self.tracker.submitted_batch_ids.add(batch_object.id)
@@ -528,7 +484,8 @@ class BatchManager:
             return batch_object
 
     async def requests_from_api_specific_request_file(self, request_file: str) -> list[dict]:
-        return (await aiofiles.open(request_file, "r").read()).splitlines()
+        with open(request_file, "r") as file:
+            return file.read().splitlines()
 
     async def cancel_batches(self):
         if not os.path.exists(self.submitted_batch_objects_file):
@@ -734,7 +691,7 @@ class BatchManager:
                 self.tracker.finished_batch_ids.add(batch.id)
                 return batch
 
-    async def poll_and_download_batches(self) -> None:
+    async def poll_and_process_batches(self) -> None:
         """Monitors and processes batches until all are completed.
 
         Continuously polls the status of submitted batches and downloads their results
@@ -777,7 +734,7 @@ class BatchManager:
             self.request_pbar.refresh()
 
             download_tasks = [
-                self.download_batch_to_generic_responses_file(batch)
+                self.download_batch_to_response_file(batch)
                 for batch in batches_to_download
             ]
             # Failed downloads return None and print any errors that occurred
@@ -816,7 +773,122 @@ class BatchManager:
             else:
                 logger.warning(f"Failed to delete file {file_id}")
 
-    async def download_batch_to_generic_responses_file(self, batch: Batch) -> str | None:
+    async def download_batch(self, batch: Batch) -> str | None:
+        file_content = None
+        async with self.semaphore:
+            # Completed batches have an output file
+            if batch.status == "completed" and batch.output_file_id:
+                file_content = await self.client.files.content(batch.output_file_id)
+                logger.debug(f"Batch {batch.id} completed and downloaded")
+    
+            # Failed batches with an error file
+            elif batch.status == "failed" and batch.error_file_id:
+                file_content = await self.client.files.content(batch.error_file_id)
+                logger.warning(f"Batch {batch.id} failed\n. Errors will be parsed below.")
+                if self.delete_failed_batch_files:
+                    await self.delete_file(batch.input_file_id, self.semaphore)
+                    await self.delete_file(batch.error_file_id, self.semaphore)
+
+            # Failed batches without an error file
+            elif batch.status == "failed" and not batch.error_file_id:
+                errors = "\n".join([str(error) for error in batch.errors.data])
+                logger.error(
+                    f"Batch {batch.id} failed and likely failed validation. "
+                    f"Batch errors: {errors}. "
+                    f"Check https://platform.openai.com/batches/{batch.id} for more details."
+                )
+                if self.delete_failed_batch_files:
+                    await self.delete_file(batch.input_file_id, self.semaphore)
+
+            # Cancelled or expired batches
+            elif batch.status == "cancelled" or batch.status == "expired":
+                logger.warning(f"Batch {batch.id} was cancelled or expired")
+                if self.delete_failed_batch_files:
+                    await self.delete_file(batch.input_file_id, self.semaphore)
+
+        return file_content
+    
+    async def api_specific_response_file_from_responses(self, responses: str, batch: Batch) -> str | None:
+        request_file = batch.metadata["request_file_name"]
+        response_file = request_file_to_response_file(request_file, self.working_dir)
+        # Simplified file writing
+        with open(response_file, "w") as f:
+            f.write(responses)
+        return response_file
+    
+    async def generic_response_file_from_responses(self, responses: str, batch: Batch) -> str | None:
+        request_file = batch.metadata["request_file_name"]
+        response_file = request_file_to_response_file(request_file, self.working_dir)
+
+        generic_request_map = {}
+        batch_created_at = datetime.datetime.fromtimestamp(batch.created_at)
+        with open(request_file, "r") as f:
+            for line in f:
+                generic_request = GenericRequest.model_validate_json(line)
+                generic_request_map[generic_request.original_row_idx] = generic_request
+
+        with open(response_file, "w") as f:
+            for raw_response in responses.splitlines():
+                raw_response = json.loads(raw_response)
+                request_idx = int(raw_response["custom_id"])
+                generic_request = generic_request_map[request_idx]
+
+                if raw_response["response"]["status_code"] != 200:
+                    logger.warning(
+                        f"Request {generic_request} failed with status code {raw_response['response']['status_code']}"
+                    )
+                    generic_response = GenericResponse(
+                        response_message=None,
+                        response_errors=[
+                            f"Request {generic_request} failed with status code {raw_response['response']['status_code']}"
+                        ],
+                        raw_response=raw_response,
+                        raw_request=None,
+                        generic_request=generic_request,
+                        created_at=batch_created_at,
+                        finished_at=datetime.datetime.now(),
+                        token_usage=None,
+                        response_cost=None,
+                    )
+                else:
+                    response_body = raw_response["response"]["body"]
+                    choices = response_body["choices"]
+                    usage = response_body.get("usage", {})
+
+                    token_usage = TokenUsage(
+                        prompt_tokens=usage.get("prompt_tokens", 0),
+                        completion_tokens=usage.get("completion_tokens", 0),
+                        total_tokens=usage.get("total_tokens", 0),
+                    )
+
+                    # Calculate cost using litellm (50% off for batch)
+                    cost = litellm.completion_cost(
+                        model=generic_request.model,
+                        prompt=str(generic_request.messages),
+                        completion=choices[0]["message"]["content"],
+                    ) * 0.5
+
+                    response_message = choices[0]["message"]["content"]
+                    response_message, response_errors = parse_response_message(
+                        response_message, self.prompt_formatter.response_format
+                    )
+
+                    generic_response = GenericResponse(
+                        response_message=response_message,
+                        response_errors=response_errors,
+                        raw_response=raw_response,
+                        raw_request=None,
+                        generic_request=generic_request,
+                        created_at=batch_created_at,
+                        finished_at=datetime.datetime.now(),
+                        token_usage=token_usage,
+                        response_cost=cost,
+                    )
+                json.dump(generic_response.model_dump(), f, default=str)
+                f.write("\n")
+        return response_file
+
+    async def download_batch_to_response_file(self, batch: Batch, response_file_from_responses_func: Callable = api_specific_response_file_from_responses) -> str | None:
         """
         Downloads and processes the results of a completed batch.
 
@@ -835,124 +907,28 @@ class BatchManager:
             - Appends batch object to downloaded batch objects file
             - Optionally deletes batch files from OpenAI
         """
-        async with self.semaphore:
-            if batch.status == "completed" and batch.output_file_id:
-                file_content = await self.client.files.content(batch.output_file_id)
-                logger.debug(f"Batch {batch.id} completed and downloaded")
-            elif batch.status == "failed" and batch.error_file_id:
-                file_content = await self.client.files.content(batch.error_file_id)
-                logger.warning(f"Batch {batch.id} failed\n. Errors will be parsed below.")
-                if self.delete_failed_batch_files:
-                    await self.delete_file(batch.input_file_id, self.semaphore)
-                    await self.delete_file(batch.error_file_id, self.semaphore)
-            elif batch.status == "failed" and not batch.error_file_id:
-                errors = "\n".join([str(error) for error in batch.errors.data])
-                logger.error(
-                    f"Batch {batch.id} failed and likely failed validation. "
-                    f"Batch errors: {errors}. "
-                    f"Check https://platform.openai.com/batches/{batch.id} for more details."
-                )
-                if self.delete_failed_batch_files:
-                    await self.delete_file(batch.input_file_id, self.semaphore)
-                return None
-            elif batch.status == "cancelled" or batch.status == "expired":
-                logger.warning(f"Batch {batch.id} was cancelled or expired")
-                if self.delete_failed_batch_files:
-                    await self.delete_file(batch.input_file_id, self.semaphore)
-                return None
+        file_content = await self.download_batch(batch)
+        
+        if file_content is None:
+            return None
+        
+        response_file = await response_file_from_responses_func(file_content, batch)
+        
+        logger.debug(f"Batch {batch.id} written to {response_file}")
+        
+        # Simplified file writing
+        with open(self.downloaded_batch_objects_file, "a") as f:
+            json.dump(batch.model_dump(), f, default=str)
+            f.write("\n")
+            f.flush()
+        
+        logger.debug(f"Batch {batch.id} written to {self.downloaded_batch_objects_file}")
 
-            # Naming is consistent with the request file (e.g. requests_0.jsonl -> responses_0.jsonl)
-            request_file = self.tracker.batch_id_to_request_file_name[batch.id]
-            response_file = request_file_to_response_file(request_file, self.working_dir)
+        if self.delete_successful_batch_files:
+            await self.delete_file(batch.input_file_id, self.semaphore)
+            await self.delete_file(batch.output_file_id, self.semaphore)
 
-            generic_request_map = {}
-            request_creation_times = {}  # Track creation times for requests
-            with open(request_file, "r") as f:
-                for line in f:
-                    generic_request = GenericRequest.model_validate_json(line)
-                    generic_request_map[generic_request.original_row_idx] = generic_request
-                    request_creation_times[generic_request.original_row_idx] = (
-                        datetime.datetime.now()
-                    )
+        self.tracker.mark_as_downloaded(batch)
 
-            with open(response_file, "w") as f:
-                for raw_response in file_content.text.splitlines():
-                    raw_response = json.loads(raw_response)
-                    request_idx = int(raw_response["custom_id"])
-                    generic_request = generic_request_map[request_idx]
+        return response_file
 
-                    # TODO(Ryan): Add more specific error handling
-                    if raw_response["response"]["status_code"] != 200:
-                        logger.warning(
-                            f"Request {generic_request} failed with status code {raw_response['response']['status_code']}"
-                        )
-                        generic_response = GenericResponse(
-                            response_message=None,
-                            response_errors=[
-                                f"Request {generic_request} failed with status code {raw_response['response']['status_code']}"
-                            ],
-                            raw_response=raw_response,
-                            raw_request=None,
-                            generic_request=generic_request,
-                            created_at=request_creation_times[request_idx],
-                            finished_at=datetime.datetime.now(),
-                            token_usage=None,
-                            response_cost=None,
-                        )
-                    else:
-                        response_body = raw_response["response"]["body"]
-                        choices = response_body["choices"]
-                        usage = response_body.get("usage", {})
-
-                        token_usage = TokenUsage(
-                            prompt_tokens=usage.get("prompt_tokens", 0),
-                            completion_tokens=usage.get("completion_tokens", 0),
-                            total_tokens=usage.get("total_tokens", 0),
-                        )
-
-                        # Calculate cost using litellm
-                        cost = litellm.completion_cost(
-                            model=generic_request.model,
-                            prompt=str(
-                                generic_request.messages
-                            ),  # Convert messages to string for cost calculation
-                            completion=choices[0]["message"]["content"],
-                        )
-                        # Batch requests are 50% off
-                        cost = cost * 0.5
-
-                        response_message = choices[0]["message"]["content"]
-                        response_message, response_errors = parse_response_message(
-                            response_message, self.prompt_formatter.response_format
-                        )
-
-                        generic_response = GenericResponse(
-                            response_message=response_message,
-                            response_errors=response_errors,
-                            raw_response=raw_response,
-                            raw_request=None,
-                            generic_request=generic_request,
-                            created_at=request_creation_times[request_idx],
-                            finished_at=datetime.datetime.now(),
-                            token_usage=token_usage,
-                            response_cost=cost,
-                        )
-                    f.write(json.dumps(generic_response.model_dump(), default=str) + "\n")
-
-                logger.debug(f"Batch {batch.id} written to {response_file}")
-                async with self._downloaded_batch_objects_file_lock:
-                    async with aiofiles.open(self.downloaded_batch_objects_file, "a") as f:
-                        await f.write(json.dumps(batch.model_dump(), default=str) + "\n")
-                        await f.flush()
-                logger.debug(f"Batch {batch.id} written to {self.downloaded_batch_objects_file}")
-
-                if self.delete_successful_batch_files:
-                    await self.delete_file(batch.input_file_id, self.semaphore)
-                    await self.delete_file(batch.output_file_id, self.semaphore)
-
-            self.tracker.n_finished_requests -= batch.request_counts.total
-            self.tracker.n_downloaded_requests += batch.request_counts.total
-            self.tracker.finished_batch_ids.remove(batch.id)
-            self.tracker.downloaded_batch_ids.add(batch.id)
-
-            return response_file
