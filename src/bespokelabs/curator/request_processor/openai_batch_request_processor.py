@@ -307,7 +307,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
         if self.cancel:
             run_in_event_loop(batch_manager.cancel_batches())
-            logger.warning("Batch processing cancelled, exiting program.")
+            logger.warning("Exiting program after batch cancellation.")
             os._exit(1)
         else:
             run_in_event_loop(
@@ -610,9 +610,7 @@ class BatchManager:
 
     async def cancel_batches(self):
         if not os.path.exists(self.submitted_batch_objects_file):
-            raise ValueError(
-                "Batch objects file does not exist, but cancel_batches is True. No batches to be cancelled."
-            )
+            logger.warning("No batches to be cancelled, but cancel_batches=True.")
         else:
             logger.info(f"Batch objects file exists, cancelling all batches.")
             batch_ids = []
@@ -623,8 +621,8 @@ class BatchManager:
             tasks = [self.cancel_batch(batch_id) for batch_id in batch_ids]
             results = await asyncio.gather(*tasks)
             failed = abs(sum(results))
-            logger.info(
-                f"{len(results)-failed:,} out of {len(results):,} successfully cancelled batches"
+            logger.warning(
+                f"{len(results)-failed:,} out of {len(results):,} batches successfully cancelled"
             )
             logger.info(
                 f"Moving batch objects file to {self.submitted_batch_objects_file}.cancelled"
