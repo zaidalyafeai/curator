@@ -738,16 +738,16 @@ class BatchManager:
 
                     # Edge case where the batch is still validating, and we need to know the total number of requests
                     if batch_object.status == "validating":
-                        with open(request_file_name, "r") as f:
-                            request_count = len(f.readlines())
-                            batch_object.request_counts.total = request_count
+                        n_requests = len(open(request_file_name, "r").readlines())
+                        batch_object.request_counts.total = n_requests
                     else:
-                        request_count = batch_object.request_counts.total
+                        n_requests = batch_object.request_counts.total
 
                     if request_file_name in self.tracker.unsubmitted_request_files:
-                        self.tracker.mark_as_submitted(
-                            request_file_name, batch_object, request_count
-                        )
+                        self.tracker.mark_as_submitted(request_file_name, batch_object, n_requests)
+                    else:
+                        # batch objects if not unsubmitted, should be downloaded
+                        assert batch_object.id in self.tracker.downloaded_batches
 
         self.tracker.n_total_batches += len(self.tracker.unsubmitted_request_files)
         if self.tracker.n_submitted_batches > 0:
