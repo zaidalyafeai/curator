@@ -376,17 +376,17 @@ class BatchStatusTracker:
         return len(self.unsubmitted_request_files)
 
     @property
-    def n_submitted_batch_ids(self) -> int:
+    def n_submitted_batches(self) -> int:
         """Number of batch IDs that have been submitted but not finished."""
         return len(self.submitted_batch_ids)
 
     @property
-    def n_finished_batch_ids(self) -> int:
+    def n_finished_batches(self) -> int:
         """Number of batch IDs that have finished but not been downloaded."""
         return len(self.finished_batch_ids)
 
     @property
-    def n_downloaded_batch_ids(self) -> int:
+    def n_downloaded_batches(self) -> int:
         """Number of batch IDs that have been downloaded."""
         return len(self.downloaded_batch_ids)
 
@@ -394,6 +394,11 @@ class BatchStatusTracker:
     def n_finished_or_downloaded_requests(self) -> int:
         """Number of requests that are finished or downloaded."""
         return self.n_finished_requests + self.n_downloaded_requests
+
+    @property
+    def n_submitted_finished_or_downloaded_batches(self) -> int:
+        """Number of batches that have been submitted or finished or downloaded."""
+        return self.n_submitted_batches + self.n_finished_batches + self.n_downloaded_batches
 
     def mark_as_submitted(self, request_file: str, batch_object: Batch):
         """Mark a request file as submitted."""
@@ -429,9 +434,9 @@ class BatchStatusTracker:
         status_lines = [
             f"Total batches: {self.n_total_batches}",
             f"Unsubmitted files: {self.n_unsubmitted_request_files}",
-            f"Submitted batches: {self.n_submitted_batch_ids}",
-            f"Finished batches: {self.n_finished_batch_ids}",
-            f"Downloaded batches: {self.n_downloaded_batch_ids}",
+            f"Submitted batches: {self.n_submitted_batches}",
+            f"Finished batches: {self.n_finished_batches}",
+            f"Downloaded batches: {self.n_downloaded_batches}",
             "",
             f"Total requests: {self.n_total_requests}",
             f"Finished requests: {self.n_finished_requests}",
@@ -733,9 +738,9 @@ class BatchManager:
                         self.tracker.mark_as_submitted(request_file_name, batch_object)
 
         self.tracker.n_total_batches += len(self.tracker.unsubmitted_request_files)
-        if self.tracker.n_submitted_batch_ids > 0:
+        if self.tracker.n_submitted_batches > 0:
             logger.info(
-                f"{self.tracker.n_submitted_batch_ids:,} out of {self.tracker.n_total_batches - self.tracker.n_downloaded_batch_ids:,} remaining batches are already submitted."
+                f"{self.tracker.n_submitted_batches:,} out of {self.tracker.n_total_batches - self.tracker.n_downloaded_batches:,} remaining batches are already submitted."
             )
 
     async def track_already_downloaded_batches(self):
@@ -760,9 +765,9 @@ class BatchManager:
                     self.tracker.mark_as_finished(batch_object)
                     self.tracker.mark_as_downloaded(batch_object)
 
-        if self.tracker.n_downloaded_batch_ids > 0:
+        if self.tracker.n_downloaded_batches > 0:
             logger.info(
-                f"{self.tracker.n_downloaded_batch_ids:,} out of {self.tracker.n_total_batches:,} batches already downloaded."
+                f"{self.tracker.n_downloaded_batches:,} out of {self.tracker.n_total_batches:,} batches already downloaded."
             )
 
     async def submit_batches_from_request_files(
@@ -793,7 +798,7 @@ class BatchManager:
             total=self.tracker.n_total_batches,
             desc="Submitting batches",
             unit="batch",
-            initial=self.tracker.n_submitted_batch_ids,
+            initial=self.tracker.n_submitted_finished_or_downloaded_batches,
         )
         tasks = [
             self.submit_batch_from_request_file(f, requests_from_request_file_func)
@@ -872,7 +877,7 @@ class BatchManager:
             total=self.tracker.n_total_requests,
             desc="Finished requests in batches",
             unit="request",
-            initial=self.n_finished_or_downloaded_requests,
+            initial=self.tracker.n_finished_or_downloaded_requests,
         )
 
         # loop until all batches have been returned
@@ -886,7 +891,7 @@ class BatchManager:
             batches_to_download = filter(None, batches_to_download)
 
             # update progress bar
-            self.request_pbar.n = self.n_finished_or_downloaded_requests
+            self.request_pbar.n = self.tracker.n_finished_or_downloaded_requests
             self.request_pbar.refresh()
 
             download_tasks = [
@@ -895,10 +900,10 @@ class BatchManager:
             ]
             # Failed downloads return None and print any errors that occurred
             all_response_files.extend(await asyncio.gather(*download_tasks))
-            if self.n_finished_or_downloaded_requests < self.tracker.n_total_requests:
+            if self.tracker.n_finished_or_downloaded_requests < self.tracker.n_total_requests:
                 logger.debug(
                     f"Batches returned: {len(self.tracker.finished_batch_ids) + len(self.tracker.downloaded_batch_ids)}/{len(self.tracker.submitted_batch_ids) + len(self.tracker.finished_batch_ids) + len(self.tracker.downloaded_batch_ids)} "
-                    f"Requests completed: {self.n_finished_or_downloaded_requests}/{self.tracker.n_total_requests}"
+                    f"Requests completed: {self.tracker.n_finished_or_downloaded_requests}/{self.tracker.n_total_requests}"
                 )
                 logger.debug(f"Sleeping for {self.check_interval} seconds...")
                 await asyncio.sleep(self.check_interval)
