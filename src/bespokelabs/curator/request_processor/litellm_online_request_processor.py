@@ -244,7 +244,11 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         )
 
         # Calculate cost using litellm
-        cost = litellm.completion_cost(completion_response=completion_obj.model_dump())
+        try:
+            cost = litellm.completion_cost(completion_response=completion_obj.model_dump())
+        except litellm.NotFoundError as e:
+            logger.info(f"LiteLLM does not support cost estimation for model {self.model}: {e}")
+            cost = 0
 
         # Create and return response
         return GenericResponse(
