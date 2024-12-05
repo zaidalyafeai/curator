@@ -1,5 +1,5 @@
 # From https://github.com/tencent-ailab/persona-hub/blob/main/code/prompt_templates.py
-math_template = '''Create a math problem related to the following persona:
+math_template = """Create a math problem related to the following persona:
 
 {persona}
 
@@ -9,7 +9,7 @@ Note:
 2. You should make full use of the persona description to create the math problem to ensure that the math problem is unique and specific to the persona.
 3. Your response should always start with "Math problem:". Your response should not include a solution to the created math problem.
 4. Your created math problem should include no more than 2 sub-problems.
-'''
+"""
 
 
 instruction_template = '''Guess a prompt that the following persona may ask you to do:
@@ -30,7 +30,7 @@ Note:
 1. The article should be specific, informative and knowledge-rich.
 2. Your response should start with "Title:"'''
 
-npc_template = '''World of Warcraft (WoW) is a massively multiplayer online role-playing game (MMORPG) developed by Blizzard Entertainment. It is set in the high-fantasy world of Azeroth, a land filled with rich lore, diverse races, and epic conflicts. The game has evolved significantly since its release in 2004, with numerous expansions adding new continents, races, classes, and storylines. Below is a detailed overview of the game's worldview, story background, and some key characters and NPCs.
+npc_template = """World of Warcraft (WoW) is a massively multiplayer online role-playing game (MMORPG) developed by Blizzard Entertainment. It is set in the high-fantasy world of Azeroth, a land filled with rich lore, diverse races, and epic conflicts. The game has evolved significantly since its release in 2004, with numerous expansions adding new continents, races, classes, and storylines. Below is a detailed overview of the game's worldview, story background, and some key characters and NPCs.
 
 ### Worldview and Story Background
 
@@ -230,4 +230,4 @@ Note:
 1. Your response should start with "Name:".
 2. Your NPC description should be specific and consistent with the game.
 3. You also need to specify how the NPC interacts with players in the game.
-'''
+"""
