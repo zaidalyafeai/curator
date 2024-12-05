@@ -48,7 +48,6 @@ class Prompter:
         batch: bool = False,
         batch_size: Optional[int] = None,
         batch_check_interval: Optional[int] = 60,
-        batch_cancel: bool = False,
         delete_successful_batch_files: bool = True,
         delete_failed_batch_files: bool = False,  # To allow users to debug failed batches
         temperature: Optional[float] = None,
@@ -100,7 +99,6 @@ class Prompter:
                 model=model_name,
                 batch_size=batch_size,
                 batch_check_interval=batch_check_interval,
-                batch_cancel=batch_cancel,
                 temperature=temperature,
                 top_p=top_p,
                 presence_penalty=presence_penalty,
@@ -121,21 +119,28 @@ class Prompter:
                 frequency_penalty=frequency_penalty,
             )
 
-    def __call__(self, dataset: Optional[Iterable] = None, working_dir: str = None) -> Dataset:
+    def __call__(
+        self,
+        dataset: Optional[Iterable] = None,
+        working_dir: str = None,
+        batch_cancel: bool = False,
+    ) -> Dataset:
         """
         Run completions on a dataset.
 
         Args:
             dataset (Iterable): A dataset consisting of a list of items to apply completions
             working_dir (str): The working directory to save the requests.jsonl, responses.jsonl, and dataset.arrow files.
+            batch_cancel (bool): Whether to cancel batches
         """
-        return self._completions(self._request_processor, dataset, working_dir)
+        return self._completions(self._request_processor, dataset, working_dir, batch_cancel)
 
     def _completions(
         self,
         request_processor: BaseRequestProcessor,
         dataset: Optional[Iterable] = None,
         working_dir: str = None,
+        batch_cancel: bool = False,
     ) -> Dataset:
         """
         Apply structured completions in parallel to a dataset using specified model and
@@ -216,12 +221,22 @@ class Prompter:
         }
         metadata_db.store_metadata(metadata_dict)
 
-        dataset = request_processor.run(
-            dataset=dataset,
-            working_dir=os.path.join(curator_cache_dir, fingerprint),
-            parse_func_hash=parse_func_hash,
-            prompt_formatter=self.prompt_formatter,
-        )
+        run_cache_dir = os.path.join(curator_cache_dir, fingerprint)
+
+        if batch_cancel:
+            if type(request_processor) != OpenAIBatchRequestProcessor:
+                raise ValueError("batch_cancel can only be used with batch mode")
+
+            dataset = request_processor.cancel_batches(
+                working_dir=run_cache_dir,
+            )
+        else:
+            dataset = request_processor.run(
+                dataset=dataset,
+                working_dir=run_cache_dir,
+                parse_func_hash=parse_func_hash,
+                prompt_formatter=self.prompt_formatter,
+            )
 
         return dataset
 

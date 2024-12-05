@@ -18,12 +18,11 @@ def main(args):
         batch=True,
         batch_size=1,
         batch_check_interval=10,
-        batch_cancel=args.cancel,
-        delete_cache=args.delete_cache,
     )
 
-    dataset = prompter(dataset)
+    dataset = prompter(dataset, batch_cancel=args.cancel)
     print(dataset.to_pandas())
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the prompter with optional cancellation.")
@@ -34,6 +33,5 @@ if __name__ == "__main__":
         default=None,
         help="Set the logging level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
-    parser.add_argument("--delete-cache", action="store_true", default=False, help="Delete the cache")
     args = parser.parse_args()
     main(args)

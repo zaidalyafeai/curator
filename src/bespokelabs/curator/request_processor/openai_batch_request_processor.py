@@ -39,7 +39,6 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         self,
         batch_size: int,
         model: str,
-        batch_cancel: bool,
         delete_successful_batch_files: bool,
         delete_failed_batch_files: bool,
         temperature: float | None = None,
@@ -59,7 +58,6 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         self.model = model
         self.url: str = url
         self.check_interval: int = batch_check_interval
-        self.cancel: bool = batch_cancel
         self.temperature: float | None = temperature
         self.top_p: float | None = top_p
         self.presence_penalty: float | None = presence_penalty
@@ -305,21 +303,35 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             delete_failed_batch_files=self.delete_failed_batch_files,
         )
 
-        if self.cancel:
-            run_in_event_loop(batch_manager.cancel_batches())
-            logger.warning("Exiting program after batch cancellation.")
-            os._exit(1)
-        else:
-            run_in_event_loop(
-                batch_manager.submit_batches_from_request_files(
-                    request_files, self.requests_from_generic_request_file
-                )
+        run_in_event_loop(
+            batch_manager.submit_batches_from_request_files(
+                request_files, self.requests_from_generic_request_file
             )
-            run_in_event_loop(
-                batch_manager.poll_and_process_batches(self.generic_response_file_from_responses)
-            )
+        )
+        self.prompt_formatter = prompt_formatter
+        run_in_event_loop(
+            batch_manager.poll_and_process_batches(self.generic_response_file_from_responses)
+        )
 
         return self.create_dataset_files(working_dir, parse_func_hash, prompt_formatter)
+
+    def cancel_batches(self, working_dir: str) -> Dataset:
+        """
+        Cancels all submitted batches and exits the program.
+
+        Args:
+            working_dir (str): The directory where submitted batch object file is stored.
+        """
+        batch_manager = BatchManager(
+            working_dir,
+            self.check_interval,
+            delete_successful_batch_files=self.delete_successful_batch_files,
+            delete_failed_batch_files=self.delete_failed_batch_files,
+        )
+
+        run_in_event_loop(batch_manager.cancel_batches())
+        logger.warning("Exiting program after batch cancellation.")
+        os._exit(1)
 
 
 @dataclass
@@ -449,10 +461,10 @@ class BatchManager:
     def __init__(
         self,
         working_dir: str,
-        check_interval: int,
-        prompt_formatter: PromptFormatter,
-        delete_successful_batch_files: bool,
-        delete_failed_batch_files: bool,
+        check_interval: int = 60,
+        prompt_formatter: PromptFormatter | None = None,
+        delete_successful_batch_files: bool = False,
+        delete_failed_batch_files: bool = False,
     ) -> None:
         """Initialize BatchManager to handle OpenAI batch processing operations.
 
