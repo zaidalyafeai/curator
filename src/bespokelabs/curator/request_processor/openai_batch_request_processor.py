@@ -67,6 +67,48 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         self.delete_successful_batch_files: bool = delete_successful_batch_files
         self.delete_failed_batch_files: bool = delete_failed_batch_files
 
+    def get_rate_limits(self) -> dict:
+        """
+        Function to get rate limits for a given annotator. Not available via response headers, so
+        the following is based on tier 5 limits on Nov 6th, 2024.
+
+        These rate limits vary per model
+        and are determined by your organization's usage tier. View the following:
+        https://platform.openai.com/docs/guides/rate-limits/usage-tiers
+        https://platform.openai.com/settings/organization/limits
+
+        Args:
+            model (str): The model for which to get the rate limits.
+            request_url (str): The request URL for which to get the rate limits.
+
+        Returns:
+            tuple[int, int]: A tuple containing the maximum number of requests and tokens per minute.
+        """
+        model_tpd = {
+            "gpt-3.5-turbo": 5_000_000_000,
+            "gpt-3.5-turbo-0125": 5_000_000_000,
+            "gpt-3.5-turbo-1106": 5_000_000_000,
+            "gpt-3.5-turbo-16k": 5_000_000_000,
+            "gpt-3.5-turbo-instruct": 200_000,
+            "gpt-3.5-turbo-instruct-0914": 200_000,
+            "gpt-4": 150_000_000,
+            "gpt-4-0613": 150_000_000,
+            "gpt-4-turbo": 300_000_000,
+            "gpt-4o": 10_000_000_000,
+            "gpt-4o-mini": 15_000_000_000,
+        }
+
+        if self.model not in model_tpd:
+            tpd = 1_000_000_000
+        else:
+            tpd = model_tpd[self.model]
+
+        logger.info(f"Automatically set max_tokens_per_day to {tpd}, model: {self.model} ")
+
+        rate_limits = {"max_tokens_per_day": tpd}
+
+        return rate_limits
+
     def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
         """
         Creates an API-specific request body from a generic request body.
@@ -734,8 +776,7 @@ class BatchManager:
             self.request_pbar.refresh()
 
             download_tasks = [
-                self.download_batch_to_response_file(batch)
-                for batch in batches_to_download
+                self.download_batch_to_response_file(batch) for batch in batches_to_download
             ]
             # Failed downloads return None and print any errors that occurred
             all_response_files.extend(await asyncio.gather(*download_tasks))
@@ -780,7 +821,7 @@ class BatchManager:
             if batch.status == "completed" and batch.output_file_id:
                 file_content = await self.client.files.content(batch.output_file_id)
                 logger.debug(f"Batch {batch.id} completed and downloaded")
-    
+
             # Failed batches with an error file
             elif batch.status == "failed" and batch.error_file_id:
                 file_content = await self.client.files.content(batch.error_file_id)
@@ -807,16 +848,20 @@ class BatchManager:
                     await self.delete_file(batch.input_file_id, self.semaphore)
 
         return file_content
-    
-    async def api_specific_response_file_from_responses(self, responses: str, batch: Batch) -> str | None:
+
+    async def api_specific_response_file_from_responses(
+        self, responses: str, batch: Batch
+    ) -> str | None:
         request_file = batch.metadata["request_file_name"]
         response_file = request_file_to_response_file(request_file, self.working_dir)
         # Simplified file writing
         with open(response_file, "w") as f:
             f.write(responses)
         return response_file
-    
-    async def generic_response_file_from_responses(self, responses: str, batch: Batch) -> str | None:
+
+    async def generic_response_file_from_responses(
+        self, responses: str, batch: Batch
+    ) -> str | None:
         request_file = batch.metadata["request_file_name"]
         response_file = request_file_to_response_file(request_file, self.working_dir)
 
@@ -862,11 +907,14 @@ class BatchManager:
                     )
 
                     # Calculate cost using litellm (50% off for batch)
-                    cost = litellm.completion_cost(
-                        model=generic_request.model,
-                        prompt=str(generic_request.messages),
-                        completion=choices[0]["message"]["content"],
-                    ) * 0.5
+                    cost = (
+                        litellm.completion_cost(
+                            model=generic_request.model,
+                            prompt=str(generic_request.messages),
+                            completion=choices[0]["message"]["content"],
+                        )
+                        * 0.5
+                    )
 
                     response_message = choices[0]["message"]["content"]
                     response_message, response_errors = parse_response_message(
@@ -888,7 +936,11 @@ class BatchManager:
                 f.write("\n")
         return response_file
 
-    async def download_batch_to_response_file(self, batch: Batch, response_file_from_responses_func: Callable = api_specific_response_file_from_responses) -> str | None:
+    async def download_batch_to_response_file(
+        self,
+        batch: Batch,
+        response_file_from_responses_func: Callable = api_specific_response_file_from_responses,
+    ) -> str | None:
         """
         Downloads and processes the results of a completed batch.
 
@@ -908,20 +960,20 @@ class BatchManager:
             - Optionally deletes batch files from OpenAI
         """
         file_content = await self.download_batch(batch)
-        
+
         if file_content is None:
             return None
-        
+
         response_file = await response_file_from_responses_func(file_content, batch)
-        
+
         logger.debug(f"Batch {batch.id} written to {response_file}")
-        
+
         # Simplified file writing
         with open(self.downloaded_batch_objects_file, "a") as f:
             json.dump(batch.model_dump(), f, default=str)
             f.write("\n")
             f.flush()
-        
+
         logger.debug(f"Batch {batch.id} written to {self.downloaded_batch_objects_file}")
 
         if self.delete_successful_batch_files:
@@ -931,4 +983,3 @@ class BatchManager:
         self.tracker.mark_as_downloaded(batch)
 
         return response_file
-
