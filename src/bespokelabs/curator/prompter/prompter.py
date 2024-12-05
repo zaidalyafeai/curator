@@ -3,7 +3,6 @@
 import inspect
 import logging
 import os
-import shutil
 from datetime import datetime
 from io import BytesIO
 from typing import Any, Callable, Dict, Iterable, Optional, Type, TypeVar, Union
@@ -56,7 +55,6 @@ class Prompter:
         top_p: Optional[float] = None,
         presence_penalty: Optional[float] = None,
         frequency_penalty: Optional[float] = None,
-        delete_cache: bool = True,
     ):
         """Initialize a Prompter.
 
@@ -122,7 +120,6 @@ class Prompter:
                 presence_penalty=presence_penalty,
                 frequency_penalty=frequency_penalty,
             )
-        self.delete_cache = delete_cache
 
     def __call__(self, dataset: Optional[Iterable] = None, working_dir: str = None) -> Dataset:
         """
@@ -219,21 +216,9 @@ class Prompter:
         }
         metadata_db.store_metadata(metadata_dict)
 
-        run_cache_dir = os.path.join(curator_cache_dir, fingerprint)
-        if self.delete_cache:
-            if os.path.exists(run_cache_dir):
-                shutil.rmtree(run_cache_dir)
-                logger.warning(f"Deleted cache directory: {run_cache_dir}, exiting")
-                exit()
-            else:
-                logger.warning(
-                    f"Cache directory does not exist: {run_cache_dir}, no deletion completed, exiting"
-                )
-                exit()
-
         dataset = request_processor.run(
             dataset=dataset,
-            working_dir=run_cache_dir,
+            working_dir=os.path.join(curator_cache_dir, fingerprint),
             parse_func_hash=parse_func_hash,
             prompt_formatter=self.prompt_formatter,
         )

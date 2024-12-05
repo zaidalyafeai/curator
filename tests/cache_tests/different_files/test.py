@@ -1,5 +1,6 @@
 import pytest
 import subprocess
+import shutil
 
 
 def run_script(script_path, delete_cache=False):
@@ -23,16 +24,14 @@ def run_script(script_path, delete_cache=False):
 @pytest.fixture
 def clean_caches():
     """Fixture to ensure clean caches before tests"""
-    # Delete caches before test
-    run_script("tests/cache_tests/different_files/one.py", delete_cache=True)
-    run_script("tests/cache_tests/different_files/two.py", delete_cache=True)
+    # Delete caches before test --> provide a differerent CURATOR_CACHE_DIR
+    shutil.rmtree("~/.cache/curator", ignore_errors=True)
 
     # Run test
     yield
 
     # Clean up after test (optional, but good practice)
-    run_script("tests/cache_tests/different_files/one.py", delete_cache=True)
-    run_script("tests/cache_tests/different_files/two.py", delete_cache=True)
+    shutil.rmtree("~/.cache/curator", ignore_errors=True)
 
 
 def test_cache_behavior(clean_caches):
