@@ -357,82 +357,80 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 class BatchStatusTracker:
     # total number of request files
     n_total_batches: int = 0
-    unsubmitted_request_files: set[str] = field(default_factory=set)
 
-    submitted_batch_ids: set[str] = field(default_factory=set)
-    finished_batch_ids: set[str] = field(default_factory=set)
-    downloaded_batch_ids: set[str] = field(default_factory=set)
-
+    # total number of requests in all request files
     n_total_requests: int = 0
-    # requests are in one of these two states
-    n_finished_requests: int = 0
-    n_downloaded_requests: int = 0
 
-    batch_id_to_request_file_name: dict[str, str] = field(default_factory=dict)
+    # request files that have not been submitted yet
+    unsubmitted_request_files: list[str] = field(default_factory=list)
+
+    # batches in OpenAI
+    submitted_batches: dict[str, Batch] = field(default_factory=dict)
+    finished_batches: dict[str, Batch] = field(default_factory=dict)
+    downloaded_batches: dict[str, Batch] = field(default_factory=dict)
 
     @property
     def n_unsubmitted_request_files(self) -> int:
-        """Number of request files that haven't been submitted yet."""
         return len(self.unsubmitted_request_files)
 
     @property
     def n_submitted_batches(self) -> int:
-        """Number of batch IDs that have been submitted but not finished."""
-        return len(self.submitted_batch_ids)
+        return len(self.submitted_batches)
 
     @property
     def n_finished_batches(self) -> int:
-        """Number of batch IDs that have finished but not been downloaded."""
-        return len(self.finished_batch_ids)
+        return len(self.finished_batches)
 
     @property
     def n_downloaded_batches(self) -> int:
-        """Number of batch IDs that have been downloaded."""
-        return len(self.downloaded_batch_ids)
+        return len(self.downloaded_batches)
+
+    @property
+    def n_finished_requests(self) -> int:
+        batches = list(self.submitted_batches.values()) + list(self.finished_batches.values())
+        return sum(b.request_counts.completed + b.request_counts.failed for b in batches)
+
+    @property
+    def n_downloaded_requests(self) -> int:
+        batches = list(self.downloaded_batches.values())
+        return sum(b.request_counts.completed + b.request_counts.failed for b in batches)
 
     @property
     def n_finished_or_downloaded_requests(self) -> int:
-        """Number of requests that are finished or downloaded."""
         return self.n_finished_requests + self.n_downloaded_requests
 
     @property
     def n_submitted_finished_or_downloaded_batches(self) -> int:
-        """Number of batches that have been submitted or finished or downloaded."""
         return self.n_submitted_batches + self.n_finished_batches + self.n_downloaded_batches
 
     @property
     def n_finished_or_downloaded_batches(self) -> int:
-        """Number of requests that are finished or downloaded."""
-        return self.n_finished_requests + self.n_downloaded_requests
+        return self.n_finished_batches + self.n_downloaded_batches
 
-    def mark_as_submitted(self, request_file: str, batch_object: Batch):
-        """Mark a request file as submitted."""
+    def mark_as_submitted(self, request_file: str, batch_object: Batch, n_requests: int):
         assert request_file in self.unsubmitted_request_files
+        assert n_requests > 0
         self.unsubmitted_request_files.remove(request_file)
-        self.submitted_batch_ids.add(batch_object.id)
+        self.submitted_batches[batch_object.id] = batch_object
         self.n_total_batches += 1
-        self.n_total_requests += batch_object.request_counts.total
+        self.n_total_requests += n_requests
         logger.debug(f"Marked {request_file} as submitted with batch ID {batch_object.id}")
 
     def mark_as_finished(self, batch_object: Batch):
-        """Mark a batch as finished."""
-        if batch_object.id in self.submitted_batch_ids:
-            self.submitted_batch_ids.remove(batch_object.id)
-            self.finished_batch_ids.add(batch_object.id)
-            self.n_finished_requests += (
-                batch_object.request_counts.completed + batch_object.request_counts.failed
-            )
-            logger.debug(f"Marked batch ID {batch_object.id} as finished")
+        assert batch_object.id in self.submitted_batches
+        self.submitted_batches.pop(batch_object.id)
+        self.finished_batches[batch_object.id] = batch_object
+        logger.debug(f"Marked batch ID {batch_object.id} as finished")
 
     def mark_as_downloaded(self, batch_object: Batch):
-        """Mark a batch as downloaded."""
-        if batch_object.id in self.finished_batch_ids:
-            self.finished_batch_ids.remove(batch_object.id)
-            self.downloaded_batch_ids.add(batch_object.id)
-            n_requests = batch_object.request_counts.completed + batch_object.request_counts.failed
-            self.n_downloaded_requests += n_requests
-            self.n_finished_requests -= n_requests
-            logger.debug(f"Marked batch ID {batch_object.id} as downloaded")
+        assert batch_object.id in self.finished_batches
+        self.finished_batches.pop(batch_object.id)
+        self.downloaded_batches[batch_object.id] = batch_object
+        logger.debug(f"Marked batch ID {batch_object.id} as downloaded")
+
+    def update_submitted(self, batch_object: Batch):
+        assert batch_object.id in self.submitted_batches
+        self.submitted_batches[batch_object.id] = batch_object
 
     def __str__(self) -> str:
         """Returns a human-readable string representation of the batch status."""
@@ -650,8 +648,6 @@ class BatchManager:
                 f.flush()
 
             self.tracker.n_total_requests += len(requests)
-            self.tracker.submitted_batch_ids.add(batch_object.id)
-
             return batch_object
 
     async def cancel_batches(self):
@@ -719,7 +715,7 @@ class BatchManager:
         metadata = {"request_file_name": request_file}
         requests = requests_from_request_file_func(request_file)
         batch_object = await self.submit_batch(requests, metadata)
-        self.tracker.mark_as_submitted(request_file, batch_object)
+        self.tracker.mark_as_submitted(request_file, batch_object, len(requests))
         self.batch_submit_pbar.update(1)
 
     async def track_already_submitted_batches(self):
@@ -739,8 +735,19 @@ class BatchManager:
                         f"Getting batch object to update tracker."
                     )
                     batch_object = await self.retrieve_batch(batch_object.id)
+
+                    # Edge case where the batch is still validating, and we need to know the total number of requests
+                    if batch_object.status == "validating":
+                        with open(request_file_name, "r") as f:
+                            request_count = len(f.readlines())
+                            batch_object.request_counts.total = request_count
+                    else:
+                        request_count = batch_object.request_counts.total
+
                     if request_file_name in self.tracker.unsubmitted_request_files:
-                        self.tracker.mark_as_submitted(request_file_name, batch_object)
+                        self.tracker.mark_as_submitted(
+                            request_file_name, batch_object, request_count
+                        )
 
         self.tracker.n_total_batches += len(self.tracker.unsubmitted_request_files)
         if self.tracker.n_submitted_batches > 0:
@@ -766,7 +773,9 @@ class BatchManager:
                     response_file = request_file_to_response_file(request_file, self.working_dir)
                     assert request_file in self.tracker.unsubmitted_request_files
                     assert os.path.exists(response_file)
-                    self.tracker.mark_as_submitted(request_file, batch_object)
+                    self.tracker.mark_as_submitted(
+                        request_file, batch_object, batch_object.request_counts.total
+                    )
                     self.tracker.mark_as_finished(batch_object)
                     self.tracker.mark_as_downloaded(batch_object)
 
@@ -832,12 +841,11 @@ class BatchManager:
         """
         async with self.semaphore:
             batch = await self.client.batches.retrieve(batch_id)
+            self.tracker.update_submitted(batch)
 
             n_completed_requests = batch.request_counts.completed
             n_failed_requests = batch.request_counts.failed
             n_total_requests = batch.request_counts.total
-
-            self.tracker.n_finished_requests += n_completed_requests + n_failed_requests
 
             logger.debug(
                 f"Batch {batch.id} status: {batch.status} requests: "
@@ -887,10 +895,10 @@ class BatchManager:
 
         # loop until all batches have been returned
         all_response_files = []
-        while len(self.tracker.submitted_batch_ids) > 0:
+        while len(self.tracker.submitted_batches) > 0:
             # check batch status also updates the tracker
             status_tasks = [
-                self.check_batch_status(batch_id) for batch_id in self.tracker.submitted_batch_ids
+                self.check_batch_status(batch_id) for batch_id in self.tracker.submitted_batches
             ]
             batches_to_download = await asyncio.gather(*status_tasks)
             batches_to_download = filter(None, batches_to_download)
@@ -915,7 +923,7 @@ class BatchManager:
 
         self.request_pbar.close()
         response_files = filter(None, all_response_files)
-        if len(self.tracker.downloaded_batch_ids) == 0 or not response_files:
+        if len(self.tracker.downloaded_batches) == 0 or not response_files:
             raise RuntimeError(
                 "None of the submitted batches completed successfully. "
                 "Please check the logs above and https://platform.openai.com/batches for errors."
