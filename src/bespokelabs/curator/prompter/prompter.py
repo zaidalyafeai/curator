@@ -48,6 +48,7 @@ class Prompter:
         batch: bool = False,
         batch_size: Optional[int] = None,
         batch_check_interval: Optional[int] = 60,
+        batch_cancel: bool = False,
         delete_successful_batch_files: bool = True,
         delete_failed_batch_files: bool = False,  # To allow users to debug failed batches
         temperature: Optional[float] = None,
@@ -99,6 +100,7 @@ class Prompter:
                 model=model_name,
                 batch_size=batch_size,
                 batch_check_interval=batch_check_interval,
+                batch_cancel=batch_cancel,
                 temperature=temperature,
                 top_p=top_p,
                 presence_penalty=presence_penalty,

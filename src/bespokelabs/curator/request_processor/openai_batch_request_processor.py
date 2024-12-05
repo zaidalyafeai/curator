@@ -40,6 +40,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         self,
         batch_size: int,
         model: str,
+        batch_cancel: bool,
         delete_successful_batch_files: bool,
         delete_failed_batch_files: bool,
         temperature: float | None = None,
@@ -59,6 +60,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         self.model = model
         self.url: str = url
         self.check_interval: int = batch_check_interval
+        self.cancel: bool = batch_cancel
         self.temperature: float | None = temperature
         self.top_p: float | None = top_p
         self.presence_penalty: float | None = presence_penalty
@@ -188,39 +190,6 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
 
         return api_specific_requests
 
-    async def manage_batches(
-        self, request_files: set[str], working_dir: str, prompt_formatter: PromptFormatter
-    ):
-        """
-        Manages the submission and downloading of batch requests.
-
-        This function handles the complete lifecycle of batch processing:
-        1. Creates a BatchManager instance
-        2. Submits batches from request files
-        3. Polls for completion and downloads results
-        4. Cleans up resources
-
-        Args:
-            request_files (set[str]): Set of paths to files containing requests to process.
-            working_dir (str): Directory for storing batch-related files and results.
-            prompt_formatter (PromptFormatter): Formatter for processing prompts and responses.
-        """
-        if len(request_files) == 0:
-            return
-
-        batch_manager = BatchManager(
-            working_dir,
-            self.check_interval,
-            prompt_formatter,
-            delete_successful_batch_files=self.delete_successful_batch_files,
-            delete_failed_batch_files=self.delete_failed_batch_files,
-        )
-        await batch_manager.submit_batches_from_request_files(
-            request_files, self.requests_from_generic_request_file
-        )
-        await batch_manager.poll_and_download_batches()
-        await batch_manager.close_client()
-
     def run(
         self,
         dataset: Dataset | None,
@@ -255,7 +224,27 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             return output_dataset
 
         request_files = set(self.create_request_files(dataset, working_dir, prompt_formatter))
-        run_in_event_loop(self.manage_batches(request_files, working_dir, prompt_formatter))
+
+        batch_manager = BatchManager(
+            working_dir,
+            self.check_interval,
+            prompt_formatter,
+            delete_successful_batch_files=self.delete_successful_batch_files,
+            delete_failed_batch_files=self.delete_failed_batch_files,
+        )
+
+        if self.cancel:
+            run_in_event_loop(batch_manager.cancel_batches())
+            logger.warning("Batch processing cancelled, exiting program.")
+            os._exit(1)
+        else:
+            run_in_event_loop(
+                batch_manager.submit_batches_from_request_files(
+                    request_files, self.requests_from_generic_request_file
+                )
+            )
+            run_in_event_loop(batch_manager.poll_and_download_batches())
+            run_in_event_loop(batch_manager.close_client())
 
         return self.create_dataset_files(working_dir, parse_func_hash, prompt_formatter)
 
@@ -540,7 +529,32 @@ class BatchManager:
 
     async def requests_from_api_specific_request_file(self, request_file: str) -> list[dict]:
         return (await aiofiles.open(request_file, "r").read()).splitlines()
-    
+
+    async def cancel_batches(self):
+        if not os.path.exists(self.submitted_batch_objects_file):
+            raise ValueError(
+                "Batch objects file does not exist, but cancel_batches is True. No batches to be cancelled."
+            )
+        else:
+            logger.info(f"Batch objects file exists, cancelling all batches.")
+            batch_ids = []
+            with open(self.submitted_batch_objects_file, "r") as f:
+                for line in f:
+                    batch_obj = json.loads(line.strip())
+                    batch_ids.append(batch_obj["id"])
+            tasks = [self.cancel_batch(batch_id) for batch_id in batch_ids]
+            results = await asyncio.gather(*tasks)
+            failed = abs(sum(results))
+            logger.info(
+                f"Successfully cancelled {len(results)-failed:,} out of {len(results):,} batches"
+            )
+            logger.info(
+                f"Moving batch objects file to {self.submitted_batch_objects_file}.cancelled"
+            )
+            os.rename(
+                self.submitted_batch_objects_file, f"{self.submitted_batch_objects_file}.cancelled"
+            )
+
     async def cancel_batch(self, batch_id: str) -> int:
         async with self.semaphore:
             try:
