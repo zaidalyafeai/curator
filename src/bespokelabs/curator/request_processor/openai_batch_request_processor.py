@@ -3,7 +3,6 @@ import datetime
 import json
 import logging
 from dataclasses import dataclass, field
-from functools import partial
 from typing import Callable
 
 import glob
@@ -319,7 +318,6 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             run_in_event_loop(
                 batch_manager.poll_and_process_batches(self.generic_response_file_from_responses)
             )
-            run_in_event_loop(batch_manager.close_client())
 
         return self.create_dataset_files(working_dir, parse_func_hash, prompt_formatter)
 
@@ -444,7 +442,7 @@ async def requests_from_api_specific_request_file(self, request_file: str) -> li
 async def api_specific_response_file_from_responses(
     responses: str, batch: Batch, response_file: str
 ) -> str | None:
-    open(response_file, "w").write(responses)
+    open(response_file, "w").write(responses.text)
 
 
 class BatchManager:
@@ -486,9 +484,6 @@ class BatchManager:
         )
         self.batch_submit_pbar: tqdm | None = None
         self.request_pbar: tqdm | None = None
-
-    async def close_client(self):
-        await self.client.close()
 
     async def create_batch_file(self, api_specific_requests: list[dict]) -> str:
         """
@@ -864,7 +859,8 @@ class BatchManager:
             self.request_pbar.refresh()
 
             download_tasks = [
-                self.download_batch_to_response_file(batch) for batch in batches_to_download
+                self.download_batch_to_response_file(batch, response_file_from_responses_func)
+                for batch in batches_to_download
             ]
             # Failed downloads return None and print any errors that occurred
             all_response_files.extend(await asyncio.gather(*download_tasks))
