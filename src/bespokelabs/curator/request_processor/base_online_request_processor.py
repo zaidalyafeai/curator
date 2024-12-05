@@ -329,17 +329,11 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 await asyncio.gather(*pending_requests)
 
             # Process any remaining retries in the queue
-            while not queue_of_requests_to_retry.empty():
-                pending_retries = []
-                retry_batch = []  # one iteration of retries
-
-                # Get all current iteration of retries
-                while not queue_of_requests_to_retry.empty():
+            pending_retries = set()
+            while not queue_of_requests_to_retry.empty() or pending_retries:
+                # Process new items from the queue if we have capacity
+                if not queue_of_requests_to_retry.empty():
                     retry_request = await queue_of_requests_to_retry.get()
-                    retry_batch.append(retry_request)
-
-                # Process this batch of retries
-                for retry_request in retry_batch:
                     token_estimate = self.estimate_total_tokens(
                         retry_request.generic_request.messages
                     )
@@ -366,11 +360,14 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                             status_tracker=status_tracker,
                         )
                     )
-                    pending_retries.append(task)
+                    pending_retries.add(task)
 
-                # Wait for this iteration of retries to complete
+                # Wait for some tasks to complete
                 if pending_retries:
-                    await asyncio.gather(*pending_retries)
+                    done, pending_retries = await asyncio.wait(
+                        pending_retries, 
+                        timeout=0.1
+                    )
 
         status_tracker.pbar.close()
 
