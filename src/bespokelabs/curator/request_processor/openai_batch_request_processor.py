@@ -546,7 +546,7 @@ class BatchManager:
             results = await asyncio.gather(*tasks)
             failed = abs(sum(results))
             logger.info(
-                f"Successfully cancelled {len(results)-failed:,} out of {len(results):,} batches"
+                f"{len(results)-failed:,} out of {len(results):,} successfully cancelled batches"
             )
             logger.info(
                 f"Moving batch objects file to {self.submitted_batch_objects_file}.cancelled"
@@ -555,14 +555,25 @@ class BatchManager:
                 self.submitted_batch_objects_file, f"{self.submitted_batch_objects_file}.cancelled"
             )
 
+    async def retrieve_batch(self, batch_id: str) -> Batch:
+        try:
+            batch_object = await self.client.batches.retrieve(batch_id)
+        except Exception as e:
+            logger.error(f"Error checking previously submitted batch: {e}")
+            raise e
+        return batch_object
+
     async def cancel_batch(self, batch_id: str) -> int:
         async with self.semaphore:
+            batch_object = await self.retrieve_batch(batch_id)
+            if batch_object.status == "completed":
+                logger.warning(f"Batch {batch_id} is already completed, cannot cancel")
+                return 0
             try:
                 await self.client.batches.cancel(batch_id)
                 logger.info(f"Successfully cancelled batch: {batch_id}")
                 return 0
             except Exception as e:
-                # Successfully "completed" batches can't be cancelled
                 error_msg = str(e)
                 logger.error(f"Failed to cancel batch {batch_id}: {error_msg}")
                 return -1
@@ -604,14 +615,11 @@ class BatchManager:
                     logger.debug(
                         f"Already submitted batch {batch_object.id} for request file {request_file_name}"
                     )
-                    try:
-                        batch_object = await self.client.batches.retrieve(batch_object.id)
-                    except Exception as e:
-                        logger.error(f"Error checking previously submitted batch: {e}")
-                        raise e
+                    batch_object = await self.retrieve_batch(batch_object.id)
                     if request_file_name in self.tracker.unsubmitted_request_files:
                         self.tracker.mark_as_submitted(request_file_name, batch_object)
 
+        self.tracker.n_total_batches += len(self.tracker.unsubmitted_request_files)
         if self.tracker.n_submitted_batch_ids > 0:
             logger.info(
                 f"{self.tracker.n_submitted_batch_ids:,} out of {self.tracker.n_total_batches - self.tracker.n_downloaded_batch_ids:,} remaining batches are already submitted."
