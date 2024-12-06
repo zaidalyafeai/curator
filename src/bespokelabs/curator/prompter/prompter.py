@@ -174,8 +174,6 @@ class Prompter:
                 )
             self._request_processor = LiteLLMOnlineRequestProcessor(
                 model=model_name,
-                batch_size=batch_size,
-                batch_check_interval=batch_check_interval,
                 temperature=temperature,
                 top_p=top_p,
                 presence_penalty=presence_penalty,

@@ -21,6 +21,7 @@ def prepare_test_cache(request):
     # Run test
     yield
 
+    
 
 def run_script(script, stop_line_pattern=None, env=None):
     process = subprocess.Popen(

@@ -1,12 +1,12 @@
 import pytest
 import time
 import os
-from tests.batch_tests.test_helpers import run_script
-from tests.batch_tests.test_helpers import prepare_test_cache
+from tests.helpers import run_script
+from tests.helpers import prepare_test_cache
 
 """
 USAGE:
-pytest -s tests/batch_tests/test_batch_resume.py
+pytest -s tests/batch/test_resume.py
 """
 
 
@@ -15,7 +15,7 @@ pytest -s tests/batch_tests/test_batch_resume.py
 def test_batch_resume():
     script = [
         "python",
-        "tests/batch_tests/simple_batch.py",
+        "tests/batch/simple_batch.py",
         "--log-level",
         "DEBUG",
         "--n-requests",

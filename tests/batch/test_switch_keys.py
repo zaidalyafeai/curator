@@ -1,21 +1,21 @@
 import pytest
 import time
 import os
-from tests.batch_tests.test_helpers import run_script
-from tests.batch_tests.test_helpers import prepare_test_cache
+from tests.helpers import run_script
+from tests.helpers import prepare_test_cache
 
 """
 USAGE:
-pytest -s tests/batch_tests/test_batch_switch_keys.py
+pytest -s tests/batch/test_switch_keys.py
 """
 
 
 @pytest.mark.cache_dir(os.path.expanduser("~/.cache/curator-tests/test-batch-switch-keys"))
 @pytest.mark.usefixtures("prepare_test_cache")
-def test_batch_resume():
+def test_batch_switch_keys():
     script = [
         "python",
-        "tests/batch_tests/simple_batch.py",
+        "tests/batch/simple_batch.py",
         "--log-level",
         "DEBUG",
         "--n-requests",
