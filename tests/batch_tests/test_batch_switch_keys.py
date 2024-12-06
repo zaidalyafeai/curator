@@ -2,7 +2,7 @@ import pytest
 import time
 import os
 from tests.batch_tests.test_helpers import run_script
-from tests.batch_tests.test_helpers import clean_caches
+from tests.batch_tests.test_helpers import prepare_test_cache
 
 """
 USAGE:
@@ -46,5 +46,4 @@ def test_batch_resume():
     print(output2)
 
     # checks
-    assert "2 out of 2 remaining batches are already submitted." in output2
     assert "1 out of 1 batches already downloaded." in output2

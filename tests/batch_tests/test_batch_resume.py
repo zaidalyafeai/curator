@@ -2,7 +2,7 @@ import pytest
 import time
 import os
 from tests.batch_tests.test_helpers import run_script
-from tests.batch_tests.test_helpers import clean_caches
+from tests.batch_tests.test_helpers import prepare_test_cache
 
 """
 USAGE:
@@ -11,7 +11,7 @@ pytest -s tests/batch_tests/test_batch_resume.py
 
 
 @pytest.mark.cache_dir(os.path.expanduser("~/.cache/curator-tests/test-batch-resume"))
-@pytest.mark.usefixtures("clean_caches")
+@pytest.mark.usefixtures("prepare_test_cache")
 def test_batch_resume():
     script = [
         "python",
@@ -19,7 +19,7 @@ def test_batch_resume():
         "--log-level",
         "DEBUG",
         "--n-requests",
-        "3",
+        "2",
         "--batch-size",
         "1",
         "--batch-check-interval",
@@ -42,5 +42,5 @@ def test_batch_resume():
     print(output2)
 
     # checks
-    assert "2 out of 2 remaining batches are already submitted." in output2
-    assert "1 out of 1 batches already downloaded." in output2
+    assert "1 out of 2 batches already downloaded." in output2
+    assert "1 out of 1 remaining batches are already submitted." in output2

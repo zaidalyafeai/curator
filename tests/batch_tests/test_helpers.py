@@ -7,7 +7,7 @@ import re
 
 
 @pytest.fixture
-def clean_caches(request):
+def prepare_test_cache(request):
     """Fixture to ensure clean caches before tests"""
     # Get cache_dir from marker if provided, otherwise use default
     marker = request.node.get_closest_marker("cache_dir")
