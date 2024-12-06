@@ -1,7 +1,7 @@
 import pytest
 import os
-from tests.test_helpers import run_script
-from tests.test_helpers import prepare_test_cache
+from tests.helpers import run_script
+from tests.helpers import prepare_test_cache
 
 """
 USAGE:
