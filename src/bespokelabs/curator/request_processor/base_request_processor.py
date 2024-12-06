@@ -3,6 +3,7 @@ import glob
 import json
 import logging
 import os
+import resource
 from abc import ABC, abstractmethod
 from math import ceil
 from typing import Optional
@@ -18,7 +19,9 @@ from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.generic_response import GenericResponse
 
-logger = logging.getLogger(__name__)
+logger = logger = logging.getLogger(__name__)
+
+CACHE_MSG = "If you want to regenerate the dataset, disable or delete the cache."
 
 
 class BaseRequestProcessor(ABC):
@@ -28,6 +31,13 @@ class BaseRequestProcessor(ABC):
 
     def __init__(self, batch_size: Optional[int] = None):
         self.batch_size = batch_size
+        # Increase the number of open file descriptors to avoid "Too many open files" errors
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        desired_limit = min(10_000_000, hard)
+        logger.debug(
+            f"Adjusting file descriptor limit from {soft} to {desired_limit} (hard limit: {hard})"
+        )
+        resource.setrlimit(resource.RLIMIT_NOFILE, (desired_limit, hard))
 
     @abstractmethod
     def get_rate_limits(self) -> dict:
@@ -55,7 +65,6 @@ class BaseRequestProcessor(ABC):
         """
         pass
 
-    @abstractmethod
     def run(
         self,
         dataset: Dataset,
@@ -92,16 +101,13 @@ class BaseRequestProcessor(ABC):
             list[str]: Paths to the request files that were created.
         """
         os.makedirs(working_dir, exist_ok=True)
-        requests_files = glob.glob(f"{working_dir}/requests_*.jsonl")
+        request_files = glob.glob(f"{working_dir}/requests_*.jsonl")
 
         # By default use existing requests in working_dir
-        if len(requests_files) > 0:
-            logger.info(
-                f"Using existing requests in {working_dir} by default. Found {len(requests_files)} request files."
-                f"If this is not what you want, delete the directory or specify a new one and re-run."
-            )
+        if len(request_files) > 0:
+            logger.info(f"Using cached requests. {CACHE_MSG}")
             # count existing jobs in file and print first job
-            with open(requests_files[0], "r") as f:
+            with open(request_files[0], "r") as f:
                 # Count lines and store first job
                 first_job = None
                 num_jobs = 0
@@ -111,32 +117,32 @@ class BaseRequestProcessor(ABC):
                     num_jobs = i + 1
 
                 if num_jobs > 0:
-                    logger.info(f"There are {num_jobs} existing requests in {requests_files[0]}")
-                    logger.info(
-                        f"Example request in {requests_files[0]}:\n{json.dumps(first_job, default=str, indent=2)}"
+                    logger.debug(
+                        f"There are {num_jobs} existing requests in {request_files[0]}\n"
+                        f"Example request in {request_files[0]}:\n{json.dumps(first_job, default=str, indent=2)}"
                     )
-                    return requests_files
+                    return request_files
 
         # Create new requests file
-        requests_file = f"{working_dir}/requests_0.jsonl"
-        requests_files = [requests_file]
+        request_file = f"{working_dir}/requests_0.jsonl"
+        request_files = [request_file]
 
         if dataset is None:
-            with open(requests_file, "w") as f:
+            with open(request_file, "w") as f:
                 generic_request = prompt_formatter.create_generic_request(dict(), 0)
                 f.write(json.dumps(generic_request.model_dump(), default=str) + "\n")
-            return requests_files
+            return request_files
 
         if self.batch_size:
             num_batches = ceil(len(dataset) / self.batch_size)
-            requests_files = [f"{working_dir}/requests_{i}.jsonl" for i in range(num_batches)]
+            request_files = [f"{working_dir}/requests_{i}.jsonl" for i in range(num_batches)]
 
             async def create_all_request_files():
                 tasks = [
                     self.acreate_request_file(
                         dataset,
                         prompt_formatter,
-                        requests_files[i],
+                        request_files[i],
                         start_idx=i * self.batch_size,
                     )
                     for i in range(num_batches)
@@ -145,9 +151,9 @@ class BaseRequestProcessor(ABC):
 
             run_in_event_loop(create_all_request_files())
         else:
-            run_in_event_loop(self.acreate_request_file(dataset, prompt_formatter, requests_file))
+            run_in_event_loop(self.acreate_request_file(dataset, prompt_formatter, request_file))
 
-        return requests_files
+        return request_files
 
     # NOTE(Ryan): Instead of doing this, just iterate over iterable and keep counter and change filename when hit batch_size, this will be slower but this whole thing is dominated by llm calls anyways
     async def acreate_request_file(
@@ -171,6 +177,24 @@ class BaseRequestProcessor(ABC):
                 request = prompt_formatter.create_generic_request(dataset_row, dataset_row_idx)
                 await f.write(json.dumps(request.model_dump(), default=str) + "\n")
         logger.info(f"Wrote {end_idx - start_idx} requests to {request_file}.")
+
+    def attempt_loading_cached_dataset(
+        self, working_dir: str, parse_func_hash: str
+    ) -> Optional[Dataset]:
+        dataset_file = f"{working_dir}/{parse_func_hash}.arrow"
+        if os.path.exists(dataset_file):
+            logger.debug(f"Loading dataset from {dataset_file}")
+            try:
+                output_dataset = Dataset.from_file(dataset_file)
+                logger.info(f"Using cached output dataset. {CACHE_MSG}")
+                return output_dataset
+            except pyarrow.lib.ArrowInvalid as e:
+                os.remove(dataset_file)
+                logger.warning(
+                    f"Failed to load dataset from {dataset_file}, "
+                    "which was likely corrupted by a failed previous run. "
+                    "Deleted file and attempting to regenerate dataset from cached LLM responses."
+                )
 
     def create_dataset_files(
         self,
@@ -198,23 +222,6 @@ class BaseRequestProcessor(ABC):
         responses_files = glob.glob(f"{working_dir}/responses_*.jsonl")
         if len(responses_files) == 0:
             raise ValueError(f"No responses files found in {working_dir}")
-        dataset_file = f"{working_dir}/{parse_func_hash}.arrow"
-        if os.path.exists(dataset_file):
-            logger.info(f"Using existing dataset file {dataset_file}")
-            successful_dataset_cache_load = False
-            try:
-                output_dataset = Dataset.from_file(dataset_file)
-                successful_dataset_cache_load = True
-            except pyarrow.lib.ArrowInvalid as e:
-                os.remove(dataset_file)
-                logger.warning(
-                    f"Failed to load dataset from {dataset_file}, "
-                    "which was likely corrupted by a failed previous run. "
-                    "Deleted file and attempting to regenerate dataset from cached LLM responses."
-                )
-
-            if successful_dataset_cache_load:
-                return output_dataset
 
         error_help = (
             "Please check your `parse_func` is returning a valid row (dict) "
@@ -223,6 +230,7 @@ class BaseRequestProcessor(ABC):
         )
 
         # Process all response files
+        dataset_file = f"{working_dir}/{parse_func_hash}.arrow"
         with ArrowWriter(path=dataset_file) as writer:
             for responses_file in responses_files:
                 with open(responses_file, "r") as f_in:

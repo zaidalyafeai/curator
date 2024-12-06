@@ -3,8 +3,7 @@ import datetime
 import logging
 import os
 import re
-import resource
-from typing import Optional, Any
+from typing import Optional, Any, TypeVar
 
 import aiohttp
 import requests
@@ -20,7 +19,8 @@ from bespokelabs.curator.request_processor.base_online_request_processor import 
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.generic_response import TokenUsage, GenericResponse
 
-logger = logging.getLogger(__name__)
+T = TypeVar("T")
+logger = logger = logging.getLogger(__name__)
 
 
 def get_token_encoding_name(model_name: str) -> str:

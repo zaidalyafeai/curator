@@ -159,15 +159,15 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     f"Model {self.model} does not support structured output, "
                     f"response_format: {self.prompt_formatter.response_format}"
                 )
-        generic_requests_files = self.create_request_files(dataset, working_dir, prompt_formatter)
+        generic_request_files = self.create_request_files(dataset, working_dir, prompt_formatter)
         generic_responses_files = [
-            f"{working_dir}/responses_{i}.jsonl" for i in range(len(generic_requests_files))
+            f"{working_dir}/responses_{i}.jsonl" for i in range(len(generic_request_files))
         ]
 
-        for request_file, response_file in zip(generic_requests_files, generic_responses_files):
+        for request_file, response_file in zip(generic_request_files, generic_responses_files):
             run_in_event_loop(
                 self.process_requests_from_file(
-                    generic_requests_filepath=request_file,
+                    generic_request_filepath=request_file,
                     save_filepath=response_file,
                     max_attempts=5,
                     resume=True,
@@ -178,7 +178,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
 
     async def process_requests_from_file(
         self,
-        generic_requests_filepath: str,
+        generic_request_filepath: str,
         save_filepath: str,
         max_attempts: int,
         resume: bool,
@@ -269,7 +269,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     return
 
         # Count total requests
-        total_requests = sum(1 for _ in open(generic_requests_filepath))
+        total_requests = sum(1 for _ in open(generic_request_filepath))
 
         # Create progress bar
         status_tracker.pbar = tqdm(
@@ -283,7 +283,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         async with aiohttp.ClientSession(
             connector=connector
         ) as session:  # Initialize ClientSession here
-            async with aiofiles.open(generic_requests_filepath) as file:
+            async with aiofiles.open(generic_request_filepath) as file:
                 pending_requests = []
 
                 async for line in file:
