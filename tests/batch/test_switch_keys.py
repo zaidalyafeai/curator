@@ -46,4 +46,4 @@ def test_batch_switch_keys():
     print(output2)
 
     # checks
-    assert "1 out of 1 batches already downloaded." in output2
+    assert "1 out of 2 batches already downloaded." in output2
