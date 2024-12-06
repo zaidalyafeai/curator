@@ -7,7 +7,7 @@ from tests.helpers import prepare_test_cache
 
 """
 USAGE:
-pytest -s tests/litellm/test_models.py
+pytest -s tests/test_litellm_models.py
 """
 
 
