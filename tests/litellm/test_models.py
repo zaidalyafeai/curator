@@ -10,6 +10,7 @@ USAGE:
 pytest -s tests/litellm/test_models.py
 """
 
+
 @pytest.mark.cache_dir(os.path.expanduser("~/.cache/curator-tests/test-models"))
 @pytest.mark.usefixtures("prepare_test_cache")
 def test_litellm_models():
@@ -26,13 +27,13 @@ def test_litellm_models():
         "claude-3-haiku-20240307",
         "claude-3-opus-20240229",
         "claude-3-sonnet-20240229",
-        "gpt-4o-mini", # https://docs.litellm.ai/docs/providers/openai
+        "gpt-4o-mini",  # https://docs.litellm.ai/docs/providers/openai
         "gpt-4o-2024-08-06",
         "gpt-4-0125-preview",
         "gpt-3.5-turbo-1106",
-        "gemini/gemini-1.5-flash", # https://docs.litellm.ai/docs/providers/gemini; https://ai.google.dev/gemini-api/docs/models # 20-30 iter/s
-        "gemini/gemini-1.5-pro", # 20-30 iter/s
-        "together_ai/meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", # https://docs.together.ai/docs/serverless-models
+        "gemini/gemini-1.5-flash",  # https://docs.litellm.ai/docs/providers/gemini; https://ai.google.dev/gemini-api/docs/models # 20-30 iter/s
+        "gemini/gemini-1.5-pro",  # 20-30 iter/s
+        "together_ai/meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",  # https://docs.together.ai/docs/serverless-models
         "together_ai/meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
     ]
 
