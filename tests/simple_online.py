@@ -3,7 +3,7 @@ from datasets import Dataset
 import logging
 import argparse
 
-# python tests/speed_test.py --log-level DEBUG --model claude-3-5-haiku-20241022
+# python tests/simple_online.py --log-level DEBUG --model claude-3-5-haiku-20241022
 
 
 def main(args):
