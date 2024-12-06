@@ -199,7 +199,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
             return True
         if "gpt-4o-" in model_name:
             base_date = datetime.datetime.strptime(model_name.split("gpt-4o-")[1], "%Y-%m-%d")
-            if base_date >= datetime(2024, 8, 6):
+            if base_date >= datetime.datetime(2024, 8, 6):
                 return True
 
         return False
