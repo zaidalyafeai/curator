@@ -149,6 +149,7 @@ class Prompter:
                     batch_size=batch_size,
                     temperature=temperature,
                     top_p=top_p,
+                    batch_check_interval=batch_check_interval,
                     presence_penalty=presence_penalty,
                     frequency_penalty=frequency_penalty,
                     delete_successful_batch_files=delete_successful_batch_files,
