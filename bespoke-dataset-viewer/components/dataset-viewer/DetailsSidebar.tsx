@@ -7,6 +7,7 @@ import { Copy } from "lucide-react"
 import { DataItem } from "@/types/dataset"
 import { useCallback } from "react"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { useToast } from "@/components/ui/use-toast"
 
 interface DetailsSidebarProps {
   item: DataItem | null
@@ -14,15 +15,26 @@ interface DetailsSidebarProps {
 }
 
 export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
+  const { toast } = useToast()
+
   const copyToClipboard = useCallback(async (text: string) => {
     try {
       await navigator.clipboard.writeText(text)
-      alert("Copied to clipboard!")
+      toast({
+        title: "Success",
+        description: "Copied to clipboard!",
+        duration: 2000,
+      })
     } catch (err) {
       console.error("Failed to copy:", err)
-      alert("Failed to copy to clipboard")
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to copy to clipboard",
+        duration: 2000,
+      })
     }
-  }, [])
+  }, [toast])
 
   if (!item) return null
 
