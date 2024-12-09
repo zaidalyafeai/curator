@@ -770,7 +770,10 @@ class BatchManager:
                     request_file = batch_object.metadata["request_file_name"]
                     response_file = request_file_to_response_file(request_file, self.working_dir)
                     assert request_file in self.tracker.unsubmitted_request_files, f"request_file {request_file} not in unsubmitted_request_files: {self.tracker.unsubmitted_request_files}"
-                    assert os.path.exists(response_file), f"response_file {response_file} does not exist"
+                    if not os.path.exists(response_file):
+                        logger.warning(f"response_file {response_file} does not exist. will continue...")
+                        continue
+
                     self.tracker.mark_as_submitted(
                         request_file, batch_object, batch_object.request_counts.total
                     )
