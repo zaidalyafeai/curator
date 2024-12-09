@@ -7,7 +7,7 @@ from datetime import datetime
 from io import BytesIO
 from typing import Any, Callable, Dict, Iterable, Optional, Type, TypeVar, Union
 
-import dill
+from datasets.utils._dill import Pickler
 from datasets import Dataset
 from pydantic import BaseModel
 from xxhash import xxh64
@@ -311,7 +311,7 @@ def _get_function_hash(func) -> str:
         return xxh64("").hexdigest()
 
     file = BytesIO()
-    dill.Pickler(file, recurse=True).dump(func)
+    Pickler(file, recurse=True).dump(func)
     return xxh64(file.getvalue()).hexdigest()
 
 
