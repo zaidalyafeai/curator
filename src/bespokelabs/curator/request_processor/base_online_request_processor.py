@@ -122,6 +122,8 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         top_p: Optional[float] = None,
         presence_penalty: Optional[float] = None,
         frequency_penalty: Optional[float] = None,
+        max_requests_per_minute: Optional[int] = None,
+        max_tokens_per_minute: Optional[int] = None,
     ):
         super().__init__(batch_size=None)
         self.model: str = model
@@ -130,6 +132,8 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         self.presence_penalty: float | None = presence_penalty
         self.frequency_penalty: float | None = frequency_penalty
         self.prompt_formatter: Optional[PromptFormatter] = None
+        self.max_requests_per_minute: Optional[int] = max_requests_per_minute
+        self.max_tokens_per_minute: Optional[int] = max_tokens_per_minute
 
     @abstractmethod
     def estimate_total_tokens(self, messages: list) -> int:
@@ -194,9 +198,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         status_tracker = StatusTracker()
 
         # Get rate limits
-        status_tracker.max_requests_per_minute, status_tracker.max_tokens_per_minute = (
-            self.rate_limit_helper()
-        )
+        rate_limits = self.get_rate_limits()
+        status_tracker.max_requests_per_minute = rate_limits[0]
+        status_tracker.max_tokens_per_minute = rate_limits[1]
 
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         resource.setrlimit(

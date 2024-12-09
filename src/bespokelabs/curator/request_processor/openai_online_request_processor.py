@@ -88,6 +88,8 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
             top_p=top_p,
             presence_penalty=presence_penalty,
             frequency_penalty=frequency_penalty,
+            max_requests_per_minute=max_requests_per_minute,
+            max_tokens_per_minute=max_tokens_per_minute,
         )
         self.url = url
         self.api_key = api_key

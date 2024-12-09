@@ -49,6 +49,8 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         top_p: Optional[float] = None,
         presence_penalty: Optional[float] = None,
         frequency_penalty: Optional[float] = None,
+        max_requests_per_minute: Optional[int] = None,
+        max_tokens_per_minute: Optional[int] = None,
     ):
         super().__init__(
             model=model,
@@ -56,8 +58,11 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             top_p=top_p,
             presence_penalty=presence_penalty,
             frequency_penalty=frequency_penalty,
+            max_requests_per_minute=max_requests_per_minute,
+            max_tokens_per_minute=max_tokens_per_minute,
         )
         self.client = instructor.from_litellm(litellm.acompletion)
+        self.reported_cost_error = False
 
     def check_structured_output_support(self):
         """Verify if the model supports structured output via instructor.
@@ -245,7 +250,11 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         try:
             cost = litellm.completion_cost(completion_response=completion_obj.model_dump())
         except litellm.NotFoundError as e:
-            logger.info(f"LiteLLM does not support cost estimation for model {self.model}: {e}")
+            if not self.reported_cost_error:
+                logger.warning(
+                    f"LiteLLM does not support cost estimation for model {self.model}: {e}"
+                )
+                self.reported_cost_error = True
             cost = 0
 
         # Create and return response
