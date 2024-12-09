@@ -516,7 +516,7 @@ class BatchManager:
             delete_failed_batch_files (bool): Whether to delete input/error files from OpenAI
                 after batch failure.
         """
-        self.client = AsyncOpenAI()
+        self.client = AsyncOpenAI(max_retries=MAX_RETRIES_PER_OPERATION)
         self.check_interval = check_interval
         self.working_dir = working_dir
         self.tracker = BatchStatusTracker()
