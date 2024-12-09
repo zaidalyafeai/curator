@@ -79,6 +79,8 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
         top_p: Optional[float] = None,
         presence_penalty: Optional[float] = None,
         frequency_penalty: Optional[float] = None,
+        max_requests_per_minute: Optional[int] = None,
+        max_tokens_per_minute: Optional[int] = None,
     ):
         super().__init__(
             model=model,
@@ -102,27 +104,16 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
             - Falls back to default values if headers are missing
             - Supports both OpenAI and Azure endpoints
         """
+
         response = requests.post(
             self.url,
             headers={"Authorization": f"Bearer {self.api_key}"},
             json={"model": self.model, "messages": []},
         )
-
         rpm = int(response.headers.get("x-ratelimit-limit-requests", 0))
         tpm = int(response.headers.get("x-ratelimit-limit-tokens", 0))
 
-        if not rpm or not tpm:
-            logger.warning("Failed to get rate limits from OpenAI API, using default values")
-            rpm = 30_000
-            tpm = 150_000_000
-
-        logger.info(f"Automatically set max_requests_per_minute to {rpm}")
-        logger.info(f"Automatically set max_tokens_per_minute to {tpm}")
-
-        return {
-            "max_requests_per_minute": rpm,
-            "max_tokens_per_minute": tpm,
-        }
+        return self.rate_limit_helper(rpm, tpm)
 
     def estimate_output_tokens(self) -> int:
         """Estimate number of tokens in the response.

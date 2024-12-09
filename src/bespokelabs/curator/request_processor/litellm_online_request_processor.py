@@ -158,12 +158,10 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         headers = completion._hidden_params.get("additional_headers", {})
         logger.info(f"Rate limit headers: {headers}")
 
-        rpm = int(headers.get("x-ratelimit-limit-requests", 3000))
-        tpm = int(headers.get("x-ratelimit-limit-tokens", 150_000))
+        rpm = int(headers.get("x-ratelimit-limit-requests", 0))
+        tpm = int(headers.get("x-ratelimit-limit-tokens", 0))
 
-        logger.info(f"Rate limits - Requests/min: {rpm}, Tokens/min: {tpm}")
-
-        return {"max_requests_per_minute": rpm, "max_tokens_per_minute": tpm}
+        return self.rate_limit_helper(rpm, tpm)
 
     def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
         """Convert a generic request into a LiteLLM-compatible format.

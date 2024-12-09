@@ -22,6 +22,9 @@ import aiofiles
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+DEFAULT_REQUESTS_PER_MINUTE = 10
+DEFAULT_TOKENS_PER_MINUTE = 1_000
+
 
 @dataclass
 class StatusTracker:
@@ -191,10 +194,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         status_tracker = StatusTracker()
 
         # Get rate limits
-        rate_limits = self.get_rate_limits()
-        status_tracker.max_requests_per_minute = rate_limits["max_requests_per_minute"]
-        status_tracker.max_tokens_per_minute = rate_limits["max_tokens_per_minute"]
-        rpm = rate_limits["max_requests_per_minute"]
+        status_tracker.max_requests_per_minute, status_tracker.max_tokens_per_minute = (
+            self.rate_limit_helper()
+        )
 
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         resource.setrlimit(
@@ -279,7 +281,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         )
 
         # Use higher connector limit for better throughput
-        connector = aiohttp.TCPConnector(limit=10 * rpm)
+        connector = aiohttp.TCPConnector(limit=10 * status_tracker.max_requests_per_minute)
         async with aiohttp.ClientSession(
             connector=connector
         ) as session:  # Initialize ClientSession here
@@ -473,3 +475,28 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         async with aiofiles.open(filename, "a") as f:
             await f.write(json_string + "\n")
         logger.debug(f"Successfully appended response to {filename}")
+
+    def rate_limit_helper(self, rpm, tpm):
+        if self.max_requests_per_minute is not None:
+            rpm = self.max_requests_per_minute
+            logger.info(f"Manually set max_requests_per_minute to {self.max_requests_per_minute}")
+        elif rpm != 0:
+            logger.info(f"Automatically set max_requests_per_minute to {rpm}")
+        else:
+            rpm = DEFAULT_REQUESTS_PER_MINUTE
+            logger.warning(
+                f"No manual max_requests_per_minute set, and automatic detection failed, using default value of {rpm}"
+            )
+
+        if self.max_tokens_per_minute is not None:
+            tpm = self.max_tokens_per_minute
+            logger.info(f"Manually set max_tokens_per_minute to {self.max_tokens_per_minute}")
+        elif tpm != 0:
+            logger.info(f"Automatically set max_tokens_per_minute to {tpm}")
+        else:
+            tpm = DEFAULT_TOKENS_PER_MINUTE
+            logger.warning(
+                f"No manual max_tokens_per_minute set, and automatic detection failed, using default value of {tpm}"
+            )
+
+        return rpm, tpm

@@ -83,6 +83,8 @@ class Prompter:
         ] = None,
         response_format: Optional[Type[BaseModel]] = None,
         backend: Optional[str] = None,
+        max_requests_per_minute: Optional[int] = None,
+        max_tokens_per_minute: Optional[int] = None,
         batch: bool = False,
         batch_size: Optional[int] = None,
         batch_check_interval: Optional[int] = 60,
@@ -144,6 +146,10 @@ class Prompter:
                     logger.info(
                         f"batch=True but no batch_size provided, using default batch_size of {batch_size:,}"
                     )
+                if max_requests_per_minute is not None or max_tokens_per_minute is not None:
+                    logger.warning(
+                        "max_requests_per_minute and max_tokens_per_minute not supported with batch mode"
+                    )
                 self._request_processor = OpenAIBatchRequestProcessor(
                     model=model_name,
                     batch_size=batch_size,
@@ -166,6 +172,8 @@ class Prompter:
                     top_p=top_p,
                     presence_penalty=presence_penalty,
                     frequency_penalty=frequency_penalty,
+                    max_requests_per_minute=max_requests_per_minute,
+                    max_tokens_per_minute=max_tokens_per_minute,
                 )
         elif self.backend == "litellm":
             if batch:
@@ -178,6 +186,8 @@ class Prompter:
                 top_p=top_p,
                 presence_penalty=presence_penalty,
                 frequency_penalty=frequency_penalty,
+                max_requests_per_minute=max_requests_per_minute,
+                max_tokens_per_minute=max_tokens_per_minute,
             )
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
