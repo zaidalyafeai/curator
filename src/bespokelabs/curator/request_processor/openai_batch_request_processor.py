@@ -676,7 +676,6 @@ class BatchManager:
         try:
             batch_object = await self.client.batches.retrieve(batch_id)
         except Exception as e:
-            logger.error(f"Error checking previously submitted batch: {e}")
             raise e
         return batch_object
 
