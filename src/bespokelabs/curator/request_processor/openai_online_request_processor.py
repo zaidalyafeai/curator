@@ -95,7 +95,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
         self.api_key = api_key
         self.token_encoding = tiktoken.get_encoding(get_token_encoding_name(model))
 
-    def get_rate_limits(self) -> dict:
+    def get_header_based_rate_limits(self) -> dict:
         """Get rate limits from OpenAI API headers.
 
         Returns:
@@ -103,10 +103,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
 
         Note:
             - Makes a dummy request to get actual rate limits
-            - Falls back to default values if headers are missing
-            - Supports both OpenAI and Azure endpoints
         """
-
         response = requests.post(
             self.url,
             headers={"Authorization": f"Bearer {self.api_key}"},
@@ -115,7 +112,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
         rpm = int(response.headers.get("x-ratelimit-limit-requests", 0))
         tpm = int(response.headers.get("x-ratelimit-limit-tokens", 0))
 
-        return self.rate_limit_helper(rpm, tpm)
+        return {"max_requests_per_minute": rpm, "max_tokens_per_minute": tpm}
 
     def estimate_output_tokens(self) -> int:
         """Estimate number of tokens in the response.

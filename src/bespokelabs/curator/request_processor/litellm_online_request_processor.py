@@ -156,16 +156,14 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         logger.info(f"Test call headers: {headers}")
         return headers
 
-    def get_rate_limits(self) -> dict:
+    def get_header_based_rate_limits(self) -> dict:
         """Retrieve rate limits from the LLM provider via LiteLLM.
-
-        Makes a test request to get rate limit information from response headers.
 
         Returns:
             dict: Contains 'max_requests_per_minute' and 'max_tokens_per_minute'
 
         Note:
-            - Falls back to default values if headers are missing
+            - Makes a test request to get rate limit information from response headers.
             - Some providers (e.g., Claude) require non-empty messages
         """
         logger.info(f"Getting rate limits for model: {self.model}")
@@ -174,7 +172,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         rpm = int(headers.get("x-ratelimit-limit-requests", 0))
         tpm = int(headers.get("x-ratelimit-limit-tokens", 0))
 
-        return self.rate_limit_helper(rpm, tpm)
+        return {"max_requests_per_minute": rpm, "max_tokens_per_minute": tpm}
 
     def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
         """Convert a generic request into a LiteLLM-compatible format.

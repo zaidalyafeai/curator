@@ -134,6 +134,43 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         self.prompt_formatter: Optional[PromptFormatter] = None
         self.max_requests_per_minute: Optional[int] = max_requests_per_minute
         self.max_tokens_per_minute: Optional[int] = max_tokens_per_minute
+        self.DEFAULT_MAX_REQUESTS_PER_MINUTE = DEFAULT_REQUESTS_PER_MINUTE
+        self.DEFAULT_MAX_TOKENS_PER_MINUTE = DEFAULT_TOKENS_PER_MINUTE
+
+    def get_rate_limit(self, name, header_value):
+        """Uses manual values if set, otherwise uses headers if available, and if not available uses defaults."""
+        manual_value = getattr(self, name)
+        default_value = getattr(self, f"DEFAULT_{name.upper()}")
+        if manual_value is not None:
+            logger.info(f"Manually set {name} to {manual_value}")
+            return manual_value
+        elif header_value != 0:
+            logger.info(f"Automatically set {name} to {header_value}")
+            return header_value
+        else:
+            logger.warning(
+                f"No manual {name} set, and headers based detection failed, using default value of {default_value}"
+            )
+            return default_value
+
+    def get_rate_limits(self) -> dict:
+        """Get rate limits for the API. Returns a dictionary with max_requests_per_minute and max_tokens_per_minute"""
+
+        # Get values from headers
+        header_based_rate_limits = self.get_header_based_rate_limits()
+        header_tpm = header_based_rate_limits["max_tokens_per_minute"]
+        header_rpm = header_based_rate_limits["max_requests_per_minute"]
+
+        # Determine final rate limit
+        tpm = self.get_rate_limit("max_tokens_per_minute", header_tpm)
+        rpm = self.get_rate_limit("max_requests_per_minute", header_rpm)
+
+        return {"max_requests_per_minute": rpm, "max_tokens_per_minute": tpm}
+
+    @abstractmethod
+    def get_header_based_rate_limits(self) -> dict:
+        """Get rate limits for the API from headers. Returns a dictionary with max_requests_per_minute and max_tokens_per_minute"""
+        pass
 
     @abstractmethod
     def estimate_total_tokens(self, messages: list) -> int:
@@ -199,8 +236,8 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
 
         # Get rate limits
         rate_limits = self.get_rate_limits()
-        status_tracker.max_requests_per_minute = rate_limits[0]
-        status_tracker.max_tokens_per_minute = rate_limits[1]
+        status_tracker.max_requests_per_minute = rate_limits["max_requests_per_minute"]
+        status_tracker.max_tokens_per_minute = rate_limits["max_tokens_per_minute"]
 
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         resource.setrlimit(
@@ -479,28 +516,3 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         async with aiofiles.open(filename, "a") as f:
             await f.write(json_string + "\n")
         logger.debug(f"Successfully appended response to {filename}")
-
-    def rate_limit_helper(self, rpm, tpm):
-        if self.max_requests_per_minute is not None:
-            rpm = self.max_requests_per_minute
-            logger.info(f"Manually set max_requests_per_minute to {self.max_requests_per_minute}")
-        elif rpm != 0:
-            logger.info(f"Automatically set max_requests_per_minute to {rpm}")
-        else:
-            rpm = DEFAULT_REQUESTS_PER_MINUTE
-            logger.warning(
-                f"No manual max_requests_per_minute set, and automatic detection failed, using default value of {rpm}"
-            )
-
-        if self.max_tokens_per_minute is not None:
-            tpm = self.max_tokens_per_minute
-            logger.info(f"Manually set max_tokens_per_minute to {self.max_tokens_per_minute}")
-        elif tpm != 0:
-            logger.info(f"Automatically set max_tokens_per_minute to {tpm}")
-        else:
-            tpm = DEFAULT_TOKENS_PER_MINUTE
-            logger.warning(
-                f"No manual max_tokens_per_minute set, and automatic detection failed, using default value of {tpm}"
-            )
-
-        return rpm, tpm
