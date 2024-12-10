@@ -746,7 +746,8 @@ class BatchManager:
                         batch_object = await self.retrieve_batch(batch_object.id)
                     except NotFoundError:
                         logger.info(
-                            f"Batch {batch_object.id} not found. This is fine since we might be looking at a cancelled batch or a batch from another project. Will continue..."
+                            f"Batch {batch_object.id} not found. This is fine since we might be looking at a cancelled batch, "
+                            f"a deleted batch, or a batch from another project. Will continue..."
                         )
                         continue
 
@@ -779,6 +780,7 @@ class BatchManager:
                     ):
                         existing_submitted_batches[request_file_name] = batch_object
 
+        logger.info(f"existing_submitted_batches: {existing_submitted_batches}")
         for request_file_name, batch_object in existing_submitted_batches.items():
             if request_file_name in self.tracker.unsubmitted_request_files:
                 self.tracker.mark_as_submitted(request_file_name, batch_object, n_requests)
@@ -789,6 +791,8 @@ class BatchManager:
                     f"tracker.downloaded_batches: {self.tracker.downloaded_batches} \n"
                     f"tracker.unsubmitted_request_files: {self.tracker.unsubmitted_request_files} \n"
                     f"tracker.submitted_batches: {self.tracker.submitted_batches} \n"
+                    f"request_file_name: {request_file_name} \n"
+                    f"unsubmitted_request_files: {self.tracker.unsubmitted_request_files} \n"
                 )
 
         if self.tracker.n_submitted_batches > 0:
@@ -796,7 +800,7 @@ class BatchManager:
                 f"{self.tracker.n_submitted_batches:,} out of {self.tracker.n_total_batches - self.tracker.n_downloaded_batches:,} remaining batches are already submitted."
             )
 
-    def track_already_downloaded_batches(self):
+    async def track_already_downloaded_batches(self):
         """
         Tracks previously downloaded batches from the downloaded batch objects files.
 
@@ -852,7 +856,7 @@ class BatchManager:
             - Creates and updates batch submission progress bar
         """
         self.tracker.unsubmitted_request_files = request_files
-        self.track_already_downloaded_batches()
+        await self.track_already_downloaded_batches()
         await self.track_already_submitted_batches()
         # exit early
         if self.tracker.n_unsubmitted_request_files == 0:
