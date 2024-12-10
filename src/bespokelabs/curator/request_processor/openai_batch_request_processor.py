@@ -745,15 +745,16 @@ class BatchManager:
                     try:
                         batch_object = await self.retrieve_batch(batch_object.id)
                     except NotFoundError:
-                        logger.info(
-                            f"Batch {batch_object.id} not found. This is fine since we might be looking at a cancelled batch, "
-                            f"a deleted batch, or a batch from another project. Will continue..."
+                        logger.warning(
+                            f"Already submitted batch object {batch_object.id} not found. This might be fine since we might be "
+                            "looking at a batch object submitted by another project. Will ignore this batch object..."
                         )
                         continue
 
                     if not self._validate_batch_status(batch_object.status):
-                        logger.info(
-                            f"Batch {batch_object.id} has an invalid status {batch_object.status}. Skipping..."
+                        logger.warning(
+                            f"Already submitted batch {batch_object.id} has an invalid status {batch_object.status}. "
+                            f"Will ignore this batch object..."
                         )
                         continue
 
@@ -761,7 +762,7 @@ class BatchManager:
                     if batch_object.status in ["expired", "cancelling", "cancelled"]:
                         logger.info(
                             f"Batch {batch_object.id} has status {batch_object.status}, which means it can "
-                            "no longer be used. Skipping..."
+                            "no longer be used. Will ignore this batch object..."
                         )
                         continue
 
@@ -838,7 +839,8 @@ class BatchManager:
                     ), f"request_file {request_file} not in unsubmitted_request_files: {self.tracker.unsubmitted_request_files}"
                     if not os.path.exists(response_file):
                         logger.warning(
-                            f"response_file {response_file} does not exist. will continue..."
+                            f"Downloaded batch object {batch_object.id} has a response_file {response_file} that does not exist. "
+                            "Will resubmit this batch..."
                         )
                         continue
 
@@ -971,7 +973,7 @@ class BatchManager:
             batches_to_download = await asyncio.gather(*status_tasks)
             batches_to_download = filter(None, batches_to_download)
 
-            # update progress bar
+            # update progress bari
             self.request_pbar.n = self.tracker.n_finished_or_downloaded_requests
             self.request_pbar.refresh()
 
@@ -1014,9 +1016,7 @@ class BatchManager:
                     logger.warning(f"Failed to delete file {file_id}")
             except NotFoundError:
                 # This is fine, the file may have been deleted already. Deletion should be best-effort.
-                logger.warning(
-                    f"Trying to delete file {file_id} but it was not found, skipping deletion."
-                )
+                logger.warning(f"Trying to delete file {file_id} but it was not found.")
 
     async def download_batch(self, batch: Batch) -> str | None:
         file_content = None
