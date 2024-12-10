@@ -33,7 +33,7 @@ T = TypeVar("T")
 logger = logger = logging.getLogger(__name__)
 
 
-class Prompter:
+class LLM:
     """Interface for prompting LLMs."""
 
     @staticmethod
@@ -97,7 +97,7 @@ class Prompter:
         presence_penalty: Optional[float] = None,
         frequency_penalty: Optional[float] = None,
     ):
-        """Initialize a Prompter.
+        """Initialize a LLM.
 
         Args:
             model_name (str): The name of the LLM to use
@@ -166,7 +166,7 @@ class Prompter:
             else:
                 if batch_size is not None:
                     logger.warning(
-                        f"Prompter argument `batch_size` {batch_size} is ignored because `batch` is False"
+                        f"LLM argument `batch_size` {batch_size} is ignored because `batch` is False"
                     )
                 self._request_processor = OpenAIOnlineRequestProcessor(
                     model=model_name,
@@ -223,7 +223,7 @@ class Prompter:
 
         Args:
             dataset (Iterable): A dataset consisting of a list of items to apply completions
-            prompter (Prompter): A Prompter that contains the logic for formatting each
+            prompter (LLM): A LLM that contains the logic for formatting each
                 item in the dataset
             working_dir (str): The working directory to save the requests.jsonl, responses.jsonl, and dataset.arrow files.
 
@@ -235,7 +235,7 @@ class Prompter:
             dataset = Dataset.from_generator(dataset)
 
         if self is None:
-            raise ValueError("Prompter must be provided")
+            raise ValueError("LLM must be provided")
 
         if working_dir is None:
             curator_cache_dir = os.environ.get(
