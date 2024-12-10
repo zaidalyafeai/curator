@@ -88,7 +88,7 @@ class Prompter:
         batch: bool = False,
         batch_size: Optional[int] = None,
         batch_check_interval: Optional[int] = 60,
-        delete_successful_batch_files: bool = False,
+        delete_successful_batch_files: bool = True,
         delete_failed_batch_files: bool = False,  # To allow users to debug failed batches
         temperature: Optional[float] = None,
         top_p: Optional[float] = None,
