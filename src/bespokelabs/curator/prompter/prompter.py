@@ -324,10 +324,12 @@ class LLM:
                 prompt_formatter=self.prompt_formatter,
             )
             if dataset is not None:
-                dataset = Dataset.from_list([
-                    {**row, "response": self._convert_response_to_dict(row["response"])}
-                    for row in dataset
-                ])
+                dataset = Dataset.from_list(
+                    [
+                        {**row, "response": self._convert_response_to_dict(row["response"])}
+                        for row in dataset
+                    ]
+                )
 
         return dataset
 

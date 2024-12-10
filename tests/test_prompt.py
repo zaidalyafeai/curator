@@ -63,13 +63,10 @@ def test_completions(prompter: LLM, tmp_path):
 
     # Mock OpenAI API response
     mock_response = {
-        "choices": [{
-            "message": {"content": "1 + 1 equals 2."},
-            "finish_reason": "stop"
-        }]
+        "choices": [{"message": {"content": "1 + 1 equals 2."}, "finish_reason": "stop"}]
     }
 
-    with patch('openai.resources.chat.completions.Completions.create', return_value=mock_response):
+    with patch("openai.resources.chat.completions.Completions.create", return_value=mock_response):
         # Process dataset and get responses
         result_dataset = prompter(dataset)
 
@@ -116,25 +113,24 @@ def test_single_completion_batch(prompter: LLM):
     )
 
     # Mock response data
-    mock_dataset = Dataset.from_list([{
-        "response": {
-            "message": "This is a test message.",
-            "confidence": 0.9
-        }
-    }])
+    mock_dataset = Dataset.from_list(
+        [{"response": {"message": "This is a test message.", "confidence": 0.9}}]
+    )
 
     # Mock the run method of OpenAIBatchRequestProcessor
-    with patch('bespokelabs.curator.request_processor.openai_batch_request_processor.OpenAIBatchRequestProcessor.run',
-               return_value=mock_dataset):
+    with patch(
+        "bespokelabs.curator.request_processor.openai_batch_request_processor.OpenAIBatchRequestProcessor.run",
+        return_value=mock_dataset,
+    ):
         # Get single completion
         result = batch_prompter()
 
         # Assertions
         assert isinstance(result, Dataset)
         assert len(result) == 1
-        assert isinstance(result[0]['response'], dict)
-        assert result[0]['response']['message'] == "This is a test message."
-        assert result[0]['response']['confidence'] == 0.9
+        assert isinstance(result[0]["response"], dict)
+        assert result[0]["response"]["message"] == "This is a test message."
+        assert result[0]["response"]["confidence"] == 0.9
 
 
 @pytest.mark.test
@@ -165,22 +161,21 @@ def test_single_completion_no_batch(prompter: LLM):
     )
 
     # Mock response data
-    mock_dataset = Dataset.from_list([{
-        "response": {
-            "message": "This is a test message.",
-            "confidence": 0.9
-        }
-    }])
+    mock_dataset = Dataset.from_list(
+        [{"response": {"message": "This is a test message.", "confidence": 0.9}}]
+    )
 
     # Mock the run method of OpenAIOnlineRequestProcessor
-    with patch('bespokelabs.curator.request_processor.openai_online_request_processor.OpenAIOnlineRequestProcessor.run',
-               return_value=mock_dataset):
+    with patch(
+        "bespokelabs.curator.request_processor.openai_online_request_processor.OpenAIOnlineRequestProcessor.run",
+        return_value=mock_dataset,
+    ):
         # Get single completion
         result = non_batch_prompter()
 
         # Assertions
         assert isinstance(result, Dataset)
         assert len(result) == 1
-        assert isinstance(result[0]['response'], dict)
-        assert result[0]['response']['message'] == "This is a test message."
-        assert result[0]['response']['confidence'] == 0.9
+        assert isinstance(result[0]["response"], dict)
+        assert result[0]["response"]["message"] == "This is a test message."
+        assert result[0]["response"]["confidence"] == 0.9
