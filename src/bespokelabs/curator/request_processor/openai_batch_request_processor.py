@@ -780,18 +780,18 @@ class BatchManager:
                     ):
                         existing_submitted_batches[request_file_name] = batch_object
 
-        logger.info(f"existing_submitted_batches: {existing_submitted_batches}")
         for request_file_name, batch_object in existing_submitted_batches.items():
 
             output_file_id = batch_object.output_file_id
-            try:
-                await self.client.files.retrieve(output_file_id)
-            except NotFoundError:
-                logger.warning(
-                    f"Output file {output_file_id} not found for batch {batch_object.id}. "
-                    "The file may have been deleted. Will resubmit this batch..."
-                )
-                continue
+            if output_file_id is not None:
+                try:
+                    await self.client.files.retrieve(output_file_id)
+                except NotFoundError:
+                    logger.warning(
+                        f"Output file {output_file_id} exists in batch object but cannot be found "
+                        "in OpenAI storage. The file may have been deleted. Will resubmit this batch..."
+                    )
+                    continue
 
             if request_file_name in self.tracker.unsubmitted_request_files:
                 self.tracker.mark_as_submitted(request_file_name, batch_object, n_requests)
