@@ -787,8 +787,10 @@ class BatchManager:
             try:
                 await self.client.files.retrieve(output_file_id)
             except NotFoundError:
-                logger.warning(f"Output file {output_file_id} not found for batch {batch_object.id}. "
-                               "The file may have been deleted. Will resubmit this batch...")
+                logger.warning(
+                    f"Output file {output_file_id} not found for batch {batch_object.id}. "
+                    "The file may have been deleted. Will resubmit this batch..."
+                )
                 continue
 
             if request_file_name in self.tracker.unsubmitted_request_files:
@@ -1004,11 +1006,15 @@ class BatchManager:
             semaphore (asyncio.Semaphore): Semaphore to limit concurrent operations
         """
         async with semaphore:
-            delete_response = await self.client.files.delete(file_id)
-            if delete_response.deleted:
-                logger.debug(f"Deleted file {file_id}")
-            else:
-                logger.warning(f"Failed to delete file {file_id}")
+            try:
+                delete_response = await self.client.files.delete(file_id)
+                if delete_response.deleted:
+                    logger.debug(f"Deleted file {file_id}")
+                else:
+                    logger.warning(f"Failed to delete file {file_id}")
+            except NotFoundError:
+                # This is fine, the file may have been deleted already. Deletion should be best-effort.
+                logger.warning(f"Trying to delete file {file_id} but it was not found, skipping deletion.")
 
     async def download_batch(self, batch: Batch) -> str | None:
         file_content = None
