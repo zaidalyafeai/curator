@@ -785,15 +785,18 @@ class BatchManager:
             if request_file_name in self.tracker.unsubmitted_request_files:
                 self.tracker.mark_as_submitted(request_file_name, batch_object, n_requests)
             else:
-                # batch objects if not unsubmitted, should be downloaded
-                raise ValueError(
-                    f"Batch {batch_object.id} is not unsubmitted, but not in tracker.downloaded_batches. \n"
-                    f"tracker.downloaded_batches: {self.tracker.downloaded_batches} \n"
-                    f"tracker.unsubmitted_request_files: {self.tracker.unsubmitted_request_files} \n"
-                    f"tracker.submitted_batches: {self.tracker.submitted_batches} \n"
-                    f"request_file_name: {request_file_name} \n"
-                    f"unsubmitted_request_files: {self.tracker.unsubmitted_request_files} \n"
-                )
+                response_file = request_file_to_response_file(request_file_name, self.working_dir)
+                if not os.path.exists(response_file):
+                    raise ValueError(
+                        f"While processing {batch_object.id}, we found that its corresponding request_file_name {request_file_name} is "
+                        f"not in tracker.unsubmitted_request_files, but its corresponding response_file {response_file} does not exist. "
+                        f"This is an invalid state. \n"
+                        f"batch_object: {batch_object} \n"
+                        f"request_file_name: {request_file_name} \n"
+                        f"tracker.unsubmitted_request_files: {self.tracker.unsubmitted_request_files} \n"
+                        f"tracker.submitted_batches: {self.tracker.submitted_batches} \n"
+                        f"tracker.downloaded_batches: {self.tracker.downloaded_batches} \n"
+                    )
 
         if self.tracker.n_submitted_batches > 0:
             logger.info(
