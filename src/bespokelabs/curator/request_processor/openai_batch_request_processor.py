@@ -784,7 +784,9 @@ class BatchManager:
                 self.tracker.mark_as_submitted(request_file_name, batch_object, n_requests)
             else:
                 # batch objects if not unsubmitted, should be downloaded
-                assert batch_object.id in self.tracker.downloaded_batches
+                raise ValueError(
+                    f"Batch {batch_object.id} is not unsubmitted, but not in tracker.downloaded_batches: {self.tracker.downloaded_batches}"
+                )
 
         if self.tracker.n_submitted_batches > 0:
             logger.info(
@@ -802,6 +804,9 @@ class BatchManager:
             glob.glob(f"{self.working_dir}/batch_objects_downloaded_*.jsonl")
         )
         for downloaded_batch_object_file in downloaded_batch_object_files:
+            logger.info(
+                f"Processing downloaded batch objects file: {downloaded_batch_object_file} Your API key is ***{self.client.api_key[-4:]}."
+            )
             with open(downloaded_batch_object_file, "r") as f:
                 for line in f:
                     batch_object = Batch.model_validate(json.loads(line))
