@@ -785,7 +785,10 @@ class BatchManager:
             else:
                 # batch objects if not unsubmitted, should be downloaded
                 raise ValueError(
-                    f"Batch {batch_object.id} is not unsubmitted, but not in tracker.downloaded_batches: {self.tracker.downloaded_batches}"
+                    f"Batch {batch_object.id} is not unsubmitted, but not in tracker.downloaded_batches. \n"
+                    f"tracker.downloaded_batches: {self.tracker.downloaded_batches} \n"
+                    f"tracker.unsubmitted_request_files: {self.tracker.unsubmitted_request_files} \n"
+                    f"tracker.submitted_batches: {self.tracker.submitted_batches} \n"
                 )
 
         if self.tracker.n_submitted_batches > 0:
