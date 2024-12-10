@@ -81,7 +81,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             request_url (str): The request URL for which to get the rate limits.
 
         Returns:
-            tuple[int, int]: A tuple containing the maximum number of requests and tokens per minute.
+            dict: A dictionary containing max_tokens_per_day
         """
         model_tpd = {
             "gpt-3.5-turbo": 5_000_000_000,

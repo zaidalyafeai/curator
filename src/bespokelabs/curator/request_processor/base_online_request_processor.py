@@ -22,6 +22,9 @@ import aiofiles
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+DEFAULT_REQUESTS_PER_MINUTE = 10
+DEFAULT_TOKENS_PER_MINUTE = 1_000
+
 
 @dataclass
 class StatusTracker:
@@ -119,6 +122,8 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         top_p: Optional[float] = None,
         presence_penalty: Optional[float] = None,
         frequency_penalty: Optional[float] = None,
+        max_requests_per_minute: Optional[int] = None,
+        max_tokens_per_minute: Optional[int] = None,
     ):
         super().__init__(batch_size=None)
         self.model: str = model
@@ -127,6 +132,45 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         self.presence_penalty: float | None = presence_penalty
         self.frequency_penalty: float | None = frequency_penalty
         self.prompt_formatter: Optional[PromptFormatter] = None
+        self.max_requests_per_minute: Optional[int] = max_requests_per_minute
+        self.max_tokens_per_minute: Optional[int] = max_tokens_per_minute
+        self.DEFAULT_MAX_REQUESTS_PER_MINUTE = DEFAULT_REQUESTS_PER_MINUTE
+        self.DEFAULT_MAX_TOKENS_PER_MINUTE = DEFAULT_TOKENS_PER_MINUTE
+
+    def get_rate_limit(self, name, header_value):
+        """Uses manual values if set, otherwise uses headers if available, and if not available uses defaults."""
+        manual_value = getattr(self, name)
+        default_value = getattr(self, f"DEFAULT_{name.upper()}")
+        if manual_value is not None:
+            logger.info(f"Manually set {name} to {manual_value}")
+            return manual_value
+        elif header_value != 0:
+            logger.info(f"Automatically set {name} to {header_value}")
+            return header_value
+        else:
+            logger.warning(
+                f"No manual {name} set, and headers based detection failed, using default value of {default_value}"
+            )
+            return default_value
+
+    def get_rate_limits(self) -> dict:
+        """Get rate limits for the API. Returns a dictionary with max_requests_per_minute and max_tokens_per_minute"""
+
+        # Get values from headers
+        header_based_rate_limits = self.get_header_based_rate_limits()
+        header_tpm = header_based_rate_limits["max_tokens_per_minute"]
+        header_rpm = header_based_rate_limits["max_requests_per_minute"]
+
+        # Determine final rate limit
+        tpm = self.get_rate_limit("max_tokens_per_minute", header_tpm)
+        rpm = self.get_rate_limit("max_requests_per_minute", header_rpm)
+
+        return {"max_requests_per_minute": rpm, "max_tokens_per_minute": tpm}
+
+    @abstractmethod
+    def get_header_based_rate_limits(self) -> dict:
+        """Get rate limits for the API from headers. Returns a dictionary with max_requests_per_minute and max_tokens_per_minute"""
+        pass
 
     @abstractmethod
     def estimate_total_tokens(self, messages: list) -> int:
@@ -194,7 +238,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         rate_limits = self.get_rate_limits()
         status_tracker.max_requests_per_minute = rate_limits["max_requests_per_minute"]
         status_tracker.max_tokens_per_minute = rate_limits["max_tokens_per_minute"]
-        rpm = rate_limits["max_requests_per_minute"]
 
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         resource.setrlimit(
@@ -279,7 +322,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         )
 
         # Use higher connector limit for better throughput
-        connector = aiohttp.TCPConnector(limit=10 * rpm)
+        connector = aiohttp.TCPConnector(limit=10 * status_tracker.max_requests_per_minute)
         async with aiohttp.ClientSession(
             connector=connector
         ) as session:  # Initialize ClientSession here

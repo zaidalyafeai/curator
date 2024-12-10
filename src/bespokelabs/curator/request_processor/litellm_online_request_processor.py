@@ -49,6 +49,8 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         top_p: Optional[float] = None,
         presence_penalty: Optional[float] = None,
         frequency_penalty: Optional[float] = None,
+        max_requests_per_minute: Optional[int] = None,
+        max_tokens_per_minute: Optional[int] = None,
     ):
         super().__init__(
             model=model,
@@ -56,6 +58,8 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             top_p=top_p,
             presence_penalty=presence_penalty,
             frequency_penalty=frequency_penalty,
+            max_requests_per_minute=max_requests_per_minute,
+            max_tokens_per_minute=max_tokens_per_minute,
         )
         self.client = instructor.from_litellm(litellm.acompletion)
 
@@ -134,20 +138,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         output_tokens = self.estimate_output_tokens()
         return input_tokens + output_tokens
 
-    def get_rate_limits(self) -> dict:
-        """Retrieve rate limits from the LLM provider via LiteLLM.
-
-        Makes a test request to get rate limit information from response headers.
-
-        Returns:
-            dict: Contains 'max_requests_per_minute' and 'max_tokens_per_minute'
-
-        Note:
-            - Falls back to default values if headers are missing
-            - Some providers (e.g., Claude) require non-empty messages
-        """
-        logger.info(f"Getting rate limits for model: {self.model}")
-
+    def test_call(self):
         completion = litellm.completion(
             model=self.model,
             messages=[
@@ -155,13 +146,31 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             ],  # Some models (e.g. Claude) require an non-empty message to get rate limits.
         )
 
+        # Try the method of caculating cost
+        try:
+            litellm.completion_cost(completion_response=completion.model_dump())
+        except litellm.NotFoundError as e:
+            logger.warning(f"LiteLLM does not support cost estimation for model {self.model}: {e}")
+
         headers = completion._hidden_params.get("additional_headers", {})
-        logger.info(f"Rate limit headers: {headers}")
+        logger.info(f"Test call headers: {headers}")
+        return headers
 
-        rpm = int(headers.get("x-ratelimit-limit-requests", 3000))
-        tpm = int(headers.get("x-ratelimit-limit-tokens", 150_000))
+    def get_header_based_rate_limits(self) -> dict:
+        """Retrieve rate limits from the LLM provider via LiteLLM.
 
-        logger.info(f"Rate limits - Requests/min: {rpm}, Tokens/min: {tpm}")
+        Returns:
+            dict: Contains 'max_requests_per_minute' and 'max_tokens_per_minute'
+
+        Note:
+            - Makes a test request to get rate limit information from response headers.
+            - Some providers (e.g., Claude) require non-empty messages
+        """
+        logger.info(f"Getting rate limits for model: {self.model}")
+
+        headers = self.test_call()
+        rpm = int(headers.get("x-ratelimit-limit-requests", 0))
+        tpm = int(headers.get("x-ratelimit-limit-tokens", 0))
 
         return {"max_requests_per_minute": rpm, "max_tokens_per_minute": tpm}
 
@@ -247,7 +256,6 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         try:
             cost = litellm.completion_cost(completion_response=completion_obj.model_dump())
         except litellm.NotFoundError as e:
-            logger.info(f"LiteLLM does not support cost estimation for model {self.model}: {e}")
             cost = 0
 
         # Create and return response
