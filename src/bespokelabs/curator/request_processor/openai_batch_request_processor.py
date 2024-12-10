@@ -732,7 +732,9 @@ class BatchManager:
 
         existing_submitted_batches = {}
         for submitted_batch_objects_file in all_submitted_batches_files:
-            logger.info(f"Processing submitted batch objects file: {submitted_batch_objects_file} Your API key is ***{self.client.api_key[-4:]}.")
+            logger.info(
+                f"Processing submitted batch objects file: {submitted_batch_objects_file} Your API key is ***{self.client.api_key[-4:]}."
+            )
             with open(submitted_batch_objects_file, "r") as f:
                 for line in f:
                     batch_object = Batch.model_validate(json.loads(line))
