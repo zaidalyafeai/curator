@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 import litellm
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, NotFoundError
 from openai.types import Batch
 from tqdm import tqdm
 
@@ -720,12 +720,20 @@ class BatchManager:
     async def track_already_submitted_batches(self):
         """
         Tracks previously submitted batches from the submitted batch objects file.
+        We need to check all submitted batch objects files because we might be looking at a cancelled batch
+        or a batch from another key but same project.
 
         Side Effects:
             - Updates tracker with previously submitted batch statuses
         """
-        if os.path.exists(self.submitted_batch_objects_file):
-            with open(self.submitted_batch_objects_file, "r") as f:
+        all_submitted_batches_files = set(
+            glob.glob(f"{self.working_dir}/batch_objects_submitted_*.jsonl")
+        )
+
+        existing_submitted_batches = {}
+        for submitted_batch_objects_file in all_submitted_batches_files:
+            logger.info(f"Processing submitted batch objects file: {submitted_batch_objects_file} Your API key is ***{self.client.api_key[-4:]}.")
+            with open(submitted_batch_objects_file, "r") as f:
                 for line in f:
                     batch_object = Batch.model_validate(json.loads(line))
                     request_file_name = batch_object.metadata["request_file_name"]
@@ -733,7 +741,27 @@ class BatchManager:
                         f"Already submitted batch {batch_object.id} for request file {request_file_name}. "
                         f"Getting batch object to update tracker."
                     )
-                    batch_object = await self.retrieve_batch(batch_object.id)
+                    try:
+                        batch_object = await self.retrieve_batch(batch_object.id)
+                    except NotFoundError:
+                        logger.info(
+                            f"Batch {batch_object.id} not found. This is fine since we might be looking at a cancelled batch or a batch from another project. Will continue..."
+                        )
+                        continue
+
+                    if not self._validate_batch_status(batch_object.status):
+                        logger.info(
+                            f"Batch {batch_object.id} has an invalid status {batch_object.status}. Skipping..."
+                        )
+                        continue
+
+                    # We skip the batch if it has a status that means it can no longer be used.
+                    if batch_object.status in ["expired", "cancelling", "cancelled"]:
+                        logger.info(
+                            f"Batch {batch_object.id} has status {batch_object.status}, which means it can "
+                            "no longer be used. Skipping..."
+                        )
+                        continue
 
                     # Edge case where the batch is still validating, and we need to know the total number of requests
                     if batch_object.status == "validating":
@@ -742,11 +770,20 @@ class BatchManager:
                     else:
                         n_requests = batch_object.request_counts.total
 
-                    if request_file_name in self.tracker.unsubmitted_request_files:
-                        self.tracker.mark_as_submitted(request_file_name, batch_object, n_requests)
-                    else:
-                        # batch objects if not unsubmitted, should be downloaded
-                        assert batch_object.id in self.tracker.downloaded_batches
+                    # For each request file, we only want to keep the latest batch object.
+                    if (
+                        request_file_name not in existing_submitted_batches
+                        or existing_submitted_batches[request_file_name].created_at
+                        < batch_object.created_at
+                    ):
+                        existing_submitted_batches[request_file_name] = batch_object
+
+        for request_file_name, batch_object in existing_submitted_batches.items():
+            if request_file_name in self.tracker.unsubmitted_request_files:
+                self.tracker.mark_as_submitted(request_file_name, batch_object, n_requests)
+            else:
+                # batch objects if not unsubmitted, should be downloaded
+                assert batch_object.id in self.tracker.downloaded_batches
 
         if self.tracker.n_submitted_batches > 0:
             logger.info(
@@ -859,9 +896,8 @@ class BatchManager:
             )
 
             finished_statuses = ["completed", "failed", "expired", "cancelled"]
-            in_progress_statuses = ["validating", "finalizing", "cancelling", "in_progress"]
             batch_returned = batch.status in finished_statuses
-            if batch.status not in in_progress_statuses + finished_statuses:
+            if not self._validate_batch_status(batch.status):
                 logger.warning(f"Unknown batch status: {batch.status}")
 
             if batch_returned:
@@ -1033,3 +1069,18 @@ class BatchManager:
         self.tracker.mark_as_downloaded(batch)
 
         return response_file
+
+    @staticmethod
+    def _validate_batch_status(status: str) -> bool:
+        # See https://github.com/openai/openai-python/blob/995cce048f9427bba4f7ac1e5fc60abbf1f8f0b7/src/openai/types/batch.py#L40C1-L41C1
+        # for all possible batch statuses
+        return status in [
+            "completed",
+            "failed",
+            "expired",
+            "cancelled",
+            "validating",
+            "finalizing",
+            "cancelling",
+            "in_progress",
+        ]
