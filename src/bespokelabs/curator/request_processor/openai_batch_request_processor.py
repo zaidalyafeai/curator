@@ -1014,7 +1014,9 @@ class BatchManager:
                     logger.warning(f"Failed to delete file {file_id}")
             except NotFoundError:
                 # This is fine, the file may have been deleted already. Deletion should be best-effort.
-                logger.warning(f"Trying to delete file {file_id} but it was not found, skipping deletion.")
+                logger.warning(
+                    f"Trying to delete file {file_id} but it was not found, skipping deletion."
+                )
 
     async def download_batch(self, batch: Batch) -> str | None:
         file_content = None
