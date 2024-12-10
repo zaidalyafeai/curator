@@ -5,7 +5,7 @@ import pytest
 from datasets import Dataset
 from pydantic import BaseModel
 
-from bespokelabs.curator import Prompter
+from bespokelabs.curator import LLM
 
 
 class MockResponseFormat(BaseModel):
@@ -16,7 +16,7 @@ class MockResponseFormat(BaseModel):
 
 
 @pytest.fixture
-def prompter() -> Prompter:
+def prompter() -> LLM:
     """Create a Prompter instance for testing.
 
     Returns:
@@ -29,7 +29,7 @@ def prompter() -> Prompter:
             "system_prompt": "You are a helpful assistant.",
         }
 
-    return Prompter(
+    return LLM(
         model_name="gpt-4o-mini",
         prompt_func=prompt_func,
         response_format=MockResponseFormat,
@@ -37,7 +37,7 @@ def prompter() -> Prompter:
 
 
 @pytest.mark.test
-def test_completions(prompter: Prompter, tmp_path):
+def test_completions(prompter: LLM, tmp_path):
     """Test that completions processes a dataset correctly.
 
     Args:
@@ -64,7 +64,7 @@ def test_completions(prompter: Prompter, tmp_path):
 
 
 @pytest.mark.test
-def test_single_completion_batch(prompter: Prompter):
+def test_single_completion_batch(prompter: LLM):
     """Test that a single completion works with batch=True.
 
     Args:
@@ -84,7 +84,7 @@ def test_single_completion_batch(prompter: Prompter):
             },
         ]
 
-    batch_prompter = Prompter(
+    batch_prompter = LLM(
         model_name="gpt-4o-mini",
         prompt_func=simple_prompt_func,
         response_format=MockResponseFormat,
@@ -101,7 +101,7 @@ def test_single_completion_batch(prompter: Prompter):
 
 
 @pytest.mark.test
-def test_single_completion_no_batch(prompter: Prompter):
+def test_single_completion_no_batch(prompter: LLM):
     """Test that a single completion works without batch parameter.
 
     Args:
@@ -121,7 +121,7 @@ def test_single_completion_no_batch(prompter: Prompter):
             },
         ]
 
-    non_batch_prompter = Prompter(
+    non_batch_prompter = LLM(
         model_name="gpt-4o-mini",
         prompt_func=simple_prompt_func,
         response_format=MockResponseFormat,
