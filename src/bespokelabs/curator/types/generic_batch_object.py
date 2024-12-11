@@ -28,12 +28,12 @@ class GenericBatchRequestCounts(BaseModel):
     # succeeded: "completed"
 
 
-class GenericBatch(BaseModel):
+class GenericBatchObject(BaseModel):
     request_file: str
     id: str
     output: str
     created_at: datetime.datetime
-    finished_at: datetime.datetime 
+    finished_at: datetime.datetime
     status: Literal["submitted", "finished", "downloaded"]
     raw_batch_object: dict
 
@@ -49,6 +49,6 @@ class GenericBatch(BaseModel):
 
     # https://github.com/openai/openai-python/blob/bb9c2de913279acc89e79f6154173a422f31de45/src/openai/types/batch.py#L27-L71
     # Timing (OpenAI): "created_at", "in_progress_at", "expires_at", "finalizing_at", "completed_at", "failed_at", "expired_at", "cancelling_at", "cancelled_at"
-    
+
     # https://github.com/anthropics/anthropic-sdk-python/blob/e7c5fd1cf9226d73122870d07906664696da3ab8/src/anthropic/types/beta/messages/beta_message_batch.py#L20-L51
     # Timing (Anthropic): "created_at", "cancel_initiated_at", "archived_at", "ended_at", "expires_at"
