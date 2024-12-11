@@ -220,7 +220,14 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             for raw_response in responses.text.splitlines():
                 raw_response = json.loads(raw_response)
                 request_idx = int(raw_response["custom_id"])
-                generic_request = generic_request_map[request_idx]
+
+                if request_idx not in generic_request_map:
+                    logger.warning(
+                        f"Request {request_idx} not found in generic_request_map. response_file: {response_file}, "
+                        f"request_file: {request_file}. The request files might have been incomplete. Will skip "
+                        f"this response."
+                    )
+                    continue
 
                 if raw_response["response"]["status_code"] != 200:
                     logger.warning(
