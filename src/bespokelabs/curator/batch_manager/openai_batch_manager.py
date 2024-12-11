@@ -21,6 +21,7 @@ from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.types.token_usage import TokenUsage
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
+from bespokelabs.curator.batch_manager.base_batch_manager import BatchManager
 
 logger = logging.getLogger(__name__)
 
