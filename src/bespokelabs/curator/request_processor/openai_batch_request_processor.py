@@ -224,7 +224,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                 if request_idx not in generic_request_map:
                     logger.warning(
                         f"Request {request_idx} not found in generic_request_map. response_file: {response_file}, "
-                        f"request_file: {request_file}. The request files might have been partially corrupted. Will skip "
+                        f"request_file: {request_file}. The request files might have been incomplete. Will skip "
                         f"this response."
                     )
                     continue
