@@ -1,31 +1,24 @@
-import asyncio
 import datetime
-import glob
 import json
 import logging
 import os
-from dataclasses import dataclass, field
-from typing import Callable, Optional
-from abc import abstractmethod
-
-from tqdm import tqdm
 import litellm
-from anthropic import AsyncAnthropic
-from anthropic.types import BetaMessageBatch
-
 
 from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import (
-    GenericRequest,
-    GenericResponse,
     parse_response_message,
     BaseRequestProcessor,
 )
-from bespokelabs.curator.request_processor.generic_batch_object import GenericBatchObject
-from bespokelabs.curator.request_processor.generic_batch_object import GenericBatchRequestCounts
+from bespokelabs.curator.types.generic_batch_object import GenericBatchObject
+from bespokelabs.curator.types.generic_batch_object import GenericBatchRequestCounts
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
-from bespokelabs.curator.request_processor.generic_response import TokenUsage
+from bespokelabs.curator.types.token_usage import TokenUsage
+from bespokelabs.curator.types.generic_request import GenericRequest
+from bespokelabs.curator.types.generic_response import GenericResponse
+from bespokelabs.curator.batch_manager.base_batch_manager import BaseBatchManager
+from bespokelabs.curator.batch_manager.anthropic_batch_manager import AnthropicBatchManager
+from bespokelabs.curator.batch_manager.openai_batch_manager import OpenAIBatchManager
 
 logger = logging.getLogger(__name__)
 
@@ -227,6 +220,28 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         )
         await batch_manager.poll_and_process_batches(self.generic_response_file_from_responses)
 
+    def get_batch_manager(
+        self, working_dir: str, prompt_formatter: PromptFormatter
+    ) -> BaseBatchManager:
+        MODEL_TO_BATCH_MANAGER = {
+            "claude-3-5-sonnet-20240620": AnthropicBatchManager,
+            "claude-3-5-sonnet-20241022": AnthropicBatchManager,
+            "gpt-4o-mini": OpenAIBatchManager,
+            "gpt-4o-2024-08-06": OpenAIBatchManager,
+        }
+
+        BatchManagerClass = MODEL_TO_BATCH_MANAGER.get(self.model)
+        if not BatchManagerClass:
+            raise ValueError(f"Model {self.model} is not supported for batch processing")
+
+        return BatchManagerClass(
+            working_dir,
+            self.check_interval,
+            prompt_formatter,
+            delete_successful_batch_files=self.delete_successful_batch_files,
+            delete_failed_batch_files=self.delete_failed_batch_files,
+        )
+
     def run(
         self,
         dataset: Dataset | None,
@@ -255,30 +270,13 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         Raises:
             RuntimeError: If batch processing fails or no successful responses are received.
         """
-        MODEL_TO_BATCH_MANAGER = {
-            "claude-3-5-sonnet-20240620": AnthropicBatchManager,
-            "claude-3-5-sonnet-20241022": AnthropicBatchManager,
-            "gpt-4o-mini": OpenAIBatchManager,
-            "gpt-4o-2024-08-06": OpenAIBatchManager,
-        }
+        batch_manager = self.get_batch_manager(working_dir, prompt_formatter)
 
-        BatchManagerClass = MODEL_TO_BATCH_MANAGER.get(self.model)
-        if not BatchManagerClass:
-            raise ValueError(f"Model {self.model} is not supported for batch processing")
-
-        batch_manager = BatchManagerClass(
-            working_dir,
-            self.check_interval,
-            prompt_formatter,
-            delete_successful_batch_files=self.delete_successful_batch_files,
-            delete_failed_batch_files=self.delete_failed_batch_files,
-        )
-
-        if self.batch_size > self.BatchManager.max_requests_per_batch:
+        if self.batch_size > batch_manager.max_requests_per_batch:
             raise ValueError(
                 f"batch_size {self.batch_size} is greater than the maximum of "
-                f"{self.BatchManager.max_requests_per_batch:,} requests per batch that {self.BatchManager.__class__.__name__} supports. "
-                f"Please set your batch_size to be less than or equal to {self.BatchManager.max_requests_per_batch:,}."
+                f"{batch_manager.max_requests_per_batch:,} requests per batch that {batch_manager.__class__.__name__} supports. "
+                f"Please set your batch_size to be less than or equal to {batch_manager.max_requests_per_batch:,}."
             )
 
         # load from already completed dataset
@@ -300,54 +298,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         Args:
             working_dir (str): The directory where submitted batch object file is stored.
         """
-        batch_manager = BatchManager(
-            working_dir,
-            self.check_interval,
-            delete_successful_batch_files=self.delete_successful_batch_files,
-            delete_failed_batch_files=self.delete_failed_batch_files,
-        )
-
+        batch_manager = self.get_batch_manager(working_dir)
         run_in_event_loop(batch_manager.cancel_batches())
         logger.warning("Exiting program after batch cancellation.")
         os._exit(1)
-
-
-def request_file_to_response_file(request_file: str, working_dir: str) -> str:
-    """
-    Converts a request file path to its corresponding response file path.
-
-    Args:
-        request_file (str): Path to the request file (e.g., "requests_0.jsonl")
-        working_dir (str): Working directory containing the files
-
-    Returns:
-        str: Path to the corresponding response file (e.g., "responses_0.jsonl")
-    """
-    request_file_idx = request_file.split("/")[-1].split("_", 1)[1]
-    return f"{working_dir}/responses_{request_file_idx}"
-
-
-def response_file_to_request_file(response_file: str, working_dir: str) -> str:
-    """
-    Converts a response file path to its corresponding request file path.
-
-    Args:
-        response_file (str): Path to the response file (e.g., "responses_0.jsonl")
-        working_dir (str): Working directory containing the files
-
-    Returns:
-        str: Path to the corresponding request file (e.g., "requests_0.jsonl")
-    """
-    response_file_idx = response_file.split("/")[-1].split("_", 1)[1]
-    return f"{working_dir}/requests_{response_file_idx}"
-
-
-def requests_from_api_specific_request_file(self, request_file: str) -> list[dict]:
-    with open(request_file, "r") as file:
-        return file.read().splitlines()
-
-
-def api_specific_response_file_from_responses(
-    responses: str, batch: GenericBatchObject, response_file: str
-) -> str | None:
-    open(response_file, "w").write(responses.text)

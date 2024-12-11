@@ -10,6 +10,12 @@ from abc import abstractmethod
 
 from bespokelabs.curator.status_tracker.batch_status_tracker import BatchStatusTracker
 from bespokelabs.curator.types.generic_batch_object import GenericBatchObject
+from bespokelabs.curator.request_processor.base_request_processor import (
+    request_file_to_response_file,
+)
+from bespokelabs.curator.request_processor.base_request_processor import (
+    response_file_to_request_file,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -481,34 +487,6 @@ class BaseBatchManager:
         self.tracker.mark_as_downloaded(batch)
 
         return response_file
-
-    def request_file_to_response_file(request_file: str, working_dir: str) -> str:
-        """
-        Converts a request file path to its corresponding response file path.
-
-        Args:
-            request_file (str): Path to the request file (e.g., "requests_0.jsonl")
-            working_dir (str): Working directory containing the files
-
-        Returns:
-            str: Path to the corresponding response file (e.g., "responses_0.jsonl")
-        """
-        request_file_idx = request_file.split("/")[-1].split("_", 1)[1]
-        return f"{working_dir}/responses_{request_file_idx}"
-
-    def response_file_to_request_file(response_file: str, working_dir: str) -> str:
-        """
-        Converts a response file path to its corresponding request file path.
-
-        Args:
-            response_file (str): Path to the response file (e.g., "responses_0.jsonl")
-            working_dir (str): Working directory containing the files
-
-        Returns:
-            str: Path to the corresponding request file (e.g., "requests_0.jsonl")
-        """
-        response_file_idx = response_file.split("/")[-1].split("_", 1)[1]
-        return f"{working_dir}/requests_{response_file_idx}"
 
     def requests_from_api_specific_request_file(self, request_file: str) -> list[dict]:
         with open(request_file, "r") as file:

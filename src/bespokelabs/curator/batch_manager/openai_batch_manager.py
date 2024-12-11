@@ -4,7 +4,6 @@ import glob
 import json
 import logging
 import os
-from dataclasses import dataclass, field
 from typing import Callable
 
 import litellm
@@ -16,12 +15,12 @@ from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import (
     BaseRequestProcessor,
-    GenericRequest,
-    GenericResponse,
     parse_response_message,
 )
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
-from bespokelabs.curator.request_processor.generic_response import TokenUsage
+from bespokelabs.curator.types.token_usage import TokenUsage
+from bespokelabs.curator.types.generic_request import GenericRequest
+from bespokelabs.curator.types.generic_response import GenericResponse
 
 logger = logging.getLogger(__name__)
 
@@ -353,149 +352,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         os._exit(1)
 
 
-@dataclass
-class BatchStatusTracker:
-    # total number of requests in all request files
-    n_total_requests: int = 0
-
-    # request files that have not been submitted yet
-    unsubmitted_request_files: list[str] = field(default_factory=list)
-
-    # batches in OpenAI
-    submitted_batches: dict[str, Batch] = field(default_factory=dict)
-    finished_batches: dict[str, Batch] = field(default_factory=dict)
-    downloaded_batches: dict[str, Batch] = field(default_factory=dict)
-
-    @property
-    def n_total_batches(self) -> int:
-        return (
-            self.n_unsubmitted_request_files
-            + self.n_submitted_batches
-            + self.n_finished_batches
-            + self.n_downloaded_batches
-        )
-
-    @property
-    def n_unsubmitted_request_files(self) -> int:
-        return len(self.unsubmitted_request_files)
-
-    @property
-    def n_submitted_batches(self) -> int:
-        return len(self.submitted_batches)
-
-    @property
-    def n_finished_batches(self) -> int:
-        return len(self.finished_batches)
-
-    @property
-    def n_downloaded_batches(self) -> int:
-        return len(self.downloaded_batches)
-
-    @property
-    def n_finished_requests(self) -> int:
-        batches = list(self.submitted_batches.values()) + list(self.finished_batches.values())
-        return sum(b.request_counts.completed + b.request_counts.failed for b in batches)
-
-    @property
-    def n_downloaded_requests(self) -> int:
-        batches = list(self.downloaded_batches.values())
-        return sum(b.request_counts.completed + b.request_counts.failed for b in batches)
-
-    @property
-    def n_finished_or_downloaded_requests(self) -> int:
-        return self.n_finished_requests + self.n_downloaded_requests
-
-    @property
-    def n_submitted_finished_or_downloaded_batches(self) -> int:
-        return self.n_submitted_batches + self.n_finished_batches + self.n_downloaded_batches
-
-    @property
-    def n_finished_or_downloaded_batches(self) -> int:
-        return self.n_finished_batches + self.n_downloaded_batches
-
-    def mark_as_submitted(self, request_file: str, batch_object: Batch, n_requests: int):
-        assert request_file in self.unsubmitted_request_files
-        assert n_requests > 0
-        self.unsubmitted_request_files.remove(request_file)
-        self.submitted_batches[batch_object.id] = batch_object
-        self.n_total_requests += n_requests
-        logger.debug(f"Marked {request_file} as submitted with batch {batch_object.id}")
-
-    def mark_as_finished(self, batch_object: Batch):
-        assert batch_object.id in self.submitted_batches
-        self.submitted_batches.pop(batch_object.id)
-        self.finished_batches[batch_object.id] = batch_object
-        logger.debug(f"Marked batch {batch_object.id} as finished")
-
-    def mark_as_downloaded(self, batch_object: Batch):
-        assert batch_object.id in self.finished_batches
-        self.finished_batches.pop(batch_object.id)
-        self.downloaded_batches[batch_object.id] = batch_object
-        logger.debug(f"Marked batch {batch_object.id} as downloaded")
-
-    def update_submitted(self, batch_object: Batch):
-        assert batch_object.id in self.submitted_batches
-        self.submitted_batches[batch_object.id] = batch_object
-        logger.debug(f"Updated submitted batch {batch_object.id} with new request counts")
-
-    def __str__(self) -> str:
-        """Returns a human-readable string representation of the batch status."""
-        status_lines = [
-            f"Total batches: {self.n_total_batches}",
-            f"Unsubmitted files: {self.n_unsubmitted_request_files}",
-            f"Submitted batches: {self.n_submitted_batches}",
-            f"Finished batches: {self.n_finished_batches}",
-            f"Downloaded batches: {self.n_downloaded_batches}",
-            "",
-            f"Total requests: {self.n_total_requests}",
-            f"Finished requests: {self.n_finished_requests}",
-            f"Downloaded requests: {self.n_downloaded_requests}",
-        ]
-        return "\n".join(status_lines)
-
-
-def request_file_to_response_file(request_file: str, working_dir: str) -> str:
-    """
-    Converts a request file path to its corresponding response file path.
-
-    Args:
-        request_file (str): Path to the request file (e.g., "requests_0.jsonl")
-        working_dir (str): Working directory containing the files
-
-    Returns:
-        str: Path to the corresponding response file (e.g., "responses_0.jsonl")
-    """
-    request_file_idx = request_file.split("/")[-1].split("_", 1)[1]
-    return f"{working_dir}/responses_{request_file_idx}"
-
-
-def response_file_to_request_file(response_file: str, working_dir: str) -> str:
-    """
-    Converts a response file path to its corresponding request file path.
-
-    Args:
-        response_file (str): Path to the response file (e.g., "responses_0.jsonl")
-        working_dir (str): Working directory containing the files
-
-    Returns:
-        str: Path to the corresponding request file (e.g., "requests_0.jsonl")
-    """
-    response_file_idx = response_file.split("/")[-1].split("_", 1)[1]
-    return f"{working_dir}/requests_{response_file_idx}"
-
-
-def requests_from_api_specific_request_file(self, request_file: str) -> list[dict]:
-    with open(request_file, "r") as file:
-        return file.read().splitlines()
-
-
-def api_specific_response_file_from_responses(
-    responses: str, batch: Batch, response_file: str
-) -> str | None:
-    open(response_file, "w").write(responses.text)
-
-
-class BatchManager:
+class OpenAIBatchManager(BaseBatchManager):
     def __init__(
         self,
         working_dir: str,
