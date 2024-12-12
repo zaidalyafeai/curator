@@ -70,6 +70,16 @@ class LLM:
         )
         return "litellm"
 
+    @staticmethod
+    def _convert_response_to_dict(response):
+        if hasattr(response, "model_dump"):
+            return response.model_dump()
+        elif isinstance(response, dict):
+            return response
+        elif hasattr(response, "__dict__"):
+            return response.__dict__
+        return response
+
     def __init__(
         self,
         model_name: str,
@@ -313,6 +323,7 @@ class LLM:
                 parse_func_hash=parse_func_hash,
                 prompt_formatter=self.prompt_formatter,
             )
+
         return dataset
 
 
