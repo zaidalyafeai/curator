@@ -22,8 +22,8 @@ import aiofiles
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-DEFAULT_REQUESTS_PER_MINUTE = 10
-DEFAULT_TOKENS_PER_MINUTE = 1_000
+DEFAULT_REQUESTS_PER_MINUTE = 100
+DEFAULT_TOKENS_PER_MINUTE = 100_000
 
 
 @dataclass
