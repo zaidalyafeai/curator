@@ -110,34 +110,24 @@ class LLM:
         """Initialize a LLM.
 
         Args:
-            model_name (str): The name of the LLM to use
-            prompt_func (Callable[[Dict[str, Any]], Union[str, List[Dict[str, Any]]]]): A function that takes a single row
+            model_name: The name of the LLM to use
+            prompt_func: A function that takes a single row
                 and returns either a string (assumed to be a user prompt) or messages list
-            parse_func (Callable[[Dict[str, Any], Any], T]): A function that takes the input row and
+            parse_func: A function that takes the input row and
                 response object and returns the parsed output
-            response_format (Optional[Type[BaseModel]]): A Pydantic model specifying the
+            response_format: A Pydantic model specifying the
                 response format from the LLM.
-            backend (Optional[str]): The backend to use ("openai" or "litellm"). If None, will be auto-determined
-            batch (bool): Whether to use batch processing
-            batch_size (Optional[int]): The size of the batch to use, only used if batch is True
-            temperature (Optional[float]): The temperature to use for the LLM, only used if batch is False
-            top_p (Optional[float]): The top_p to use for the LLM, only used if batch is False
-            presence_penalty (Optional[float]): The presence_penalty to use for the LLM, only used if batch is False
-            frequency_penalty (Optional[float]): The frequency_penalty to use for the LLM, only used if batch is False
+            backend: The backend to use ("openai" or "litellm"). If None, will be auto-determined
+            batch: Whether to use batch processing
+            batch_size: The size of the batch to use, only used if batch is True
+            batch_check_interval: The interval to check for batch completions, only used if batch is True
+            delete_successful_batch_files: Whether to delete successful batch files, only used if batch is True
+            delete_failed_batch_files: Whether to delete failed batch files, only used if batch is True
+            temperature: The temperature to use for the LLM, only used if batch is False
+            top_p: The top_p to use for the LLM, only used if batch is False
+            presence_penalty: The presence_penalty to use for the LLM, only used if batch is False
+            frequency_penalty: The frequency_penalty to use for the LLM, only used if batch is False
         """
-        prompt_sig = inspect.signature(prompt_func)
-        if len(prompt_sig.parameters) > 1:
-            raise ValueError(
-                f"prompt_func must take one argument or less, got {len(prompt_sig.parameters)}"
-            )
-
-        if parse_func is not None:
-            parse_sig = inspect.signature(parse_func)
-            if len(parse_sig.parameters) != 2:
-                raise ValueError(
-                    f"parse_func must take exactly 2 arguments, got {len(parse_sig.parameters)}"
-                )
-
         self.prompt_formatter = PromptFormatter(
             model_name, prompt_func, parse_func, response_format
         )
