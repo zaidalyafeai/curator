@@ -14,7 +14,7 @@ from datasets import Dataset
 from datasets.arrow_writer import ArrowWriter
 from pydantic import BaseModel, ValidationError
 
-from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
+from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.generic_response import GenericResponse

@@ -35,7 +35,7 @@ class Poems(BaseModel):
     poems_list: List[str] = Field(description="A list of poems.")
 
 
-# We define a prompter that generates poems which gets applied to the topics dataset.
+# We define an `LLM` object that generates poems which gets applied to the topics dataset.
 poet = curator.LLM(
     # The prompt_func takes a row of the dataset as input.
     # The row is a dictionary with a single key 'topic' in this case.
