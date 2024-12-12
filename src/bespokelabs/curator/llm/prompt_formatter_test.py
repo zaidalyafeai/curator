@@ -1,7 +1,7 @@
 import pytest
 from pydantic import BaseModel
 
-from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter, _validate_messages
+from bespokelabs.curator.llm.prompt_formatter import PromptFormatter, _validate_messages
 
 
 def test_validate_messages_valid():

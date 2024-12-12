@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from xxhash import xxh64
 
 from bespokelabs.curator.db import MetadataDB
-from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
+from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import (
     BaseRequestProcessor,
 )
