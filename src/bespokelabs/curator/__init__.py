@@ -1,2 +1,2 @@
 from .dataset import Dataset
-from .prompter.prompter import LLM
+from .prompter.llm import LLM

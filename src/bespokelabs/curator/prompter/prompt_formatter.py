@@ -1,3 +1,4 @@
+import dataclasses
 import inspect
 from typing import Any, Callable, Dict, Optional, Type, TypeVar, Union
 
@@ -6,44 +7,48 @@ from pydantic import BaseModel
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
 
 T = TypeVar("T")
+_DictOrBaseModel = Union[Dict[str, Any], BaseModel]
 
 
+def _validate_messages(messages: list[dict]) -> None:
+    """Validates that messages conform to the expected chat format.
+
+    Args:
+        messages: A list of message dictionaries to validate.
+
+    Raises:
+        ValueError: If messages don't meet the required format:
+            - Must be a list of dictionaries
+            - Each message must have 'role' and 'content' keys
+            - Role must be one of: 'system', 'user', 'assistant'
+    """
+    valid_roles = {'system', 'user', 'assistant'}
+    
+    for msg in messages:
+        if not isinstance(msg, dict):
+            raise ValueError(
+              "In the return value (a list) of the prompt_func, each "
+              "message must be a dictionary")
+
+        if 'role' not in msg or 'content' not in msg:
+            raise ValueError(
+              "In the return value (a list) of the prompt_func, each "
+              "message must contain 'role' and 'content' keys")
+
+        if msg['role'] not in valid_roles:
+            raise ValueError(f"In the return value (a list) of the prompt_func, "
+                             f"each message role must be one of: {', '.join(sorted(valid_roles))}")
+
+
+@dataclasses.dataclass
 class PromptFormatter:
     model_name: str
-    prompt_func: Callable[[Union[Dict[str, Any], BaseModel]], Dict[str, str]]
-    parse_func: Optional[
-        Callable[
-            [
-                Union[Dict[str, Any], BaseModel],
-                Union[Dict[str, Any], BaseModel],
-            ],
-            T,
-        ]
-    ] = None
+    prompt_func: Callable[[_DictOrBaseModel], Dict[str, str]]
+    parse_func: Optional[Callable[[_DictOrBaseModel, _DictOrBaseModel], T]] = None
     response_format: Optional[Type[BaseModel]] = None
 
-    def __init__(
-        self,
-        model_name: str,
-        prompt_func: Callable[[Union[Dict[str, Any], BaseModel]], Dict[str, str]],
-        parse_func: Optional[
-            Callable[
-                [
-                    Union[Dict[str, Any], BaseModel],
-                    Union[Dict[str, Any], BaseModel],
-                ],
-                T,
-            ]
-        ] = None,
-        response_format: Optional[Type[BaseModel]] = None,
-    ):
-        self.model_name = model_name
-        self.prompt_func = prompt_func
-        self.parse_func = parse_func
-        self.response_format = response_format
-
-    def create_generic_request(self, row: Dict[str, Any] | BaseModel, idx: int) -> GenericRequest:
-        """Format the request object based off Prompter attributes."""
+    def create_generic_request(self, row: _DictOrBaseModel, idx: int) -> GenericRequest:
+        """Format the request object based off of `LLM` attributes."""
         sig = inspect.signature(self.prompt_func)
         if len(sig.parameters) == 0:
             prompts = self.prompt_func()
@@ -54,9 +59,12 @@ class PromptFormatter:
 
         if isinstance(prompts, str):
             messages = [{"role": "user", "content": prompts}]
-        else:
-            # TODO(Ryan): Add validation here
+        elif isinstance(prompts, list):
+            _validate_messages(prompts)
             messages = prompts
+        else:
+            raise ValueError(
+              "The return value of the prompt_func must be a list of dictionaries.")
 
         # Convert BaseModel to dict for serialization
         if isinstance(row, BaseModel):
