@@ -22,22 +22,26 @@ def _validate_messages(messages: list[dict]) -> None:
             - Each message must have 'role' and 'content' keys
             - Role must be one of: 'system', 'user', 'assistant'
     """
-    valid_roles = {'system', 'user', 'assistant'}
-    
+    valid_roles = {"system", "user", "assistant"}
+
     for msg in messages:
         if not isinstance(msg, dict):
             raise ValueError(
-              "In the return value (a list) of the prompt_func, each "
-              "message must be a dictionary")
+                "In the return value (a list) of the prompt_func, each "
+                "message must be a dictionary"
+            )
 
-        if 'role' not in msg or 'content' not in msg:
+        if "role" not in msg or "content" not in msg:
             raise ValueError(
-              "In the return value (a list) of the prompt_func, each "
-              "message must contain 'role' and 'content' keys")
+                "In the return value (a list) of the prompt_func, each "
+                "message must contain 'role' and 'content' keys"
+            )
 
-        if msg['role'] not in valid_roles:
-            raise ValueError(f"In the return value (a list) of the prompt_func, "
-                             f"each message role must be one of: {', '.join(sorted(valid_roles))}")
+        if msg["role"] not in valid_roles:
+            raise ValueError(
+                f"In the return value (a list) of the prompt_func, "
+                f"each message role must be one of: {', '.join(sorted(valid_roles))}"
+            )
 
 
 @dataclasses.dataclass
@@ -63,8 +67,7 @@ class PromptFormatter:
             _validate_messages(prompts)
             messages = prompts
         else:
-            raise ValueError(
-              "The return value of the prompt_func must be a list of dictionaries.")
+            raise ValueError("The return value of the prompt_func must be a list of dictionaries.")
 
         # Convert BaseModel to dict for serialization
         if isinstance(row, BaseModel):
