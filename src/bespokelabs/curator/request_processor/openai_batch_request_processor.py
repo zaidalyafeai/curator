@@ -47,6 +47,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         url: str = "https://api.openai.com/v1/chat/completions",
         presence_penalty: float | None = None,
         frequency_penalty: float | None = None,
+        require_all_responses: bool = False,
     ):
         if batch_size > MAX_REQUESTS_PER_BATCH:
             raise ValueError(
@@ -54,7 +55,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                 f"{MAX_REQUESTS_PER_BATCH:,} requests per batch that OpenAI supports. "
                 f"Please set your batch_size to be less than or equal to {MAX_REQUESTS_PER_BATCH:,}."
             )
-        super().__init__(batch_size)
+        super().__init__(batch_size, require_all_responses=require_all_responses)
         self.model = model
         self.url: str = url
         self.check_interval: int = batch_check_interval

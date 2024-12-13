@@ -125,8 +125,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         frequency_penalty: Optional[float] = None,
         max_requests_per_minute: Optional[int] = None,
         max_tokens_per_minute: Optional[int] = None,
+        require_all_responses: bool = False,
     ):
-        super().__init__(batch_size=None)
+        super().__init__(batch_size=None, require_all_responses=require_all_responses)
         self.model: str = model
         self.temperature: float | None = temperature
         self.top_p: float | None = top_p
@@ -386,7 +387,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     token_estimate = self.estimate_total_tokens(
                         retry_request.generic_request.messages
                     )
-                    attempt_number = DEFAULT_MAX_RETRIES + 1 - retry_request.attempts_left
+                    attempt_number = 1 + DEFAULT_MAX_RETRIES - retry_request.attempts_left
                     logger.info(
                         f"Processing retry for request {retry_request.task_id} "
                         f"(attempt #{attempt_number} of {DEFAULT_MAX_RETRIES}). "

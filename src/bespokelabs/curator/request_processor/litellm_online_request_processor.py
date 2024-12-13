@@ -49,6 +49,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         frequency_penalty: Optional[float] = None,
         max_requests_per_minute: Optional[int] = None,
         max_tokens_per_minute: Optional[int] = None,
+        require_all_responses: bool = False,
     ):
         super().__init__(
             model=model,
@@ -58,6 +59,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             frequency_penalty=frequency_penalty,
             max_requests_per_minute=max_requests_per_minute,
             max_tokens_per_minute=max_tokens_per_minute,
+            require_all_responses=require_all_responses,
         )
         self.client = instructor.from_litellm(litellm.acompletion)
 

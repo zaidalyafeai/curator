@@ -29,8 +29,9 @@ class BaseRequestProcessor(ABC):
     Base class for all request processors.
     """
 
-    def __init__(self, batch_size: Optional[int] = None):
+    def __init__(self, batch_size: Optional[int] = None, require_all_responses: bool = False):
         self.batch_size = batch_size
+        self.require_all_responses = require_all_responses
         # Increase the number of open file descriptors to avoid "Too many open files" errors
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         desired_limit = min(10_000_000, hard)
@@ -216,9 +217,6 @@ class BaseRequestProcessor(ABC):
         Returns:
             Dataset: Completed dataset
         """
-        total_responses_count = 0
-        failed_responses_count = 0
-
         responses_files = glob.glob(f"{working_dir}/responses_*.jsonl")
         if len(responses_files) == 0:
             raise ValueError(f"No responses files found in {working_dir}")
@@ -230,6 +228,8 @@ class BaseRequestProcessor(ABC):
         )
 
         # Process all response files
+        total_responses_count = 0
+        failed_responses_count = 0
         dataset_file = f"{working_dir}/{parse_func_hash}.arrow"
         with ArrowWriter(path=dataset_file) as writer:
             for responses_file in responses_files:
@@ -319,14 +319,34 @@ class BaseRequestProcessor(ABC):
 
                             writer.write(row)
 
-            logger.info(f"Read {total_responses_count} responses, {failed_responses_count} failed")
+            logger.info("Finalizing writer")
+            writer.finalize()
+
+            logger.info(f"Read {total_responses_count} responses.")
             if failed_responses_count == total_responses_count:
                 os.remove(dataset_file)
                 raise ValueError("All requests failed")
+            if failed_responses_count > 0:
+                logger.warning(f"{failed_responses_count} requests failed.")
 
-            logger.info("Finalizing writer")
+            if self.require_all_responses:
+                # all responses succeeded
+                if failed_responses_count > 0:
+                    os.remove(dataset_file)
+                    raise ValueError(
+                        f"{failed_responses_count} requests failed and require_all_responses is True"
+                    )
 
-            writer.finalize()
+                # number of responses matches number of requests
+                request_files = glob.glob(f"{working_dir}/requests_*.jsonl")
+                n_requests = 0
+                for request_file in request_files:
+                    n_requests += len(open(request_file, "r").readlines())
+                if n_requests != total_responses_count:
+                    os.remove(dataset_file)
+                    raise ValueError(
+                        f"Some requests do not have responses and require_all_responses is True. n_requests is {n_requests} and n_responses is {total_responses_count}"
+                    )
 
         return Dataset.from_file(dataset_file)
 
