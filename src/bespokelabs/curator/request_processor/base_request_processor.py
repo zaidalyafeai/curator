@@ -14,6 +14,7 @@ from datasets import Dataset
 from datasets.arrow_writer import ArrowWriter
 from pydantic import BaseModel, ValidationError
 
+from bespokelabs.curator.utils import count_lines
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
@@ -326,7 +327,7 @@ class BaseRequestProcessor(ABC):
             if failed_responses_count == total_responses_count:
                 os.remove(dataset_file)
                 raise ValueError("All requests failed")
-            
+
             if failed_responses_count > 0:
                 logger.warning(f"{failed_responses_count} requests failed.")
                 if self.require_all_responses:
@@ -337,10 +338,12 @@ class BaseRequestProcessor(ABC):
             request_files = glob.glob(f"{working_dir}/requests_*.jsonl")
             n_requests = 0
             for request_file in request_files:
-                n_requests += len(open(request_file, "r").readlines())
+                n_requests += count_lines(request_file)
 
             if n_requests != total_responses_count:
-                logger.warning(f"{n_requests - total_responses_count} requests do not have responses. n_requests is {n_requests} and n_responses is {total_responses_count}")
+                logger.warning(
+                    f"{n_requests - total_responses_count} requests do not have responses. n_requests is {n_requests} and n_responses is {total_responses_count}"
+                )
                 if self.require_all_responses:
                     os.remove(dataset_file)
                     raise ValueError(

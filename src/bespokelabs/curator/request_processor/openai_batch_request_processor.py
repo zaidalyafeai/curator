@@ -12,6 +12,7 @@ from openai import AsyncOpenAI, NotFoundError
 from openai.types import Batch
 from tqdm import tqdm
 
+from bespokelabs.curator.utils import count_lines
 from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import (
@@ -776,8 +777,7 @@ class BatchManager:
 
                     # Edge case where the batch is still validating, and we need to know the total number of requests
                     if batch_object.status == "validating":
-                        n_requests = len(open(request_file_name, "r").readlines())
-                        batch_object.request_counts.total = n_requests
+                        batch_object.request_counts.total = count_lines(request_file_name)
                     else:
                         n_requests = batch_object.request_counts.total
 
