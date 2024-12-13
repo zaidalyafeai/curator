@@ -19,7 +19,7 @@ def main(args):
         max_requests_per_minute=args.max_requests_per_minute,
         max_tokens_per_minute=args.max_tokens_per_minute,
         max_retries=args.max_retries,
-        require_all_responses=not args.not_require_all_responses,
+        require_all_responses=not args.partial_responses,
     )
 
     dataset = prompter(dataset, batch_cancel=args.cancel)
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--max-retries", type=int, help="Max retries", default=None)
     parser.add_argument(
-        "--not-require-all-responses",
+        "--partial-responses",
         action="store_true",
         default=False,
         help="Require all responses",
