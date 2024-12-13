@@ -47,6 +47,7 @@ class BatchConfig:
         delete_successful_batch_files: Whether to delete batch files after successful processing.
         delete_failed_batch_files: Whether to delete batch files after failed processing.
     """
+
     batch_size: Optional[int] = None
     batch_check_interval: int = 60
     delete_successful_batch_files: bool = True
@@ -216,16 +217,18 @@ class LLM:
             max_tokens_per_minute: Maximum tokens per minute (not supported in batch mode)
         """
         # Store current processor before potentially switching to batch mode
-        if hasattr(self, '_request_processor'):
+        if hasattr(self, "_request_processor"):
             self._original_request_processor = self._request_processor
 
         # Check if we're in batch mode (either via context manager or deprecated params)
         is_batch_mode = self._batch_config is not None
 
         # If we already have a batch processor of the same type, keep it to maintain state
-        if (is_batch_mode and
-            hasattr(self, '_request_processor') and
-            isinstance(self._request_processor, OpenAIBatchRequestProcessor)):
+        if (
+            is_batch_mode
+            and hasattr(self, "_request_processor")
+            and isinstance(self._request_processor, OpenAIBatchRequestProcessor)
+        ):
             return
 
         if is_batch_mode and self.backend == "openai":
