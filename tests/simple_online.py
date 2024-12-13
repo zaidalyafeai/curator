@@ -19,6 +19,7 @@ def main(args):
         max_requests_per_minute=args.max_requests_per_minute,
         max_tokens_per_minute=args.max_tokens_per_minute,
         max_retries=args.max_retries,
+        require_all_responses=args.require_all_responses,
     )
 
     dataset = prompter(dataset, batch_cancel=args.cancel)
@@ -43,5 +44,11 @@ if __name__ == "__main__":
         "--max-tokens-per-minute", type=int, help="Max tokens per minute", default=None
     )
     parser.add_argument("--max-retries", type=int, help="Max retries", default=None)
+    parser.add_argument(
+        "--require-all-responses",
+        action="store_true",
+        default=None,
+        help="Require all responses",
+    )
     args = parser.parse_args()
     main(args)

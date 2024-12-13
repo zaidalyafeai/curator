@@ -125,9 +125,10 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         frequency_penalty: Optional[float] = None,
         max_requests_per_minute: Optional[int] = None,
         max_tokens_per_minute: Optional[int] = None,
+        require_all_responses: bool = False,
         max_retries: Optional[int] = None,
     ):
-        super().__init__(batch_size=None)
+        super().__init__(batch_size=None, require_all_responses=require_all_responses)
         self.model: str = model
         self.temperature: float | None = temperature
         self.top_p: float | None = top_p

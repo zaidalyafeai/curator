@@ -82,6 +82,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
         max_requests_per_minute: Optional[int] = None,
         max_tokens_per_minute: Optional[int] = None,
         require_all_responses: bool = False,
+        max_retries: Optional[int] = None,
     ):
         super().__init__(
             model=model,
@@ -92,6 +93,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
             max_requests_per_minute=max_requests_per_minute,
             max_tokens_per_minute=max_tokens_per_minute,
             require_all_responses=require_all_responses,
+            max_retries=max_retries,
         )
         self.url = url
         self.api_key = api_key
