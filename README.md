@@ -29,7 +29,7 @@
   </a>
 </p>
 
-### Overview
+## Overview
 
 Bespoke Curator makes it very easy to create high-quality synthetic data at scale, which you can use to finetune models or use for structured data extraction at scale.
 
@@ -38,7 +38,7 @@ Bespoke Curator is an open-source project:
 * A Curator Viewer which makes it easy to view the datasets, thus aiding in the dataset creation.
 * We will also be releasing high-quality datasets that should move the needle on post-training.
 
-### Key Features
+## Key Features
 
 1. **Programmability and Structured Outputs**: Synthetic data generation is lot more than just using a single prompt -- it involves calling LLMs multiple times and orchestrating control-flow. Curator treats structured outputs as first class citizens and helps you design complex pipelines.
 2. **Built-in Performance Optimization**: We often see calling LLMs in loops, or inefficient implementation of multi-threading. We have baked in performance optimizations so that you don't need to worry about those!
@@ -46,20 +46,33 @@ Bespoke Curator is an open-source project:
 4. **Native HuggingFace Dataset Integration**: Work directly on HuggingFace Dataset objects throughout your pipeline. Your synthetic data is immediately ready for fine-tuning!
 5. **Interactive Curator Viewer**: Improve and iterate on your prompts using our built-in viewer. Inspect LLM requests and responses in real-time, allowing you to iterate and refine your data generation strategy with immediate feedback.
 
-### Installation
+## Installation
 
 ```bash
 pip install bespokelabs-curator
 ```
 
-### Usage
+## Usage
 
+### Imports
 ```python
 from bespokelabs import curator
 from datasets import Dataset
 from pydantic import BaseModel, Field
 from typing import List
+```
+### SimpleLLM: A simple interface for calling LLMs
 
+```python
+llm = curator.SimpleLLM(model_name="gpt-4o-mini")
+
+poem = llm("Write a poem about the bitter lesson in AI and keep it 100 words or less.")
+print(poem)
+```
+
+### LLM: A more complex interface for calling LLMs
+
+```python
 # Create a dataset object for the topics you want to create the poems.
 topics = Dataset.from_dict({"topic": [
     "Urban loneliness in a bustling city",
