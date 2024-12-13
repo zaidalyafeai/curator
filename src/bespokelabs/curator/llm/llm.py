@@ -30,6 +30,7 @@ from bespokelabs.curator.request_processor.openai_online_request_processor impor
 
 _CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")
+_DictOrBaseModel = Union[Dict[str, Any], BaseModel]
 
 logger = logger = logging.getLogger(__name__)
 
@@ -71,28 +72,12 @@ class LLM:
         )
         return "litellm"
 
-    @staticmethod
-    def _convert_response_to_dict(response):
-        if hasattr(response, "model_dump"):
-            return response.model_dump()
-        elif isinstance(response, dict):
-            return response
-        elif hasattr(response, "__dict__"):
-            return response.__dict__
-        return response
-
     def __init__(
         self,
         model_name: str,
-        prompt_func: Callable[[Union[Dict[str, Any], BaseModel]], Dict[str, str]],
+        prompt_func: Callable[[_DictOrBaseModel], _DictOrBaseModel],
         parse_func: Optional[
-            Callable[
-                [
-                    Union[Dict[str, Any], BaseModel],
-                    Union[Dict[str, Any], BaseModel],
-                ],
-                T,
-            ]
+            Callable[[_DictOrBaseModel, _DictOrBaseModel], _DictOrBaseModel]
         ] = None,
         response_format: Optional[Type[BaseModel]] = None,
         backend: Optional[str] = None,
