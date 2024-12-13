@@ -22,8 +22,9 @@ import aiofiles
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-DEFAULT_REQUESTS_PER_MINUTE = 100
-DEFAULT_TOKENS_PER_MINUTE = 100_000
+DEFAULT_MAX_REQUESTS_PER_MINUTE = 100
+DEFAULT_MAX_TOKENS_PER_MINUTE = 100_000
+DEFAULT_MAX_RETRIES = 10
 
 
 @dataclass
@@ -134,13 +135,18 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         self.prompt_formatter: Optional[PromptFormatter] = None
         self.max_requests_per_minute: Optional[int] = max_requests_per_minute
         self.max_tokens_per_minute: Optional[int] = max_tokens_per_minute
-        self.DEFAULT_MAX_REQUESTS_PER_MINUTE = DEFAULT_REQUESTS_PER_MINUTE
-        self.DEFAULT_MAX_TOKENS_PER_MINUTE = DEFAULT_TOKENS_PER_MINUTE
 
     def get_rate_limit(self, name, header_value):
         """Uses manual values if set, otherwise uses headers if available, and if not available uses defaults."""
-        manual_value = getattr(self, name)
-        default_value = getattr(self, f"DEFAULT_{name.upper()}")
+        if name == "max_requests_per_minute":
+            manual_value = self.max_requests_per_minute
+            default_value = DEFAULT_MAX_REQUESTS_PER_MINUTE
+        elif name == "max_tokens_per_minute":
+            manual_value = self.max_tokens_per_minute
+            default_value = DEFAULT_MAX_TOKENS_PER_MINUTE
+        else:
+            raise ValueError(f"Invalid rate limit name: {name}")
+
         if manual_value is not None:
             logger.info(f"Manually set {name} to {manual_value}")
             return manual_value
@@ -213,7 +219,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 self.process_requests_from_file(
                     generic_request_filepath=request_file,
                     save_filepath=response_file,
-                    max_attempts=5,
+                    max_attempts=DEFAULT_MAX_RETRIES,
                     resume=True,
                 )
             )
@@ -380,10 +386,10 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     token_estimate = self.estimate_total_tokens(
                         retry_request.generic_request.messages
                     )
-                    attempt_number = 6 - retry_request.attempts_left
+                    attempt_number = DEFAULT_RETRIES + 1 - retry_request.attempts_left
                     logger.info(
                         f"Processing retry for request {retry_request.task_id} "
-                        f"(attempt #{attempt_number} of 5). "
+                        f"(attempt #{attempt_number} of {DEFAULT_RETRIES}). "
                         f"Previous errors: {retry_request.result}"
                     )
 
@@ -472,7 +478,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 retry_queue.put_nowait(request)
             else:
                 logger.error(
-                    f"Request {request.task_id} failed permanently after exhausting all 5 retry attempts. "
+                    f"Request {request.task_id} failed permanently after exhausting all {DEFAULT_MAX_RETRIES} retry attempts. "
                     f"Errors: {[str(e) for e in request.result]}"
                 )
                 generic_response = GenericResponse(
