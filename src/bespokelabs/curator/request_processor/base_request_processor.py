@@ -42,16 +42,6 @@ class BaseRequestProcessor(ABC):
         resource.setrlimit(resource.RLIMIT_NOFILE, (desired_limit, hard))
 
     @abstractmethod
-    def get_rate_limits(self) -> dict:
-        """
-        Returns the rate limits for the API.
-
-        Returns:
-            dict: A dictionary containing the rate limit information.
-        """
-        pass
-
-    @abstractmethod
     def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
         """
         Creates a API-specific request body from a GenericRequest.

@@ -72,48 +72,6 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         else:
             self.max_retries = max_retries
 
-    def get_rate_limits(self) -> dict:
-        """
-        Function to get rate limits for a given annotator. Not available via response headers, so
-        the following is based on tier 5 limits on Nov 6th, 2024.
-
-        These rate limits vary per model
-        and are determined by your organization's usage tier. View the following:
-        https://platform.openai.com/docs/guides/rate-limits/usage-tiers
-        https://platform.openai.com/settings/organization/limits
-
-        Args:
-            model (str): The model for which to get the rate limits.
-            request_url (str): The request URL for which to get the rate limits.
-
-        Returns:
-            dict: A dictionary containing max_tokens_per_day
-        """
-        model_tpd = {
-            "gpt-3.5-turbo": 5_000_000_000,
-            "gpt-3.5-turbo-0125": 5_000_000_000,
-            "gpt-3.5-turbo-1106": 5_000_000_000,
-            "gpt-3.5-turbo-16k": 5_000_000_000,
-            "gpt-3.5-turbo-instruct": 200_000,
-            "gpt-3.5-turbo-instruct-0914": 200_000,
-            "gpt-4": 150_000_000,
-            "gpt-4-0613": 150_000_000,
-            "gpt-4-turbo": 300_000_000,
-            "gpt-4o": 10_000_000_000,
-            "gpt-4o-mini": 15_000_000_000,
-        }
-
-        if self.model not in model_tpd:
-            tpd = 1_000_000_000
-        else:
-            tpd = model_tpd[self.model]
-
-        logger.info(f"Automatically set max_tokens_per_day to {tpd}, model: {self.model} ")
-
-        rate_limits = {"max_tokens_per_day": tpd}
-
-        return rate_limits
-
     def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
         """
         Creates an API-specific request body from a generic request body.

@@ -135,54 +135,48 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         self.presence_penalty: float | None = presence_penalty
         self.frequency_penalty: float | None = frequency_penalty
         self.prompt_formatter: Optional[PromptFormatter] = None
-        self.max_requests_per_minute: Optional[int] = max_requests_per_minute
-        self.max_tokens_per_minute: Optional[int] = max_tokens_per_minute
+        self.manual_max_requests_per_minute: Optional[int] = max_requests_per_minute
+        self.manual_max_tokens_per_minute: Optional[int] = max_tokens_per_minute
         if max_retries is None:
             self.max_retries = DEFAULT_MAX_RETRIES
         else:
             self.max_retries = max_retries
 
-    def get_rate_limit(self, name, header_value):
-        """Uses manual values if set, otherwise uses headers if available, and if not available uses defaults."""
-        if name == "max_requests_per_minute":
-            manual_value = self.max_requests_per_minute
-            default_value = DEFAULT_MAX_REQUESTS_PER_MINUTE
-        elif name == "max_tokens_per_minute":
-            manual_value = self.max_tokens_per_minute
-            default_value = DEFAULT_MAX_TOKENS_PER_MINUTE
-        else:
-            raise ValueError(f"Invalid rate limit name: {name}")
-
-        if manual_value is not None:
-            logger.info(f"Manually set {name} to {manual_value}")
-            return manual_value
-        elif header_value != 0:
-            logger.info(f"Automatically set {name} to {header_value}")
-            return header_value
+    @property
+    def max_requests_per_minute(self) -> int:
+        if self.manual_max_requests_per_minute:
+            logger.info(
+                f"Manually set max_requests_per_minute to {self.manual_max_requests_per_minute}"
+            )
+            return self.manual_max_requests_per_minute
+        elif self.header_based_max_requests_per_minute:
+            logger.info(
+                f"Automatically set max_requests_per_minute to {self.header_based_max_requests_per_minute}"
+            )
+            return self.header_based_max_requests_per_minute
         else:
             logger.warning(
-                f"No manual {name} set, and headers based detection failed, using default value of {default_value}"
+                f"No manual max_requests_per_minute set, and headers based detection failed, using default value of {DEFAULT_MAX_REQUESTS_PER_MINUTE}"
             )
-            return default_value
+            return DEFAULT_MAX_REQUESTS_PER_MINUTE
 
-    def get_rate_limits(self) -> dict:
-        """Get rate limits for the API. Returns a dictionary with max_requests_per_minute and max_tokens_per_minute"""
-
-        # Get values from headers
-        header_based_rate_limits = self.get_header_based_rate_limits()
-        header_tpm = header_based_rate_limits["max_tokens_per_minute"]
-        header_rpm = header_based_rate_limits["max_requests_per_minute"]
-
-        # Determine final rate limit
-        tpm = self.get_rate_limit("max_tokens_per_minute", header_tpm)
-        rpm = self.get_rate_limit("max_requests_per_minute", header_rpm)
-
-        return {"max_requests_per_minute": rpm, "max_tokens_per_minute": tpm}
-
-    @abstractmethod
-    def get_header_based_rate_limits(self) -> dict:
-        """Get rate limits for the API from headers. Returns a dictionary with max_requests_per_minute and max_tokens_per_minute"""
-        pass
+    @property
+    def max_tokens_per_minute(self) -> int:
+        if self.manual_max_tokens_per_minute:
+            logger.info(
+                f"Manually set max_tokens_per_minute to {self.manual_max_tokens_per_minute}"
+            )
+            return self.manual_max_tokens_per_minute
+        elif self.header_based_max_tokens_per_minute:
+            logger.info(
+                f"Automatically set max_tokens_per_minute to {self.header_based_max_tokens_per_minute}"
+            )
+            return self.header_based_max_tokens_per_minute
+        else:
+            logger.warning(
+                f"No manual max_tokens_per_minute set, and headers based detection failed, using default value of {DEFAULT_MAX_TOKENS_PER_MINUTE}"
+            )
+            return DEFAULT_MAX_TOKENS_PER_MINUTE
 
     @abstractmethod
     def estimate_total_tokens(self, messages: list) -> int:
