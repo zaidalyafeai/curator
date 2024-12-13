@@ -61,33 +61,49 @@ from datasets import Dataset
 from pydantic import BaseModel, Field
 from typing import List
 ```
-### SimpleLLM: A simple interface for calling LLMs
+### `SimpleLLM`: A simple interface for calling LLMs
 
 ```python
 llm = curator.SimpleLLM(model_name="gpt-4o-mini")
-
 poem = llm("Write a poem about the bitter lesson in AI and keep it 100 words or less.")
 print(poem)
 ```
 
-### LLM: A more complex interface for calling LLMs
+#### Use LiteLLM backend for calling other models
+You can use the [LiteLLM](https://docs.litellm.ai/docs/providers) backend for calling other models.
 
 ```python
-# Create a dataset object for the topics you want to create the poems.
+llm = curator.SimpleLLM(model_name="claude-3-5-sonnet-20240620", backend="litellm")
+
+poem = llm("Write a sonnet about the bitter lesson in AI and make it visual.")
+print(poem)
+```
+
+### Visualize in Curator Viewer
+Run `curator-viewer` to see the dataset in the viewer.
+
+
+### `LLM`: A more powerful interface for calling LLMs
+
+Create a dataset object for the topics you want to create the poems.
+```python
 topics = Dataset.from_dict({"topic": [
     "Urban loneliness in a bustling city",
     "Beauty of Bespoke Labs's Curator library"
 ]})
+```
 
-# Define a class to encapsulate a list of poems.
+Define a class to encapsulate a list of poems.
+```python
 class Poem(BaseModel):
     poem: str = Field(description="A poem.")
 
 class Poems(BaseModel):
     poems_list: List[Poem] = Field(description="A list of poems.")
+```
 
-
-# We define an `LLM` object that generates poems which gets applied to the topics dataset.
+We define an `LLM` object that generates poems which gets applied to the topics dataset.
+```python
 poet = curator.LLM(
     # `prompt_func` takes a row of the dataset as input.
     # `row` is a dictionary with a single key 'topic' in this case.
