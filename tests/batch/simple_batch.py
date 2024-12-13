@@ -15,14 +15,15 @@ def main(args):
 
     prompter = LLM(
         prompt_func=lambda row: row["prompt"],
-        model_name="gpt-4o-mini",
+        model_name="gpt-3.5-turbo",
         response_format=None,
-        batch=True,
-        batch_size=args.batch_size,
-        batch_check_interval=args.batch_check_interval,
     )
 
-    dataset = prompter(dataset, batch_cancel=args.cancel)
+    with prompter.batch(
+        batch_size=args.batch_size,
+        batch_check_interval=args.batch_check_interval,
+    ):
+        dataset = prompter(dataset, batch_cancel=args.cancel)
     print(dataset.to_pandas())
 
 
