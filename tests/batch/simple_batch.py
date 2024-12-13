@@ -1,4 +1,5 @@
 from bespokelabs.curator import LLM
+from bespokelabs.curator.llm.batch import batch
 from datasets import Dataset
 import logging
 import argparse
@@ -19,7 +20,8 @@ def main(args):
         response_format=None,
     )
 
-    with prompter.batch(
+    with batch(
+        prompter,
         batch_size=args.batch_size,
         batch_check_interval=args.batch_check_interval,
     ):

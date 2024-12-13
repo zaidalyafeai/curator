@@ -3,7 +3,6 @@
 import inspect
 import logging
 import os
-from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
 from typing import Any, Callable, Dict, Iterable, Optional, Type, TypeVar, Union
@@ -14,6 +13,7 @@ from pydantic import BaseModel
 from xxhash import xxh64
 
 from bespokelabs.curator.db import MetadataDB
+from bespokelabs.curator.llm.batch import BatchConfig
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import (
     BaseRequestProcessor,
@@ -32,26 +32,6 @@ _CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")
 
 logger = logger = logging.getLogger(__name__)
-
-
-@dataclass
-class BatchConfig:
-    """Configuration for batch processing in LLM.
-
-    This class holds all configuration parameters related to batch processing,
-    used by the LLM context manager for batch operations.
-
-    Args:
-        batch_size: Maximum number of requests per batch. If None, defaults to 1,000.
-        batch_check_interval: How often to check batch status, in seconds.
-        delete_successful_batch_files: Whether to delete batch files after successful processing.
-        delete_failed_batch_files: Whether to delete batch files after failed processing.
-    """
-
-    batch_size: Optional[int] = None
-    batch_check_interval: int = 60
-    delete_successful_batch_files: bool = True
-    delete_failed_batch_files: bool = False
 
 
 class LLM:
@@ -122,12 +102,6 @@ class LLM:
         top_p: Optional[float] = None,
         presence_penalty: Optional[float] = None,
         frequency_penalty: Optional[float] = None,
-        # Deprecated parameters
-        batch: bool = False,
-        batch_size: Optional[int] = None,
-        batch_check_interval: Optional[int] = 60,
-        delete_successful_batch_files: bool = True,
-        delete_failed_batch_files: bool = False,
     ):
         """Initialize a LLM.
 
@@ -146,25 +120,7 @@ class LLM:
             top_p: The top_p to use for the LLM
             presence_penalty: The presence_penalty to use for the LLM
             frequency_penalty: The frequency_penalty to use for the LLM
-
-        Deprecated Args:
-            batch: Whether to use batch processing (deprecated, use context manager instead)
-            batch_size: The size of the batch to use (deprecated, use context manager instead)
-            batch_check_interval: The interval to check for batch completions (deprecated)
-            delete_successful_batch_files: Whether to delete successful batch files (deprecated)
-            delete_failed_batch_files: Whether to delete failed batch files (deprecated)
         """
-        import warnings
-
-        if batch or batch_size is not None:
-            warnings.warn(
-                "The 'batch' and batch-related parameters are deprecated. "
-                "Please use the context manager instead:\n"
-                "with llm.batch(batch_size=N, batch_check_interval=X): ...",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
         self.prompt_formatter = PromptFormatter(
             model_name, prompt_func, parse_func, response_format
         )
@@ -186,15 +142,6 @@ class LLM:
         else:
             self.backend = self._determine_backend(model_name, response_format)
 
-        # If using deprecated batch parameters, set up batch config
-        if batch or batch_size is not None:
-            self._batch_config = BatchConfig(
-                batch_size=batch_size,
-                batch_check_interval=batch_check_interval,
-                delete_successful_batch_files=delete_successful_batch_files,
-                delete_failed_batch_files=delete_failed_batch_files,
-            )
-
         # Initialize request processor
         self._setup_request_processor(
             max_requests_per_minute=max_requests_per_minute,
@@ -210,7 +157,10 @@ class LLM:
 
         This method initializes the request processor based on the current configuration,
         including batch mode settings if a batch context is active. It handles both
-        OpenAI and LiteLLM backends, with appropriate warnings for unsupported configurations.
+        OpenAI and LiteLLM backends, with appropriate processor initialization.
+
+        The batch configuration is managed by the external BatchContext class, which
+        sets self._batch_config when entering the context and clears it when exiting.
 
         Args:
             max_requests_per_minute: Maximum requests per minute (not supported in batch mode)
@@ -220,7 +170,7 @@ class LLM:
         if hasattr(self, "_request_processor"):
             self._original_request_processor = self._request_processor
 
-        # Check if we're in batch mode (either via context manager or deprecated params)
+        # Check if we're in batch mode via external BatchContext
         is_batch_mode = self._batch_config is not None
 
         # If we already have a batch processor of the same type, keep it to maintain state
@@ -273,58 +223,6 @@ class LLM:
             )
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
-
-    def batch(
-        self,
-        batch_size: Optional[int] = None,
-        batch_check_interval: int = 60,
-        delete_successful_batch_files: bool = True,
-        delete_failed_batch_files: bool = False,
-    ) -> "LLM":
-        """Create a context manager for batch processing.
-
-        Args:
-            batch_size: Maximum number of requests per batch. If None, defaults to 1,000.
-            batch_check_interval: How often to check batch status, in seconds.
-            delete_successful_batch_files: Whether to delete batch files after successful processing.
-            delete_failed_batch_files: Whether to delete batch files after failed processing.
-
-        Returns:
-            self: The LLM instance configured for batch processing.
-
-        Example:
-            ```python
-            llm = LLM(...)
-            with llm.batch(batch_size=100):
-                results = llm(dataset)
-            ```
-        """
-        self._batch_config = BatchConfig(
-            batch_size=batch_size,
-            batch_check_interval=batch_check_interval,
-            delete_successful_batch_files=delete_successful_batch_files,
-            delete_failed_batch_files=delete_failed_batch_files,
-        )
-        return self
-
-    def __enter__(self):
-        """Enter batch context.
-
-        Raises:
-            RuntimeError: If already in a batch context or if batch() wasn't called.
-        """
-        if self._batch_config is None:
-            raise RuntimeError("Must use 'with llm.batch()' to enter batch context")
-        if self._original_request_processor is not None:
-            raise RuntimeError("Already in batch context")
-        self._setup_request_processor()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Exit batch context and restore original request processor."""
-        self._batch_config = None
-        if self._original_request_processor is not None:
-            self._request_processor = self._original_request_processor
 
     def __call__(
         self,
