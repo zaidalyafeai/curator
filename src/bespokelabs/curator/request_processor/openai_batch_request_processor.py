@@ -12,7 +12,7 @@ from openai import AsyncOpenAI, NotFoundError
 from openai.types import Batch
 from tqdm import tqdm
 
-from bespokelabs.curator.utils import count_lines
+from bespokelabs.curator.file_utilities import count_lines
 from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import (
@@ -48,7 +48,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         url: str = "https://api.openai.com/v1/chat/completions",
         presence_penalty: float | None = None,
         frequency_penalty: float | None = None,
-        require_all_responses: bool = False,
+        require_all_responses: bool = None,
         max_retries: Optional[int] = None,
     ):
         if batch_size > MAX_REQUESTS_PER_BATCH:

@@ -14,7 +14,7 @@ from datasets import Dataset
 from datasets.arrow_writer import ArrowWriter
 from pydantic import BaseModel, ValidationError
 
-from bespokelabs.curator.utils import count_lines
+from bespokelabs.curator.file_utilities import count_lines
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
@@ -30,7 +30,7 @@ class BaseRequestProcessor(ABC):
     Base class for all request processors.
     """
 
-    def __init__(self, batch_size: Optional[int] = None, require_all_responses: bool = False):
+    def __init__(self, batch_size: Optional[int] = None, require_all_responses: bool = True):
         self.batch_size = batch_size
         self.require_all_responses = require_all_responses
         # Increase the number of open file descriptors to avoid "Too many open files" errors

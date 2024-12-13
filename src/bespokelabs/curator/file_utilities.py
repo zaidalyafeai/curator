@@ -7,7 +7,7 @@ def _file_gen(reader):
         b = reader(1024 * 1024)
 
 
-# instead of requiring counting lines, we can store metadata file that has the number of requests in each file
+# Instead of requiring counting lines, we can store metadata file that has the number of requests in each file
 def count_lines(filename):
     f = open(filename, "rb")
     f_gen = _file_gen(f.raw.read)

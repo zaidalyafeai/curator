@@ -78,7 +78,7 @@ class LLM:
             top_p: The top_p to use for the LLM
             presence_penalty: The presence_penalty to use for the LLM
             frequency_penalty: The frequency_penalty to use for the LLM
-            max_retries: The maximum number of retries to use for the LLM
+            max_retries: The maximum number of retries to use for the LLM. If 0, will only try a request once.
             require_all_responses: Whether to require all responses
         """
         self.prompt_formatter = PromptFormatter(
