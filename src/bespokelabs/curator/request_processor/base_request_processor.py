@@ -326,26 +326,25 @@ class BaseRequestProcessor(ABC):
             if failed_responses_count == total_responses_count:
                 os.remove(dataset_file)
                 raise ValueError("All requests failed")
+            
             if failed_responses_count > 0:
                 logger.warning(f"{failed_responses_count} requests failed.")
+                if self.require_all_responses:
+                    os.remove(dataset_file)
+                    raise ValueError(f"Some requests failed and require_all_responses is True")
 
-            if self.require_all_responses:
-                # all responses succeeded
-                if failed_responses_count > 0:
+            # number of responses matches number of requests
+            request_files = glob.glob(f"{working_dir}/requests_*.jsonl")
+            n_requests = 0
+            for request_file in request_files:
+                n_requests += len(open(request_file, "r").readlines())
+
+            if n_requests != total_responses_count:
+                logger.warning(f"{n_requests - total_responses_count} requests do not have responses. n_requests is {n_requests} and n_responses is {total_responses_count}")
+                if self.require_all_responses:
                     os.remove(dataset_file)
                     raise ValueError(
-                        f"{failed_responses_count} requests failed and require_all_responses is True"
-                    )
-
-                # number of responses matches number of requests
-                request_files = glob.glob(f"{working_dir}/requests_*.jsonl")
-                n_requests = 0
-                for request_file in request_files:
-                    n_requests += len(open(request_file, "r").readlines())
-                if n_requests != total_responses_count:
-                    os.remove(dataset_file)
-                    raise ValueError(
-                        f"Some requests do not have responses and require_all_responses is True. n_requests is {n_requests} and n_responses is {total_responses_count}"
+                        f"Some requests do not have responses and require_all_responses is True."
                     )
 
         return Dataset.from_file(dataset_file)
