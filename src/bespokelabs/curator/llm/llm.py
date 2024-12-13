@@ -44,8 +44,8 @@ class LLM:
         parse_func: Optional[
             Callable[
                 [
-                    Union[Dict[str, Any], BaseModel],
-                    Union[Dict[str, Any], BaseModel],
+                    _DictOrBaseModel,
+                    _DictOrBaseModel,
                 ],
                 T,
             ]
