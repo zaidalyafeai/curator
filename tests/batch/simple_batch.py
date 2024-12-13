@@ -1,5 +1,4 @@
 from bespokelabs.curator import LLM
-from bespokelabs.curator.llm.batch import batch
 from datasets import Dataset
 import logging
 import argparse
@@ -16,16 +15,14 @@ def main(args):
 
     prompter = LLM(
         prompt_func=lambda row: row["prompt"],
-        model_name="gpt-3.5-turbo",
+        model_name="gpt-4o-mini",
         response_format=None,
-    )
-
-    with batch(
-        prompter,
+        batch=True,
         batch_size=args.batch_size,
         batch_check_interval=args.batch_check_interval,
-    ):
-        dataset = prompter(dataset, batch_cancel=args.cancel)
+    )
+
+    dataset = prompter(dataset, batch_cancel=args.cancel)
     print(dataset.to_pandas())
 
 
