@@ -18,6 +18,7 @@ def main(args):
         model_name=args.model,
         max_requests_per_minute=args.max_requests_per_minute,
         max_tokens_per_minute=args.max_tokens_per_minute,
+        max_retries=args.max_retries,
     )
 
     dataset = prompter(dataset, batch_cancel=args.cancel)
@@ -41,5 +42,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--max-tokens-per-minute", type=int, help="Max tokens per minute", default=None
     )
+    parser.add_argument("--max-retries", type=int, help="Max retries", default=None)
     args = parser.parse_args()
     main(args)

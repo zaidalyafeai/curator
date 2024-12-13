@@ -5,7 +5,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import Callable, Optional
 
 import litellm
 from openai import AsyncOpenAI, NotFoundError
@@ -49,6 +49,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         presence_penalty: float | None = None,
         frequency_penalty: float | None = None,
         require_all_responses: bool = False,
+        max_retries: Optional[int] = None,
     ):
         if batch_size > MAX_REQUESTS_PER_BATCH:
             raise ValueError(
@@ -66,6 +67,10 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
         self.frequency_penalty: float | None = frequency_penalty
         self.delete_successful_batch_files: bool = delete_successful_batch_files
         self.delete_failed_batch_files: bool = delete_failed_batch_files
+        if max_retries is None:
+            self.max_retries = MAX_RETRIES_PER_OPERATION
+        else:
+            self.max_retries = max_retries
 
     def get_rate_limits(self) -> dict:
         """
@@ -337,6 +342,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             prompt_formatter,
             delete_successful_batch_files=self.delete_successful_batch_files,
             delete_failed_batch_files=self.delete_failed_batch_files,
+            max_retries=self.max_retries,
         )
 
         run_in_event_loop(self.run_batch_operations(batch_manager, request_files))
@@ -355,6 +361,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
             self.check_interval,
             delete_successful_batch_files=self.delete_successful_batch_files,
             delete_failed_batch_files=self.delete_failed_batch_files,
+            max_retries=self.max_retries,
         )
 
         run_in_event_loop(batch_manager.cancel_batches())
@@ -512,6 +519,7 @@ class BatchManager:
         prompt_formatter: PromptFormatter | None = None,
         delete_successful_batch_files: bool = False,
         delete_failed_batch_files: bool = False,
+        max_retries: Optional[int] = None,
     ) -> None:
         """Initialize BatchManager to handle OpenAI batch processing operations.
 
@@ -525,7 +533,7 @@ class BatchManager:
             delete_failed_batch_files (bool): Whether to delete input/error files from OpenAI
                 after batch failure.
         """
-        self.client = AsyncOpenAI(max_retries=MAX_RETRIES_PER_OPERATION)
+        self.client = AsyncOpenAI(max_retries=max_retries)
         self.check_interval = check_interval
         self.working_dir = working_dir
         self.tracker = BatchStatusTracker()

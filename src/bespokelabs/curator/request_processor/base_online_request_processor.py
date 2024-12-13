@@ -125,9 +125,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         frequency_penalty: Optional[float] = None,
         max_requests_per_minute: Optional[int] = None,
         max_tokens_per_minute: Optional[int] = None,
-        require_all_responses: bool = False,
+        max_retries: Optional[int] = None,
     ):
-        super().__init__(batch_size=None, require_all_responses=require_all_responses)
+        super().__init__(batch_size=None)
         self.model: str = model
         self.temperature: float | None = temperature
         self.top_p: float | None = top_p
@@ -136,6 +136,10 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         self.prompt_formatter: Optional[PromptFormatter] = None
         self.max_requests_per_minute: Optional[int] = max_requests_per_minute
         self.max_tokens_per_minute: Optional[int] = max_tokens_per_minute
+        if max_retries is None:
+            self.max_retries = DEFAULT_MAX_RETRIES
+        else:
+            self.max_retries = max_retries
 
     def get_rate_limit(self, name, header_value):
         """Uses manual values if set, otherwise uses headers if available, and if not available uses defaults."""
@@ -220,7 +224,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 self.process_requests_from_file(
                     generic_request_filepath=request_file,
                     save_filepath=response_file,
-                    max_attempts=DEFAULT_MAX_RETRIES,
+                    max_attempts=self.max_retries,
                     resume=True,
                 )
             )
@@ -387,10 +391,10 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     token_estimate = self.estimate_total_tokens(
                         retry_request.generic_request.messages
                     )
-                    attempt_number = 1 + DEFAULT_MAX_RETRIES - retry_request.attempts_left
+                    attempt_number = 1 + self.max_retries - retry_request.attempts_left
                     logger.info(
                         f"Processing retry for request {retry_request.task_id} "
-                        f"(attempt #{attempt_number} of {DEFAULT_MAX_RETRIES}). "
+                        f"(attempt #{attempt_number} of {self.max_retries}). "
                         f"Previous errors: {retry_request.result}"
                     )
 
@@ -479,7 +483,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 retry_queue.put_nowait(request)
             else:
                 logger.error(
-                    f"Request {request.task_id} failed permanently after exhausting all {DEFAULT_MAX_RETRIES} retry attempts. "
+                    f"Request {request.task_id} failed permanently after exhausting all {self.max_retries} retry attempts. "
                     f"Errors: {[str(e) for e in request.result]}"
                 )
                 generic_response = GenericResponse(

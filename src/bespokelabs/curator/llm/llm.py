@@ -102,6 +102,7 @@ class LLM:
         top_p: Optional[float] = None,
         presence_penalty: Optional[float] = None,
         frequency_penalty: Optional[float] = None,
+        max_retries: Optional[int] = None,
     ):
         """Initialize a LLM.
 
@@ -146,12 +147,14 @@ class LLM:
         self._setup_request_processor(
             max_requests_per_minute=max_requests_per_minute,
             max_tokens_per_minute=max_tokens_per_minute,
+            max_retries=max_retries,
         )
 
     def _setup_request_processor(
         self,
         max_requests_per_minute: Optional[int] = None,
         max_tokens_per_minute: Optional[int] = None,
+        max_retries: Optional[int] = None,
     ):
         """Set up the appropriate request processor based on current config.
 
@@ -196,6 +199,7 @@ class LLM:
                 frequency_penalty=self.frequency_penalty,
                 delete_successful_batch_files=self._batch_config.delete_successful_batch_files,
                 delete_failed_batch_files=self._batch_config.delete_failed_batch_files,
+                max_retries=max_retries,
             )
         elif self.backend == "openai":
             self._request_processor = OpenAIOnlineRequestProcessor(
@@ -206,6 +210,7 @@ class LLM:
                 frequency_penalty=self.frequency_penalty,
                 max_requests_per_minute=max_requests_per_minute,
                 max_tokens_per_minute=max_tokens_per_minute,
+                max_retries=max_retries,
             )
         elif self.backend == "litellm":
             if is_batch_mode:
@@ -220,6 +225,7 @@ class LLM:
                 frequency_penalty=self.frequency_penalty,
                 max_requests_per_minute=max_requests_per_minute,
                 max_tokens_per_minute=max_tokens_per_minute,
+                max_retries=max_retries,
             )
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
