@@ -241,9 +241,8 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         status_tracker = StatusTracker()
 
         # Get rate limits
-        rate_limits = self.get_rate_limits()
-        status_tracker.max_requests_per_minute = rate_limits["max_requests_per_minute"]
-        status_tracker.max_tokens_per_minute = rate_limits["max_tokens_per_minute"]
+        status_tracker.max_requests_per_minute = self.max_requests_per_minute
+        status_tracker.max_tokens_per_minute = self.max_tokens_per_minute
 
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         resource.setrlimit(
