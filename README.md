@@ -54,18 +54,12 @@ pip install bespokelabs-curator
 
 ## Usage
 
-### Imports
-```python
-from bespokelabs import curator
-from datasets import Dataset
-from pydantic import BaseModel, Field
-from typing import List
-```
-### `SimpleLLM`: A simple interface for calling LLMs
+### Hello World with `SimpleLLM`: A simple interface for calling LLMs
 
 ```python
+from bespokelabs import curator
 llm = curator.SimpleLLM(model_name="gpt-4o-mini")
-poem = llm("Write a poem about the bitter lesson in AI and keep it 100 words or less.")
+poem = llm("Write a poem about the importance of data in AI.")
 print(poem)
 ```
 
@@ -73,20 +67,28 @@ print(poem)
 You can use the [LiteLLM](https://docs.litellm.ai/docs/providers) backend for calling other models.
 
 ```python
+from bespokelabs import curator
 llm = curator.SimpleLLM(model_name="claude-3-5-sonnet-20240620", backend="litellm")
-
-poem = llm("Write a sonnet about the bitter lesson in AI and make it visual.")
+poem = llm("Write a poem about the importance of data in AI.")
 print(poem)
 ```
 
 ### Visualize in Curator Viewer
-Run `curator-viewer` to see the dataset in the viewer.
+Run `curator-viewer` on the command line to see the dataset in the viewer.
 
+You can click on a run and then click on a specific row to see the LLM request and response.
+![Curator Responses](docs/curator-responses.png)
+More examples below.
 
-### `LLM`: A more powerful interface for calling LLMs
+### `LLM`: A more powerful interface for synthetic data generation
 
 Create a dataset object for the topics you want to create the poems.
 ```python
+from bespokelabs import curator
+from datasets import Dataset
+from pydantic import BaseModel, Field
+from typing import List
+
 topics = Dataset.from_dict({"topic": [
     "Urban loneliness in a bustling city",
     "Beauty of Bespoke Labs's Curator library"
@@ -146,6 +148,12 @@ curator-viewer
 ```
 
 This will pop up a browser window with the viewer running on `127.0.0.1:3000` by default if you haven't specified a different host and port.
+
+The dataset viewer shows all the different runs you have made.
+![Curator Runs](docs/curator-runs.png)
+
+You can also see the dataset and the responses from the LLM.
+![Curator Dataset](docs/curator-dataset.png)
 
 
 Optional parameters to run the viewer on a different host and port:
