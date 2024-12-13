@@ -386,10 +386,10 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     token_estimate = self.estimate_total_tokens(
                         retry_request.generic_request.messages
                     )
-                    attempt_number = DEFAULT_RETRIES + 1 - retry_request.attempts_left
+                    attempt_number = DEFAULT_MAX_RETRIES + 1 - retry_request.attempts_left
                     logger.info(
                         f"Processing retry for request {retry_request.task_id} "
-                        f"(attempt #{attempt_number} of {DEFAULT_RETRIES}). "
+                        f"(attempt #{attempt_number} of {DEFAULT_MAX_RETRIES}). "
                         f"Previous errors: {retry_request.result}"
                     )
 
