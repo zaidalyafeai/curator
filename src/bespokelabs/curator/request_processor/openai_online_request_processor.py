@@ -283,6 +283,8 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
                     status_tracker.time_of_last_rate_limit_error = time.time()
                     status_tracker.num_rate_limit_errors += 1
                     status_tracker.num_api_errors -= 1
+                    # because handle_single_request_with_retries will double count otherwise
+                    status_tracker.num_other_errors -= 1
                 raise Exception(f"API error: {error}")
 
             if response_obj.status != 200:

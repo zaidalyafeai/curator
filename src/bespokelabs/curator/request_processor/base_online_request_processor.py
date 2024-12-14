@@ -25,6 +25,7 @@ logger.setLevel(logging.INFO)
 DEFAULT_MAX_REQUESTS_PER_MINUTE = 100
 DEFAULT_MAX_TOKENS_PER_MINUTE = 100_000
 DEFAULT_MAX_RETRIES = 10
+SECONDS_TO_PAUSE_ON_RATE_LIMIT = 10
 
 
 @dataclass
@@ -354,6 +355,19 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     # Wait for capacity if needed
                     while not status_tracker.has_capacity(token_estimate):
                         await asyncio.sleep(0.1)
+
+                    # Wait for rate limits cool down if needed
+                    seconds_since_rate_limit_error = (
+                        time.time() - status_tracker.time_of_last_rate_limit_error
+                    )
+                    if seconds_since_rate_limit_error < SECONDS_TO_PAUSE_ON_RATE_LIMIT:
+                        remaining_seconds_to_pause = (
+                            SECONDS_TO_PAUSE_ON_RATE_LIMIT - seconds_since_rate_limit_error
+                        )
+                        await asyncio.sleep(remaining_seconds_to_pause)
+                        logger.warn(
+                            f"Pausing to cool down for {int(remaining_seconds_to_pause)} seconds"
+                        )
 
                     # Consume capacity before making request
                     status_tracker.consume_capacity(token_estimate)

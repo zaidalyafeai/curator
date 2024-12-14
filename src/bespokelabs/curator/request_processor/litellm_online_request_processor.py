@@ -13,6 +13,7 @@ from bespokelabs.curator.request_processor.base_online_request_processor import 
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.generic_response import TokenUsage, GenericResponse
 from pydantic import BaseModel
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -236,18 +237,29 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             GenericResponse: The response from LiteLLM
         """
         # Get response directly without extra logging
-        if request.generic_request.response_format:
-            response, completion_obj = await self.client.chat.completions.create_with_completion(
-                **request.api_specific_request,
-                response_model=request.prompt_formatter.response_format,
-                timeout=60.0,
-            )
-            response_message = (
-                response.model_dump() if hasattr(response, "model_dump") else response
-            )
-        else:
-            completion_obj = await litellm.acompletion(**request.api_specific_request, timeout=60.0)
-            response_message = completion_obj["choices"][0]["message"]["content"]
+        try:
+            if request.generic_request.response_format:
+                response, completion_obj = (
+                    await self.client.chat.completions.create_with_completion(
+                        **request.api_specific_request,
+                        response_model=request.prompt_formatter.response_format,
+                        timeout=60.0,
+                    )
+                )
+                response_message = (
+                    response.model_dump() if hasattr(response, "model_dump") else response
+                )
+            else:
+                completion_obj = await litellm.acompletion(
+                    **request.api_specific_request, timeout=60.0
+                )
+                response_message = completion_obj["choices"][0]["message"]["content"]
+        except litellm.RateLimitError as e:
+            status_tracker.time_of_last_rate_limit_error = time.time()
+            status_tracker.num_rate_limit_errors += 1
+            # because handle_single_request_with_retries will double count otherwise
+            status_tracker.num_api_errors -= 1
+            raise e
 
         # Extract token usage
         usage = completion_obj.usage if hasattr(completion_obj, "usage") else {}
