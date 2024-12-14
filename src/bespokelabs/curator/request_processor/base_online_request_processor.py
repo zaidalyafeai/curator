@@ -254,7 +254,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         completed_request_ids = set()
         if os.path.exists(save_filepath):
             if resume:
-                logger.debug(f"Resuming progress from existing file: {save_filepath}")
+                logger.info(f"Resuming progress by reading existing file: {save_filepath}")
                 logger.debug(
                     f"Removing all failed requests from {save_filepath} so they can be retried"
                 )
