@@ -116,18 +116,21 @@ class Poems(BaseModel):
 We define an `LLM` object that generates poems which gets applied to the topics dataset.
 ```python
 poet = curator.LLM(
-    # `prompt_func` takes a row of the dataset as input.
-    # `row` is a dictionary with a single key 'topic' in this case.
     prompt_func=lambda row: f"Write two poems about {row['topic']}.",
     model_name="gpt-4o-mini",
     response_format=Poems,
-    # `row` is the input row, and `poems` is the `Poems` class which 
-    # is parsed from the structured output from the LLM.
     parse_func=lambda row, poems: [
         {"topic": row["topic"], "poem": p.poem} for p in poems.poems_list
     ],
 )
+```
+Here:
+* `prompt_func` takes a row of the dataset as input and returns the prompt for the LLM.
+* `response_format` is the structured output class we defined above.
+* `parse_func` takes the input (`row`) and the structured output (`poems`) and converts it to a list of dictionaries. This is so that we can easily convert the output to a HuggingFace Dataset object.
 
+Now we can apply the `LLM` object to the dataset, which reads very pythonic.
+```python
 poem = poet(topics)
 print(poem.to_pandas())
 # Example output:

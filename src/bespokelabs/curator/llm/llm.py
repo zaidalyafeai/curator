@@ -36,41 +36,6 @@ logger = logger = logging.getLogger(__name__)
 
 class LLM:
     """Interface for prompting LLMs."""
-
-    @staticmethod
-    def _determine_backend(
-        model_name: str, response_format: Optional[Type[BaseModel]] = None
-    ) -> str:
-        """Determine which backend to use based on model name and response format.
-
-        Args:
-            model_name (str): Name of the model
-            response_format (Optional[Type[BaseModel]]): Response format if specified
-
-        Returns:
-            str: Backend to use ("openai" or "litellm")
-        """
-        model_name = model_name.lower()
-
-        # GPT-4o models with response format should use OpenAI
-        if (
-            response_format
-            and OpenAIOnlineRequestProcessor(model_name).check_structured_output_support()
-        ):
-            logger.info(f"Requesting structured output from {model_name}, using OpenAI backend")
-            return "openai"
-
-        # GPT models and O1 models without response format should use OpenAI
-        if not response_format and any(x in model_name for x in ["gpt-", "o1-preview", "o1-mini"]):
-            logger.info(f"Requesting text output from {model_name}, using OpenAI backend")
-            return "openai"
-
-        # Default to LiteLLM for all other cases
-        logger.info(
-            f"Requesting {f'structured' if response_format else 'text'} output from {model_name}, using LiteLLM backend"
-        )
-        return "litellm"
-
     def __init__(
         self,
         model_name: str,
@@ -188,6 +153,42 @@ class LLM:
             )
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
+
+    @staticmethod
+    def _determine_backend(
+        model_name: str, response_format: Optional[Type[BaseModel]] = None
+    ) -> str:
+        """Determine which backend to use based on model name and response format.
+
+        Args:
+            model_name (str): Name of the model
+            response_format (Optional[Type[BaseModel]]): Response format if specified
+
+        Returns:
+            str: Backend to use ("openai" or "litellm")
+        """
+        model_name = model_name.lower()
+
+        # GPT-4o models with response format should use OpenAI
+        if (
+            response_format
+            and OpenAIOnlineRequestProcessor(model_name).check_structured_output_support()
+        ):
+            logger.info(f"Requesting structured output from {model_name}, using OpenAI backend")
+            return "openai"
+
+        # GPT models and O1 models without response format should use OpenAI
+        if not response_format and any(x in model_name for x in ["gpt-", "o1-preview", "o1-mini"]):
+            logger.info(f"Requesting text output from {model_name}, using OpenAI backend")
+            return "openai"
+
+        # Default to LiteLLM for all other cases
+        logger.info(
+            f"Requesting {f'structured' if response_format else 'text'} output from {model_name}, using LiteLLM backend"
+        )
+        return "litellm"
+
+    
 
     def __call__(
         self,
