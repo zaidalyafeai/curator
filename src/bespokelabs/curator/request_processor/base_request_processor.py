@@ -116,6 +116,7 @@ class BaseRequestProcessor(ABC):
                     return request_files
 
         # Create new requests file
+        logger.info(f"Preparing request file(s) in {working_dir}")
         request_file = f"{working_dir}/requests_0.jsonl"
         request_files = [request_file]
 

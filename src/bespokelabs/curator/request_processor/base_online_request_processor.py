@@ -25,6 +25,7 @@ logger.setLevel(logging.INFO)
 DEFAULT_MAX_REQUESTS_PER_MINUTE = 100
 DEFAULT_MAX_TOKENS_PER_MINUTE = 100_000
 DEFAULT_MAX_RETRIES = 10
+SECONDS_TO_PAUSE_ON_RATE_LIMIT = 10
 
 
 @dataclass
@@ -46,7 +47,9 @@ class StatusTracker:
     max_tokens_per_minute: int = 0
     pbar: tqdm = field(default=None)
     response_cost: float = 0
-    time_of_last_rate_limit_error: float = field(default=None)
+    time_of_last_rate_limit_error: float = field(
+        default=time.time() - SECONDS_TO_PAUSE_ON_RATE_LIMIT
+    )
 
     def __str__(self):
         return (
@@ -254,7 +257,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         completed_request_ids = set()
         if os.path.exists(save_filepath):
             if resume:
-                logger.debug(f"Resuming progress from existing file: {save_filepath}")
+                logger.info(f"Resuming progress by reading existing file: {save_filepath}")
                 logger.debug(
                     f"Removing all failed requests from {save_filepath} so they can be retried"
                 )
@@ -354,6 +357,19 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     # Wait for capacity if needed
                     while not status_tracker.has_capacity(token_estimate):
                         await asyncio.sleep(0.1)
+
+                    # Wait for rate limits cool down if needed
+                    seconds_since_rate_limit_error = (
+                        time.time() - status_tracker.time_of_last_rate_limit_error
+                    )
+                    if seconds_since_rate_limit_error < SECONDS_TO_PAUSE_ON_RATE_LIMIT:
+                        remaining_seconds_to_pause = (
+                            SECONDS_TO_PAUSE_ON_RATE_LIMIT - seconds_since_rate_limit_error
+                        )
+                        await asyncio.sleep(remaining_seconds_to_pause)
+                        logger.warn(
+                            f"Pausing to cool down for {int(remaining_seconds_to_pause)} seconds"
+                        )
 
                     # Consume capacity before making request
                     status_tracker.consume_capacity(token_estimate)
