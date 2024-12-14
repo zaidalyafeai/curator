@@ -1,4 +1,4 @@
-from bespokelabs.curator import Prompter
+from bespokelabs.curator import LLM
 from datasets import Dataset
 import logging
 import argparse
@@ -13,11 +13,13 @@ def main(args):
 
     dataset = Dataset.from_dict({"prompt": ["write me a poem"] * args.n_requests})
 
-    prompter = Prompter(
+    prompter = LLM(
         prompt_func=lambda row: row["prompt"],
         model_name=args.model,
         max_requests_per_minute=args.max_requests_per_minute,
         max_tokens_per_minute=args.max_tokens_per_minute,
+        max_retries=args.max_retries,
+        require_all_responses=not args.partial_responses,
     )
 
     dataset = prompter(dataset, batch_cancel=args.cancel)
@@ -40,6 +42,13 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--max-tokens-per-minute", type=int, help="Max tokens per minute", default=None
+    )
+    parser.add_argument("--max-retries", type=int, help="Max retries", default=None)
+    parser.add_argument(
+        "--partial-responses",
+        action="store_true",
+        default=False,
+        help="Require all responses",
     )
     args = parser.parse_args()
     main(args)

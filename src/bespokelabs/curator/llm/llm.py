@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from xxhash import xxh64
 
 from bespokelabs.curator.db import MetadataDB
-from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
+from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import (
     BaseRequestProcessor,
 )
@@ -29,12 +29,131 @@ from bespokelabs.curator.request_processor.openai_online_request_processor impor
 
 _CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")
+_DictOrBaseModel = Union[Dict[str, Any], BaseModel]
 
 logger = logger = logging.getLogger(__name__)
 
 
-class Prompter:
+class LLM:
     """Interface for prompting LLMs."""
+
+    def __init__(
+        self,
+        model_name: str,
+        prompt_func: Callable[[_DictOrBaseModel], _DictOrBaseModel],
+        parse_func: Optional[
+            Callable[[_DictOrBaseModel, _DictOrBaseModel], _DictOrBaseModel]
+        ] = None,
+        response_format: Optional[Type[BaseModel]] = None,
+        backend: Optional[str] = None,
+        max_requests_per_minute: Optional[int] = None,
+        max_tokens_per_minute: Optional[int] = None,
+        batch: bool = False,
+        batch_size: Optional[int] = None,
+        batch_check_interval: Optional[int] = 60,
+        delete_successful_batch_files: bool = True,
+        delete_failed_batch_files: bool = False,  # To allow users to debug failed batches
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
+        presence_penalty: Optional[float] = None,
+        frequency_penalty: Optional[float] = None,
+        max_retries: Optional[int] = None,
+        require_all_responses: Optional[bool] = None,
+    ):
+        """Initialize a LLM.
+
+        Args:
+            model_name: The name of the LLM to use
+            prompt_func: A function that takes a single row
+                and returns either a string (assumed to be a user prompt) or messages list
+            parse_func: A function that takes the input row and
+                response object and returns the parsed output
+            response_format: A Pydantic model specifying the
+                response format from the LLM.
+            backend: The backend to use ("openai" or "litellm"). If None, will be auto-determined
+            batch: Whether to use batch processing
+            batch_size: The size of the batch to use, only used if batch is True
+            batch_check_interval: The interval to check for batch completions, only used if batch is True
+            delete_successful_batch_files: Whether to delete successful batch files, only used if batch is True
+            delete_failed_batch_files: Whether to delete failed batch files, only used if batch is True
+            temperature: The temperature to use for the LLM, only used if batch is False
+            top_p: The top_p to use for the LLM, only used if batch is False
+            presence_penalty: The presence_penalty to use for the LLM, only used if batch is False
+            frequency_penalty: The frequency_penalty to use for the LLM, only used if batch is False
+            max_retries: The maximum number of retries to use for the LLM
+            require_all_responses: Whether to require all responses
+        """
+        self.prompt_formatter = PromptFormatter(
+            model_name, prompt_func, parse_func, response_format
+        )
+        self.batch_mode = batch
+
+        # Auto-determine backend if not specified
+        # Use provided backend or auto-determine based on model and format
+        if backend is not None:
+            self.backend = backend
+        else:
+            self.backend = self._determine_backend(model_name, response_format)
+
+        # Select request processor based on backend
+        if self.backend == "openai":
+            if batch:
+                if batch_size is None:
+                    batch_size = 1_000
+                    logger.info(
+                        f"batch=True but no batch_size provided, using default batch_size of {batch_size:,}"
+                    )
+                if max_requests_per_minute is not None or max_tokens_per_minute is not None:
+                    logger.warning(
+                        "max_requests_per_minute and max_tokens_per_minute not supported with batch mode"
+                    )
+                self._request_processor = OpenAIBatchRequestProcessor(
+                    model=model_name,
+                    batch_size=batch_size,
+                    temperature=temperature,
+                    top_p=top_p,
+                    batch_check_interval=batch_check_interval,
+                    presence_penalty=presence_penalty,
+                    frequency_penalty=frequency_penalty,
+                    delete_successful_batch_files=delete_successful_batch_files,
+                    delete_failed_batch_files=delete_failed_batch_files,
+                    max_retries=max_retries,
+                    require_all_responses=require_all_responses,
+                )
+            else:
+                if batch_size is not None:
+                    logger.warning(
+                        f"LLM argument `batch_size` {batch_size} is ignored because `batch` is False"
+                    )
+                self._request_processor = OpenAIOnlineRequestProcessor(
+                    model=model_name,
+                    temperature=temperature,
+                    top_p=top_p,
+                    presence_penalty=presence_penalty,
+                    frequency_penalty=frequency_penalty,
+                    max_requests_per_minute=max_requests_per_minute,
+                    max_tokens_per_minute=max_tokens_per_minute,
+                    max_retries=max_retries,
+                    require_all_responses=require_all_responses,
+                )
+        elif self.backend == "litellm":
+            if batch:
+                logger.warning(
+                    "Batch mode is not supported with LiteLLM backend, ignoring batch=True"
+                )
+            self._request_processor = LiteLLMOnlineRequestProcessor(
+                model=model_name,
+                temperature=temperature,
+                top_p=top_p,
+                presence_penalty=presence_penalty,
+                frequency_penalty=frequency_penalty,
+                max_requests_per_minute=max_requests_per_minute,
+                max_tokens_per_minute=max_tokens_per_minute,
+                max_retries=max_retries,
+                require_all_responses=require_all_responses,
+            )
+        else:
+            raise ValueError(f"Unknown backend: {self.backend}")
 
     @staticmethod
     def _determine_backend(
@@ -70,130 +189,6 @@ class Prompter:
         )
         return "litellm"
 
-    def __init__(
-        self,
-        model_name: str,
-        prompt_func: Callable[[Union[Dict[str, Any], BaseModel]], Dict[str, str]],
-        parse_func: Optional[
-            Callable[
-                [
-                    Union[Dict[str, Any], BaseModel],
-                    Union[Dict[str, Any], BaseModel],
-                ],
-                T,
-            ]
-        ] = None,
-        response_format: Optional[Type[BaseModel]] = None,
-        backend: Optional[str] = None,
-        max_requests_per_minute: Optional[int] = None,
-        max_tokens_per_minute: Optional[int] = None,
-        batch: bool = False,
-        batch_size: Optional[int] = None,
-        batch_check_interval: Optional[int] = 60,
-        delete_successful_batch_files: bool = True,
-        delete_failed_batch_files: bool = False,  # To allow users to debug failed batches
-        temperature: Optional[float] = None,
-        top_p: Optional[float] = None,
-        presence_penalty: Optional[float] = None,
-        frequency_penalty: Optional[float] = None,
-    ):
-        """Initialize a Prompter.
-
-        Args:
-            model_name (str): The name of the LLM to use
-            prompt_func (Callable[[Dict[str, Any]], Union[str, List[Dict[str, Any]]]]): A function that takes a single row
-                and returns either a string (assumed to be a user prompt) or messages list
-            parse_func (Callable[[Dict[str, Any], Any], T]): A function that takes the input row and
-                response object and returns the parsed output
-            response_format (Optional[Type[BaseModel]]): A Pydantic model specifying the
-                response format from the LLM.
-            backend (Optional[str]): The backend to use ("openai" or "litellm"). If None, will be auto-determined
-            batch (bool): Whether to use batch processing
-            batch_size (Optional[int]): The size of the batch to use, only used if batch is True
-            temperature (Optional[float]): The temperature to use for the LLM, only used if batch is False
-            top_p (Optional[float]): The top_p to use for the LLM, only used if batch is False
-            presence_penalty (Optional[float]): The presence_penalty to use for the LLM, only used if batch is False
-            frequency_penalty (Optional[float]): The frequency_penalty to use for the LLM, only used if batch is False
-        """
-        prompt_sig = inspect.signature(prompt_func)
-        if len(prompt_sig.parameters) > 1:
-            raise ValueError(
-                f"prompt_func must take one argument or less, got {len(prompt_sig.parameters)}"
-            )
-
-        if parse_func is not None:
-            parse_sig = inspect.signature(parse_func)
-            if len(parse_sig.parameters) != 2:
-                raise ValueError(
-                    f"parse_func must take exactly 2 arguments, got {len(parse_sig.parameters)}"
-                )
-
-        self.prompt_formatter = PromptFormatter(
-            model_name, prompt_func, parse_func, response_format
-        )
-        self.batch_mode = batch
-
-        # Auto-determine backend if not specified
-        # Use provided backend or auto-determine based on model and format
-        if backend is not None:
-            self.backend = backend
-        else:
-            self.backend = self._determine_backend(model_name, response_format)
-
-        # Select request processor based on backend
-        if self.backend == "openai":
-            if batch:
-                if batch_size is None:
-                    batch_size = 1_000
-                    logger.info(
-                        f"batch=True but no batch_size provided, using default batch_size of {batch_size:,}"
-                    )
-                if max_requests_per_minute is not None or max_tokens_per_minute is not None:
-                    logger.warning(
-                        "max_requests_per_minute and max_tokens_per_minute not supported with batch mode"
-                    )
-                self._request_processor = OpenAIBatchRequestProcessor(
-                    model=model_name,
-                    batch_size=batch_size,
-                    temperature=temperature,
-                    top_p=top_p,
-                    batch_check_interval=batch_check_interval,
-                    presence_penalty=presence_penalty,
-                    frequency_penalty=frequency_penalty,
-                    delete_successful_batch_files=delete_successful_batch_files,
-                    delete_failed_batch_files=delete_failed_batch_files,
-                )
-            else:
-                if batch_size is not None:
-                    logger.warning(
-                        f"Prompter argument `batch_size` {batch_size} is ignored because `batch` is False"
-                    )
-                self._request_processor = OpenAIOnlineRequestProcessor(
-                    model=model_name,
-                    temperature=temperature,
-                    top_p=top_p,
-                    presence_penalty=presence_penalty,
-                    frequency_penalty=frequency_penalty,
-                    max_requests_per_minute=max_requests_per_minute,
-                    max_tokens_per_minute=max_tokens_per_minute,
-                )
-        elif self.backend == "litellm":
-            if batch:
-                logger.warning(
-                    "Batch mode is not supported with LiteLLM backend, ignoring batch=True"
-                )
-            self._request_processor = LiteLLMOnlineRequestProcessor(
-                model=model_name,
-                temperature=temperature,
-                top_p=top_p,
-                presence_penalty=presence_penalty,
-                frequency_penalty=frequency_penalty,
-                max_requests_per_minute=max_requests_per_minute,
-                max_tokens_per_minute=max_tokens_per_minute,
-            )
-        else:
-            raise ValueError(f"Unknown backend: {self.backend}")
-
     def __call__(
         self,
         dataset: Optional[Iterable] = None,
@@ -223,7 +218,7 @@ class Prompter:
 
         Args:
             dataset (Iterable): A dataset consisting of a list of items to apply completions
-            prompter (Prompter): A Prompter that contains the logic for formatting each
+            prompter (LLM): A LLM that contains the logic for formatting each
                 item in the dataset
             working_dir (str): The working directory to save the requests.jsonl, responses.jsonl, and dataset.arrow files.
 
@@ -235,7 +230,7 @@ class Prompter:
             dataset = Dataset.from_generator(dataset)
 
         if self is None:
-            raise ValueError("Prompter must be provided")
+            raise ValueError("LLM must be provided")
 
         if working_dir is None:
             curator_cache_dir = os.environ.get(
