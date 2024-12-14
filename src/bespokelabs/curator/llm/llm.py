@@ -40,113 +40,6 @@ class LLM:
     def __init__(
         self,
         model_name: str,
-        prompt_func: Callable[[Union[Dict[str, Any], BaseModel]], Dict[str, str]],
-        parse_func: Optional[
-            Callable[
-                [
-                    _DictOrBaseModel,
-                    _DictOrBaseModel,
-                ],
-                T,
-            ]
-        ] = None,
-        response_format: Optional[Type[BaseModel]] = None,
-        backend: Optional[str] = None,
-        max_requests_per_minute: Optional[int] = None,
-        max_tokens_per_minute: Optional[int] = None,
-        temperature: Optional[float] = None,
-        top_p: Optional[float] = None,
-        presence_penalty: Optional[float] = None,
-        frequency_penalty: Optional[float] = None,
-        max_retries: Optional[int] = None,
-        require_all_responses: Optional[bool] = None,
-    ):
-        """Initialize a LLM.
-
-        Args:
-            model_name: The name of the LLM to use
-            prompt_func: A function that takes a single row
-                and returns either a string (assumed to be a user prompt) or messages list
-            parse_func: A function that takes the input row and
-                response object and returns the parsed output
-            response_format: A Pydantic model specifying the
-                response format from the LLM.
-            backend: The backend to use ("openai" or "litellm"). If None, will be auto-determined
-            max_requests_per_minute: Maximum requests per minute (not supported in batch mode)
-            max_tokens_per_minute: Maximum tokens per minute (not supported in batch mode)
-            temperature: The temperature to use for the LLM
-            top_p: The top_p to use for the LLM
-            presence_penalty: The presence_penalty to use for the LLM
-            frequency_penalty: The frequency_penalty to use for the LLM
-            max_retries: The maximum number of retries to use for the LLM. If 0, will only try a request once.
-            require_all_responses: Whether to require all responses
-        """
-        self.prompt_formatter = PromptFormatter(
-            model_name, prompt_func, parse_func, response_format
-        )
-
-        # Initialize context manager state
-        self._batch_config = None
-        self._original_request_processor = None
-
-        # Store model parameters
-        self.temperature = temperature
-        self.top_p = top_p
-        self.presence_penalty = presence_penalty
-        self.frequency_penalty = frequency_penalty
-        self.model_name = model_name
-
-        # Auto-determine backend if not specified
-        if backend is not None:
-            self.backend = backend
-        else:
-            self.backend = self._determine_backend(model_name, response_format)
-
-        # Initialize request processor
-        self._setup_request_processor(
-            max_requests_per_minute=max_requests_per_minute,
-            max_tokens_per_minute=max_tokens_per_minute,
-            max_retries=max_retries,
-            require_all_responses=require_all_responses,
-        )
-
-    @staticmethod
-    def _determine_backend(
-        model_name: str, response_format: Optional[Type[BaseModel]] = None
-    ) -> str:
-        """Determine which backend to use based on model name and response format.
-
-        Args:
-            model_name (str): Name of the model
-            response_format (Optional[Type[BaseModel]]): Response format if specified
-
-        Returns:
-            str: Backend to use ("openai" or "litellm")
-        """
-        model_name = model_name.lower()
-
-        # GPT-4o models with response format should use OpenAI
-        if (
-            response_format
-            and OpenAIOnlineRequestProcessor(model_name).check_structured_output_support()
-        ):
-            logger.info(f"Requesting structured output from {model_name}, using OpenAI backend")
-            return "openai"
-
-        # GPT models and O1 models without response format should use OpenAI
-        if not response_format and any(x in model_name for x in ["gpt-", "o1-preview", "o1-mini"]):
-            logger.info(f"Requesting text output from {model_name}, using OpenAI backend")
-            return "openai"
-
-        # Default to LiteLLM for all other cases
-        logger.info(
-            f"Requesting {f'structured' if response_format else 'text'} output from {model_name}, using LiteLLM backend"
-        )
-        return "litellm"
-
-    def __init__(
-        self,
-        model_name: str,
         prompt_func: Callable[[_DictOrBaseModel], _DictOrBaseModel],
         parse_func: Optional[
             Callable[[_DictOrBaseModel, _DictOrBaseModel], _DictOrBaseModel]
@@ -261,6 +154,40 @@ class LLM:
             )
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
+
+    @staticmethod
+    def _determine_backend(
+        model_name: str, response_format: Optional[Type[BaseModel]] = None
+    ) -> str:
+        """Determine which backend to use based on model name and response format.
+
+        Args:
+            model_name (str): Name of the model
+            response_format (Optional[Type[BaseModel]]): Response format if specified
+
+        Returns:
+            str: Backend to use ("openai" or "litellm")
+        """
+        model_name = model_name.lower()
+
+        # GPT-4o models with response format should use OpenAI
+        if (
+            response_format
+            and OpenAIOnlineRequestProcessor(model_name).check_structured_output_support()
+        ):
+            logger.info(f"Requesting structured output from {model_name}, using OpenAI backend")
+            return "openai"
+
+        # GPT models and O1 models without response format should use OpenAI
+        if not response_format and any(x in model_name for x in ["gpt-", "o1-preview", "o1-mini"]):
+            logger.info(f"Requesting text output from {model_name}, using OpenAI backend")
+            return "openai"
+
+        # Default to LiteLLM for all other cases
+        logger.info(
+            f"Requesting {f'structured' if response_format else 'text'} output from {model_name}, using LiteLLM backend"
+        )
+        return "litellm"
 
     def __call__(
         self,
