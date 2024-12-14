@@ -2,6 +2,7 @@
 
 Please see the poem.py for more complex use cases.
 """
+
 from bespokelabs import curator
 
 # Use GPT-4o-mini for this example.
@@ -15,6 +16,10 @@ poem = llm("Write a poem about the importance of data in AI.")
 print(poem)
 
 # Note that we can also pass a list of prompts to generate multiple responses.
-poems = llm(["Write a sonnet about the importance of data in AI.",
-              "Write a haiku about the importance of data in AI."])
+poems = llm(
+    [
+        "Write a sonnet about the importance of data in AI.",
+        "Write a haiku about the importance of data in AI.",
+    ]
+)
 print(poems)
