@@ -6,6 +6,7 @@ import os
 import resource
 from abc import ABC, abstractmethod
 from math import ceil
+from pathlib import Path
 from typing import Optional
 
 import aiofiles
@@ -76,6 +77,47 @@ class BaseRequestProcessor(ABC):
         """
         pass
 
+    def _verify_cache_integrity(self, working_dir: str) -> bool:
+        """
+        Verify integrity of the cache (each request file has associated metadata, and the number of rows is correct).
+
+        Args:
+            working_dir (str): Working directory where cache files are expected to be (requests.jsonl, metadata.json)
+
+        Returns:
+            bool: True if cache is correct, False otherwise
+        """
+
+        try:
+            request_files = glob.glob(f"{working_dir}/requests_*.jsonl")
+            metadata_files = glob.glob(f"{working_dir}/metadata_*.json")
+
+            if len(request_files) != len(metadata_files):
+                logger.info("Metadata files don't exist for all requests - regenerating request files.")
+                return False
+            
+            for req_f in request_files:
+                idx = Path(req_f).with_suffix("").name.split("_")[-1]
+                meta_f = os.path.join(working_dir, f"metadata_{idx}.json")
+                with open(req_f, "r") as f:
+                    data = f.read()
+                num_jobs = len(data.splitlines())
+
+                with open(meta_f, "r") as f:
+                    metadata = json.load(f)
+
+                expected_num_jobs = metadata["num_jobs"]
+                if num_jobs != expected_num_jobs:
+                    logger.info(f"Request file {req_f} contained {num_jobs} rows, but expected {expected_num_jobs} - regenerating request files.")
+                    return False
+
+            logger.info("Cache verification succesful.")
+            return True
+            
+        except:
+            logger.info("Cache verification failed for unexpected reasons - regenerating request files.")
+            return False
+
     def create_request_files(
         self,
         dataset: Optional[Dataset],
@@ -96,7 +138,7 @@ class BaseRequestProcessor(ABC):
         request_files = glob.glob(f"{working_dir}/requests_*.jsonl")
 
         # By default use existing requests in working_dir
-        if len(request_files) > 0:
+        if len(request_files) > 0 and self._verify_cache_integrity(working_dir):
             logger.info(f"Using cached requests. {CACHE_MSG}")
             # count existing jobs in file and print first job
             with open(request_files[0], "r") as f:
@@ -119,15 +161,23 @@ class BaseRequestProcessor(ABC):
         request_file = f"{working_dir}/requests_0.jsonl"
         request_files = [request_file]
 
+        metadata_file = f"{working_dir}/metadata_0.json"
+        metadata_files = [metadata_file]
+
         if dataset is None:
             with open(request_file, "w") as f:
                 generic_request = prompt_formatter.create_generic_request(dict(), 0)
                 f.write(json.dumps(generic_request.model_dump(), default=str) + "\n")
+
+            metadata_dict = {"num_jobs": 1}
+            with open(metadata_file, "w") as f:
+                f.write(json.dumps(metadata_dict, indent=4) + "\n")
             return request_files
 
         if self.batch_size:
             num_batches = ceil(len(dataset) / self.batch_size)
             request_files = [f"{working_dir}/requests_{i}.jsonl" for i in range(num_batches)]
+            metadata_files = [f"{working_dir}/metadata_{i}.json" for i in range(num_batches)]
 
             async def create_all_request_files():
                 tasks = [
@@ -135,6 +185,7 @@ class BaseRequestProcessor(ABC):
                         dataset,
                         prompt_formatter,
                         request_files[i],
+                        metadata_files[i],
                         start_idx=i * self.batch_size,
                     )
                     for i in range(num_batches)
@@ -153,8 +204,9 @@ class BaseRequestProcessor(ABC):
         dataset: Dataset,
         prompt_formatter: PromptFormatter,
         request_file: str,
+        metadata_file: str,
         start_idx: int = 0,
-    ) -> str:
+    ) -> None:
         if self.batch_size is not None:
             end_idx = min(start_idx + self.batch_size, len(dataset))
             dataset = dataset.select(range(start_idx, end_idx))
@@ -168,7 +220,13 @@ class BaseRequestProcessor(ABC):
                 # Get the generic request from the map function
                 request = prompt_formatter.create_generic_request(dataset_row, dataset_row_idx)
                 await f.write(json.dumps(request.model_dump(), default=str) + "\n")
-        logger.info(f"Wrote {end_idx - start_idx} requests to {request_file}.")
+
+        num_written = end_idx - start_idx
+        metadata_dict = {"num_jobs": num_written}
+        async with aiofiles.open(metadata_file, "w") as f:
+            await f.write(json.dumps(metadata_dict, indent=4) + "\n")
+
+        logger.info(f"Wrote {num_written} requests to {request_file}.")
 
     def attempt_loading_cached_dataset(
         self, working_dir: str, parse_func_hash: str
