@@ -36,6 +36,7 @@ logger = logger = logging.getLogger(__name__)
 
 class LLM:
     """Interface for prompting LLMs."""
+
     def __init__(
         self,
         model_name: str,
@@ -187,8 +188,6 @@ class LLM:
             f"Requesting {f'structured' if response_format else 'text'} output from {model_name}, using LiteLLM backend"
         )
         return "litellm"
-
-    
 
     def __call__(
         self,
