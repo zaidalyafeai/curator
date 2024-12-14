@@ -53,6 +53,8 @@ pip install bespokelabs-curator
 ```
 
 ## Usage
+To run the examples below, make sure to set your OpenAI API key in 
+the environment variable `OPENAI_API_KEY` by running `export OPENAI_API_KEY=sk-...` in your terminal.
 
 ### Hello World with `SimpleLLM`: A simple interface for calling LLMs
 
@@ -61,7 +63,14 @@ from bespokelabs import curator
 llm = curator.SimpleLLM(model_name="gpt-4o-mini")
 poem = llm("Write a poem about the importance of data in AI.")
 print(poem)
+# Or you can pass a list of prompts to generate multiple responses.
+poems = llm(["Write a poem about the importance of data in AI.",
+            "Write a haiku about the importance of data in AI."])
+print(poems)
 ```
+Note that retries and caching are enabled by default.
+So now if you run the same prompt again, you will get the same response, pretty much instantly.
+You can delete the cache at `~/.cache/curator`.
 
 #### Use LiteLLM backend for calling other models
 You can use the [LiteLLM](https://docs.litellm.ai/docs/providers) backend for calling other models.
@@ -82,7 +91,7 @@ More examples below.
 
 ### `LLM`: A more powerful interface for synthetic data generation
 
-Create a dataset object for the topics you want to create the poems.
+Let's use structured outputs to generate poems.
 ```python
 from bespokelabs import curator
 from datasets import Dataset
@@ -132,9 +141,6 @@ Note that `topics` can be created with `curator.LLM` as well,
 and we can scale this up to create tens of thousands of diverse poems.
 You can see a more detailed example in the [examples/poem.py](https://github.com/bespokelabsai/curator/blob/mahesh/update_doc/examples/poem.py) file,
 and other examples in the [examples](https://github.com/bespokelabsai/curator/blob/mahesh/update_doc/examples) directory.
-
-To run the examples, make sure to set your OpenAI API key in 
-the environment variable `OPENAI_API_KEY` by running `export OPENAI_API_KEY=sk-...` in your terminal.
 
 See the [docs](https://docs.bespokelabs.ai/) for more details as well as 
 for troubleshooting information.
