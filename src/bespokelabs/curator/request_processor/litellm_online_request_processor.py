@@ -234,7 +234,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
                     "threshold": "BLOCK_NONE",
                 },
                 {
-                    "category": "HARM_CATEGORY_CIVIC_INTEGRITY", 
+                    "category": "HARM_CATEGORY_CIVIC_INTEGRITY",
                     "threshold": "BLOCK_NONE",
                 },
             ]
