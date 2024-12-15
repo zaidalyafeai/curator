@@ -194,13 +194,13 @@ class BaseRequestProcessor(ABC):
                         metadata_files[i],
                         start_idx=i * self.batch_size,
                     )
-                    for i in range(num_batches) if i not in incomplete_files
+                    for i in range(num_batches) if i in incomplete_files
                 ]
                 await asyncio.gather(*tasks)
 
             run_in_event_loop(create_all_request_files())
         else:
-            run_in_event_loop(self.acreate_request_file(dataset, prompt_formatter, request_file))
+            run_in_event_loop(self.acreate_request_file(dataset, prompt_formatter, request_file, metadata_file))
 
         return request_files
 
