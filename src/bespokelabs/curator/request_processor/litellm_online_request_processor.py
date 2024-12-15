@@ -50,7 +50,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         frequency_penalty: Optional[float] = None,
         max_requests_per_minute: Optional[int] = None,
         max_tokens_per_minute: Optional[int] = None,
-        require_all_responses: bool = False,
+        require_all_responses: Optional[bool] = None,
         max_retries: Optional[int] = None,
     ):
         super().__init__(

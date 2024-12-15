@@ -474,15 +474,15 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 status_tracker=status_tracker,
             )
 
+            if generic_response.response_message is None:
+                raise ValueError(f"Request {request.task_id} returned no response message")
+
             # Save response in the base class
             await self.append_generic_response(generic_response, save_filepath)
 
             status_tracker.num_tasks_in_progress -= 1
             status_tracker.num_tasks_succeeded += 1
             status_tracker.pbar.update(1)
-
-            if generic_response.response_message is None:
-                raise ValueError(f"Request {request.task_id} returned no response message")
 
         except Exception as e:
             logger.warning(

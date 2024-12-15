@@ -53,12 +53,12 @@ class LLM:
         batch_check_interval: Optional[int] = 60,
         delete_successful_batch_files: bool = True,
         delete_failed_batch_files: bool = False,  # To allow users to debug failed batches
+        require_all_responses: Optional[bool] = True,
         temperature: Optional[float] = None,
         top_p: Optional[float] = None,
         presence_penalty: Optional[float] = None,
         frequency_penalty: Optional[float] = None,
         max_retries: Optional[int] = None,
-        require_all_responses: Optional[bool] = None,
     ):
         """Initialize a LLM.
 
