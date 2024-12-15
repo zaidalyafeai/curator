@@ -7,7 +7,7 @@ import resource
 from abc import ABC, abstractmethod
 from math import ceil
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 import aiofiles
 import pyarrow
@@ -77,46 +77,50 @@ class BaseRequestProcessor(ABC):
         """
         pass
 
-    def _verify_cache_integrity(self, working_dir: str) -> bool:
+    def _get_bad_cache_files(self, working_dir: str, dataset: Optional[Dataset]) -> List[int]:
         """
-        Verify integrity of the cache (each request file has associated metadata, and the number of rows is correct).
-
+        Verify integrity of the cache (each request file has associated metadata, and the number of rows is correct),
+        and return the indices of request files that need to be regenerated (so that no work is repeated).
+        
         Args:
             working_dir (str): Working directory where cache files are expected to be (requests.jsonl, metadata.json)
-
+            dataset (Optional[Dataset]): The dataset that we want to create requests from
+            
         Returns:
-            bool: True if cache is correct, False otherwise
+            List[int]: Indices of missing files
         """
 
+        if self.batch_size is not None and dataset is not None:
+            expected_num_files = ceil(len(dataset) / self.batch_size)
+        else:
+            expected_num_files = 1
+
         try:
-            request_files = glob.glob(f"{working_dir}/requests_*.jsonl")
-            metadata_files = glob.glob(f"{working_dir}/metadata_*.json")
+            incomplete_files = []
+            for i in range(expected_num_files):
+                req_f = os.path.join(working_dir, f"requests_{i}.jsonl")
+                meta_f = os.path.join(working_dir, f"metadata_{i}.json")
+                if not os.path.exists(req_f) or not os.path.exists(meta_f):
+                    incomplete_files.append(i)
+                else:
+                    with open(req_f, "r") as f:
+                        data = f.read()
+                    num_jobs = len(data.splitlines())
 
-            if len(request_files) != len(metadata_files):
-                logger.info("Metadata files don't exist for all requests - regenerating request files.")
-                return False
-            
-            for req_f in request_files:
-                idx = Path(req_f).with_suffix("").name.split("_")[-1]
-                meta_f = os.path.join(working_dir, f"metadata_{idx}.json")
-                with open(req_f, "r") as f:
-                    data = f.read()
-                num_jobs = len(data.splitlines())
+                    with open(meta_f, "r") as f:
+                        metadata = json.load(f)
 
-                with open(meta_f, "r") as f:
-                    metadata = json.load(f)
+                    expected_num_jobs = metadata["num_jobs"]
+                    if num_jobs != expected_num_jobs:
+                        incomplete_files.append(i)
 
-                expected_num_jobs = metadata["num_jobs"]
-                if num_jobs != expected_num_jobs:
-                    logger.info(f"Request file {req_f} contained {num_jobs} rows, but expected {expected_num_jobs} - regenerating request files.")
-                    return False
-
-            logger.info("Cache verification succesful.")
-            return True
+            logger.info(f"Cache missing {len(incomplete_files)} complete request files - regenerating missing ones.")
+            return incomplete_files
             
         except:
-            logger.info("Cache verification failed for unexpected reasons - regenerating request files.")
-            return False
+            logger.info("Cache verification failed for unexpected reasons - regenerating all request files.")
+            incomplete_files = list(range(expected_num_files))
+            return incomplete_files
 
     def create_request_files(
         self,
@@ -138,7 +142,9 @@ class BaseRequestProcessor(ABC):
         request_files = glob.glob(f"{working_dir}/requests_*.jsonl")
 
         # By default use existing requests in working_dir
-        if len(request_files) > 0 and self._verify_cache_integrity(working_dir):
+        incomplete_files = self._get_bad_cache_files(working_dir, dataset)
+
+        if len(incomplete_files) == 0:
             logger.info(f"Using cached requests. {CACHE_MSG}")
             # count existing jobs in file and print first job
             with open(request_files[0], "r") as f:
@@ -188,7 +194,7 @@ class BaseRequestProcessor(ABC):
                         metadata_files[i],
                         start_idx=i * self.batch_size,
                     )
-                    for i in range(num_batches)
+                    for i in range(num_batches) if i not in incomplete_files
                 ]
                 await asyncio.gather(*tasks)
 
