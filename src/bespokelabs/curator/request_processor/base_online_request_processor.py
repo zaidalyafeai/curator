@@ -275,6 +275,11 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                                 f"{response.response_errors}, removing from output and will retry"
                             )
                             num_previously_failed_requests += 1
+                        if response.response_message is None:
+                            logger.debug(
+                                f"Request {response.generic_request.original_row_idx} previously failed due to no response, removing from output and will retry"
+                            )
+                            num_previously_failed_requests += 1
                         else:
                             completed_request_ids.add(response.generic_request.original_row_idx)
                             output_file.write(line)
@@ -475,6 +480,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             status_tracker.num_tasks_in_progress -= 1
             status_tracker.num_tasks_succeeded += 1
             status_tracker.pbar.update(1)
+
+            if generic_response.response_message is None:
+                raise ValueError(f"Request {request.task_id} returned no response message")
 
         except Exception as e:
             logger.warning(
