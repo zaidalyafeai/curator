@@ -221,12 +221,12 @@ class BaseRequestProcessor(ABC):
                 request = prompt_formatter.create_generic_request(dataset_row, dataset_row_idx)
                 await f.write(json.dumps(request.model_dump(), default=str) + "\n")
 
-        num_written = end_idx - start_idx
-        metadata_dict = {"num_jobs": num_written}
+        num_requests = end_idx - start_idx
+        metadata_dict = {"num_jobs": num_requests}
         async with aiofiles.open(metadata_file, "w") as f:
             await f.write(json.dumps(metadata_dict, indent=4) + "\n")
 
-        logger.info(f"Wrote {num_written} requests to {request_file}.")
+        logger.info(f"Wrote {num_requests} requests to {request_file}.")
 
     def attempt_loading_cached_dataset(
         self, working_dir: str, parse_func_hash: str
