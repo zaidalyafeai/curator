@@ -215,6 +215,31 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         if "frequency_penalty" in supported_params and self.frequency_penalty is not None:
             request["frequency_penalty"] = self.frequency_penalty
 
+        # Add safety settings for Gemini models
+        if "gemini" in generic_request.model.lower():
+            request["safety_settings"] = [
+                {
+                    "category": "HARM_CATEGORY_HARASSMENT",
+                    "threshold": "BLOCK_NONE",
+                },
+                {
+                    "category": "HARM_CATEGORY_HATE_SPEECH",
+                    "threshold": "BLOCK_NONE",
+                },
+                {
+                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    "threshold": "BLOCK_NONE",
+                },
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_NONE",
+                },
+                {
+                    "category": "HARM_CATEGORY_CIVIC_INTEGRITY",
+                    "threshold": "BLOCK_NONE",
+                },
+            ]
+
         return request
 
     async def call_single_request(
