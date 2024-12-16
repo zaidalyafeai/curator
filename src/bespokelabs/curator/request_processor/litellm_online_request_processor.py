@@ -18,7 +18,7 @@ import time
 logger = logging.getLogger(__name__)
 
 litellm.suppress_debug_info = True
-REQUEST_TIMEOUT = 10 * 60.0 # same as openai python sdk
+REQUEST_TIMEOUT = 10 * 60.0  # same as openai python sdk
 
 
 class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
