@@ -481,9 +481,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             status_tracker.num_tasks_succeeded += 1
             status_tracker.pbar.update(1)
 
-            if generic_response.response_message is None:
-                raise ValueError(f"Request {request.task_id} returned no response message")
-
         except Exception as e:
             logger.warning(
                 f"Request {request.task_id} failed with Exception {e}, attempts left {request.attempts_left}"

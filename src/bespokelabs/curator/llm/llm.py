@@ -58,7 +58,7 @@ class LLM:
         presence_penalty: Optional[float] = None,
         frequency_penalty: Optional[float] = None,
         max_retries: Optional[int] = None,
-        require_all_responses: Optional[bool] = None,
+        require_all_responses: Optional[bool] = True,
     ):
         """Initialize a LLM.
 

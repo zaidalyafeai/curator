@@ -18,6 +18,7 @@ import time
 logger = logging.getLogger(__name__)
 
 litellm.suppress_debug_info = True
+REQUEST_TIMEOUT = 10 * 60.0  # same as openai python sdk
 
 
 class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
@@ -50,7 +51,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         frequency_penalty: Optional[float] = None,
         max_requests_per_minute: Optional[int] = None,
         max_tokens_per_minute: Optional[int] = None,
-        require_all_responses: bool = False,
+        require_all_responses: Optional[bool] = None,
         max_retries: Optional[int] = None,
     ):
         super().__init__(
@@ -268,7 +269,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
                     await self.client.chat.completions.create_with_completion(
                         **request.api_specific_request,
                         response_model=request.prompt_formatter.response_format,
-                        timeout=60.0,
+                        timeout=REQUEST_TIMEOUT,
                     )
                 )
                 response_message = (
@@ -276,7 +277,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
                 )
             else:
                 completion_obj = await litellm.acompletion(
-                    **request.api_specific_request, timeout=60.0
+                    **request.api_specific_request, timeout=REQUEST_TIMEOUT
                 )
                 response_message = completion_obj["choices"][0]["message"]["content"]
         except litellm.RateLimitError as e:
@@ -299,6 +300,11 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             cost = litellm.completion_cost(completion_response=completion_obj.model_dump())
         except litellm.NotFoundError as e:
             cost = 0
+
+        if response_message is None:
+            raise ValueError(
+                f"Request {request.task_id} returned no response message with raw response {completion_obj.model_dump()}"
+            )
 
         # Create and return response
         return GenericResponse(
