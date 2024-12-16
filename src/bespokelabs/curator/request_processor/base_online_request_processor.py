@@ -405,9 +405,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                         retry_request.generic_request.messages
                     )
                     attempt_number = self.max_retries - retry_request.attempts_left
-                    logger.info(
-                        f"Processing retry for request {retry_request.task_id} "
-                        f"(attempt #{attempt_number} of {self.max_retries}). "
+                    logger.debug(
+                        f"Retrying request {retry_request.task_id} "
+                        f"(attempt #{attempt_number} of {self.max_retries})"
                         f"Previous errors: {retry_request.result}"
                     )
 
@@ -480,18 +480,14 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             status_tracker.pbar.update(1)
 
         except Exception as e:
-            logger.warning(
-                f"Request {request.task_id} failed with Exception: {e}, attempts left: {request.attempts_left}"
-            )
             status_tracker.num_other_errors += 1
             request.result.append(e)
 
             if request.attempts_left > 0:
                 request.attempts_left -= 1
-                # Add retry queue logging
-                logger.info(
-                    f"Adding request {request.task_id} to retry queue. Will retry in next available slot. "
-                    f"Attempts remaining: {request.attempts_left}"
+                logger.warning(
+                    f"Request {request.task_id} failed with Exception: {e} "
+                    f"Retries left: {request.attempts_left}"
                 )
                 retry_queue.put_nowait(request)
             else:
