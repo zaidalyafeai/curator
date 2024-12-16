@@ -77,7 +77,7 @@ class BaseRequestProcessor(ABC):
         """
         pass
 
-    def _get_bad_cache_files(self, working_dir: str, dataset: Optional[Dataset]) -> List[int]:
+    def _verify_existing_request_files(self, working_dir: str, dataset: Optional[Dataset]) -> List[int]:
         """
         Verify integrity of the cache (each request file has associated metadata, and the number of rows is correct),
         and return the indices of request files that need to be regenerated (so that no work is repeated).
@@ -142,7 +142,7 @@ class BaseRequestProcessor(ABC):
         request_files = glob.glob(f"{working_dir}/requests_*.jsonl")
 
         # By default use existing requests in working_dir
-        incomplete_files = self._get_bad_cache_files(working_dir, dataset)
+        incomplete_files = self._verify_existing_request_files(working_dir, dataset)
 
         if len(incomplete_files) == 0:
             logger.info(f"Using cached requests. {CACHE_MSG}")
