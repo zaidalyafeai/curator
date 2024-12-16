@@ -77,15 +77,17 @@ class BaseRequestProcessor(ABC):
         """
         pass
 
-    def _verify_existing_request_files(self, working_dir: str, dataset: Optional[Dataset]) -> List[int]:
+    def _verify_existing_request_files(
+        self, working_dir: str, dataset: Optional[Dataset]
+    ) -> List[int]:
         """
         Verify integrity of the cache (each request file has associated metadata, and the number of rows is correct),
         and return the indices of request files that need to be regenerated (so that no work is repeated).
-        
+
         Args:
             working_dir (str): Working directory where cache files are expected to be (requests.jsonl, metadata.json)
             dataset (Optional[Dataset]): The dataset that we want to create requests from
-            
+
         Returns:
             List[int]: Indices of missing files
         """
@@ -114,11 +116,15 @@ class BaseRequestProcessor(ABC):
                     if num_jobs != expected_num_jobs:
                         incomplete_files.append(i)
 
-            logger.info(f"Cache missing {len(incomplete_files)} complete request files - regenerating missing ones.")
+            logger.info(
+                f"Cache missing {len(incomplete_files)} complete request files - regenerating missing ones."
+            )
             return incomplete_files
-            
+
         except:
-            logger.info("Cache verification failed for unexpected reasons - regenerating all request files.")
+            logger.info(
+                "Cache verification failed for unexpected reasons - regenerating all request files."
+            )
             incomplete_files = list(range(expected_num_files))
             return incomplete_files
 
@@ -195,13 +201,16 @@ class BaseRequestProcessor(ABC):
                         metadata_files[i],
                         start_idx=i * self.batch_size,
                     )
-                    for i in range(num_batches) if i in incomplete_files
+                    for i in range(num_batches)
+                    if i in incomplete_files
                 ]
                 await asyncio.gather(*tasks)
 
             run_in_event_loop(create_all_request_files())
         else:
-            run_in_event_loop(self.acreate_request_file(dataset, prompt_formatter, request_file, metadata_file))
+            run_in_event_loop(
+                self.acreate_request_file(dataset, prompt_formatter, request_file, metadata_file)
+            )
 
         return request_files
 

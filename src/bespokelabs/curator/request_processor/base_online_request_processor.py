@@ -222,7 +222,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 self.process_requests_from_file(
                     generic_request_filepath=request_file,
                     save_filepath=response_file,
-                    max_attempts=self.max_retries,
                     resume=True,
                 )
             )
@@ -233,7 +232,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         self,
         generic_request_filepath: str,
         save_filepath: str,
-        max_attempts: int,
         resume: bool,
         resume_no_retry: bool = False,
     ) -> None:
@@ -353,7 +351,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                         task_id=status_tracker.num_tasks_started,
                         generic_request=generic_request,
                         api_specific_request=self.create_api_specific_request(generic_request),
-                        attempts_left=max_attempts,
+                        attempts_left=self.max_retries,
                         prompt_formatter=self.prompt_formatter,
                     )
 
@@ -406,7 +404,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     token_estimate = self.estimate_total_tokens(
                         retry_request.generic_request.messages
                     )
-                    attempt_number = 1 + self.max_retries - retry_request.attempts_left
+                    attempt_number = self.max_retries - retry_request.attempts_left
                     logger.info(
                         f"Processing retry for request {retry_request.task_id} "
                         f"(attempt #{attempt_number} of {self.max_retries}). "
@@ -483,7 +481,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
 
         except Exception as e:
             logger.warning(
-                f"Request {request.task_id} failed with Exception {e}, attempts left {request.attempts_left}"
+                f"Request {request.task_id} failed with Exception: {e}, attempts left: {request.attempts_left}"
             )
             status_tracker.num_other_errors += 1
             request.result.append(e)

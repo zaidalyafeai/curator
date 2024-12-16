@@ -301,9 +301,14 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         except litellm.NotFoundError as e:
             cost = 0
 
+        if completion_obj.choices[0].finish_reason == "content_filter":
+            raise ValueError(
+                f"finish_reason was content_filter with raw response {completion_obj.model_dump()} for request {request.generic_request.messages}"
+            )
+
         if response_message is None:
             raise ValueError(
-                f"Request {request.task_id} returned no response message with raw response {completion_obj.model_dump()}"
+                f"response_message was None with raw response {completion_obj.model_dump()}"
             )
 
         # Create and return response
