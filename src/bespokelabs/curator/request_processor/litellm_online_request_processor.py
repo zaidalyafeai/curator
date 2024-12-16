@@ -306,7 +306,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             logger.debug(
                 f"finish_reason {finish_reason} was not 'stop' with raw response {completion_obj.model_dump()} for request {request.generic_request.messages}"
             )
-            raise ValueError(f"finish_reason was {finish_reason} ")
+            raise ValueError(f"finish_reason was {finish_reason}")
 
         if response_message is None:
             raise ValueError(

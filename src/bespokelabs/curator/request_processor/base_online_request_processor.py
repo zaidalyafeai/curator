@@ -486,8 +486,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             if request.attempts_left > 0:
                 request.attempts_left -= 1
                 logger.warning(
-                    f"Request {request.task_id} failed with Exception: {e} "
-                    f"Retries left: {request.attempts_left}"
+                    f"Encountered '{e.__class__.__name__}: {e}' during attempt "
+                    f"{self.max_retries - request.attempts_left} of {self.max_retries} "
+                    f"while processing request {request.task_id}"
                 )
                 retry_queue.put_nowait(request)
             else:
