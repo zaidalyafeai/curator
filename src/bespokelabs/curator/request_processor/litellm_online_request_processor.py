@@ -301,9 +301,16 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         except litellm.NotFoundError as e:
             cost = 0
 
+        finish_reason = completion_obj.choices[0].finish_reason
+        if finish_reason != "stop":
+            logger.debug(
+                f"finish_reason {finish_reason} was not 'stop' with raw response {completion_obj.model_dump()} for request {request.generic_request.messages}"
+            )
+            raise ValueError(f"finish_reason was {finish_reason}")
+
         if response_message is None:
             raise ValueError(
-                f"Request {request.task_id} returned no response message with raw response {completion_obj.model_dump()}"
+                f"response_message was None with raw response {completion_obj.model_dump()}"
             )
 
         # Create and return response
