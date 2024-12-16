@@ -26,6 +26,7 @@ DEFAULT_MAX_REQUESTS_PER_MINUTE = 100
 DEFAULT_MAX_TOKENS_PER_MINUTE = 100_000
 DEFAULT_MAX_RETRIES = 10
 SECONDS_TO_PAUSE_ON_RATE_LIMIT = 10
+DEFAULT_REQUEST_TIMEOUT = 10 * 60  # 10 minutes
 
 
 @dataclass
@@ -144,6 +145,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             self.max_retries = DEFAULT_MAX_RETRIES
         else:
             self.max_retries = max_retries
+        self.timeout = DEFAULT_REQUEST_TIMEOUT
 
     @property
     def max_requests_per_minute(self) -> int:

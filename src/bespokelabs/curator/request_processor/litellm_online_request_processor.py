@@ -18,7 +18,6 @@ import time
 logger = logging.getLogger(__name__)
 
 litellm.suppress_debug_info = True
-REQUEST_TIMEOUT = 10 * 60.0  # same as openai python sdk
 
 
 class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
@@ -269,7 +268,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
                     await self.client.chat.completions.create_with_completion(
                         **request.api_specific_request,
                         response_model=request.prompt_formatter.response_format,
-                        timeout=REQUEST_TIMEOUT,
+                        timeout=self.timeout,
                     )
                 )
                 response_message = (
@@ -277,7 +276,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
                 )
             else:
                 completion_obj = await litellm.acompletion(
-                    **request.api_specific_request, timeout=REQUEST_TIMEOUT
+                    **request.api_specific_request, timeout=self.timeout
                 )
                 response_message = completion_obj["choices"][0]["message"]["content"]
         except litellm.RateLimitError as e:
