@@ -108,7 +108,7 @@ class BaseRequestProcessor(ABC):
                     continue
 
                 if not os.path.exists(meta_f):
-                    logger.debug(f"Cache missing metadata file {meta_f} for request file {req_f}")
+                    logger.warning(f"Cache missing metadata file {meta_f} for request file {req_f}")
                     incomplete_files.append(i)
                     continue
 
@@ -121,7 +121,7 @@ class BaseRequestProcessor(ABC):
 
                 expected_num_jobs = metadata["num_jobs"]
                 if num_jobs != expected_num_jobs:
-                    logger.debug(
+                    logger.warning(
                         f"Request file {req_f} has {num_jobs} jobs, but metadata file {meta_f} has {expected_num_jobs} jobs"
                     )
                     incomplete_files.append(i)
@@ -129,9 +129,7 @@ class BaseRequestProcessor(ABC):
             return incomplete_files
 
         except:
-            logger.debug(
-                "Cache verification failed for unexpected reasons - regenerating all request files."
-            )
+            logger.warning("Cache verification failed due to {e} - regenerating all request files.")
             incomplete_files = list(range(expected_num_files))
             return incomplete_files
 
