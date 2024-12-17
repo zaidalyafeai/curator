@@ -315,19 +315,18 @@ class BaseRequestProcessor(ABC):
                             failed_responses_count += 1
                             continue
 
-                        if prompt_formatter.response_format:
-                            try:
-                                response.response_message = (
-                                    self.prompt_formatter.response_to_response_format(
-                                        response.response_message
-                                    )
+                        try:
+                            response.response_message = (
+                                self.prompt_formatter.response_to_response_format(
+                                    response.response_message
                                 )
-                            except (json.JSONDecodeError, ValidationError) as e:
-                                logger.warning(
-                                    "Skipping response due to error parsing response message into response format"
-                                )
-                                failed_responses_count += 1
-                                continue
+                            )
+                        except (json.JSONDecodeError, ValidationError) as e:
+                            logger.warning(
+                                "Skipping response due to error parsing response message into response format"
+                            )
+                            failed_responses_count += 1
+                            continue
 
                         # parse_func can return a single row or a list of rows
                         if prompt_formatter.parse_func:

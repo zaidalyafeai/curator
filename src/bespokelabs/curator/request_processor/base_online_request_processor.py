@@ -204,6 +204,11 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         parse_func_hash: str,
         prompt_formatter: PromptFormatter,
     ) -> Dataset:
+        # load from already completed dataset
+        output_dataset = self.attempt_loading_cached_dataset(working_dir, parse_func_hash)
+        if output_dataset is not None:
+            return output_dataset
+
         """Run completions using the online API with async processing."""
         logger.info(f"Running {self.__class__.__name__} completions with model: {self.model}")
 
