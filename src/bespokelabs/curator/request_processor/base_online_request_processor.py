@@ -473,9 +473,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             )
 
             # Allows us to retry on responses that don't match the response format
-            self.convert_response_to_response_format(
-                generic_response.response_message, self.prompt_formatter.response_format
-            )
+            self.prompt_formatter.response_to_response_format(generic_response.response_message)
 
             # Save response in the base class
             await self.append_generic_response(generic_response, save_filepath)
