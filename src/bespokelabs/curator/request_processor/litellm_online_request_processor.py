@@ -1,6 +1,5 @@
 import logging
 from typing import Optional
-import asyncio
 import aiohttp
 import litellm
 from litellm import get_supported_openai_params
@@ -14,7 +13,7 @@ from bespokelabs.curator.request_processor.base_online_request_processor import 
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.generic_response import TokenUsage, GenericResponse
 from pydantic import BaseModel
-from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +48,10 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         top_p: Optional[float] = None,
         presence_penalty: Optional[float] = None,
         frequency_penalty: Optional[float] = None,
+        max_requests_per_minute: Optional[int] = None,
+        max_tokens_per_minute: Optional[int] = None,
+        require_all_responses: Optional[bool] = None,
+        max_retries: Optional[int] = None,
     ):
         super().__init__(
             model=model,
@@ -56,8 +59,15 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             top_p=top_p,
             presence_penalty=presence_penalty,
             frequency_penalty=frequency_penalty,
+            max_requests_per_minute=max_requests_per_minute,
+            max_tokens_per_minute=max_tokens_per_minute,
+            require_all_responses=require_all_responses,
+            max_retries=max_retries,
         )
         self.client = instructor.from_litellm(litellm.acompletion)
+        self.header_based_max_requests_per_minute, self.header_based_max_tokens_per_minute = (
+            self.get_header_based_rate_limits()
+        )
 
     def check_structured_output_support(self):
         """Verify if the model supports structured output via instructor.
@@ -134,20 +144,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         output_tokens = self.estimate_output_tokens()
         return input_tokens + output_tokens
 
-    def get_rate_limits(self) -> dict:
-        """Retrieve rate limits from the LLM provider via LiteLLM.
-
-        Makes a test request to get rate limit information from response headers.
-
-        Returns:
-            dict: Contains 'max_requests_per_minute' and 'max_tokens_per_minute'
-
-        Note:
-            - Falls back to default values if headers are missing
-            - Some providers (e.g., Claude) require non-empty messages
-        """
-        logger.info(f"Getting rate limits for model: {self.model}")
-
+    def test_call(self):
         completion = litellm.completion(
             model=self.model,
             messages=[
@@ -155,15 +152,33 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             ],  # Some models (e.g. Claude) require an non-empty message to get rate limits.
         )
 
+        # Try the method of caculating cost
+        try:
+            litellm.completion_cost(completion_response=completion.model_dump())
+        except litellm.NotFoundError as e:
+            logger.warning(f"LiteLLM does not support cost estimation for model {self.model}: {e}")
+
         headers = completion._hidden_params.get("additional_headers", {})
-        logger.info(f"Rate limit headers: {headers}")
+        logger.info(f"Test call headers: {headers}")
+        return headers
 
-        rpm = int(headers.get("x-ratelimit-limit-requests", 3000))
-        tpm = int(headers.get("x-ratelimit-limit-tokens", 150_000))
+    def get_header_based_rate_limits(self) -> tuple[int, int]:
+        """Retrieve rate limits from the LLM provider via LiteLLM.
 
-        logger.info(f"Rate limits - Requests/min: {rpm}, Tokens/min: {tpm}")
+        Returns:
+            tuple[int, int]: Contains 'max_requests_per_minute' and 'max_tokens_per_minute'
 
-        return {"max_requests_per_minute": rpm, "max_tokens_per_minute": tpm}
+        Note:
+            - Makes a test request to get rate limit information from response headers.
+            - Some providers (e.g., Claude) require non-empty messages
+        """
+        logger.info(f"Getting rate limits for model: {self.model}")
+
+        headers = self.test_call()
+        rpm = int(headers.get("x-ratelimit-limit-requests", 0))
+        tpm = int(headers.get("x-ratelimit-limit-tokens", 0))
+
+        return rpm, tpm
 
     def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
         """Convert a generic request into a LiteLLM-compatible format.
@@ -200,6 +215,31 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         if "frequency_penalty" in supported_params and self.frequency_penalty is not None:
             request["frequency_penalty"] = self.frequency_penalty
 
+        # Add safety settings for Gemini models
+        if "gemini" in generic_request.model.lower():
+            request["safety_settings"] = [
+                {
+                    "category": "HARM_CATEGORY_HARASSMENT",
+                    "threshold": "BLOCK_NONE",
+                },
+                {
+                    "category": "HARM_CATEGORY_HATE_SPEECH",
+                    "threshold": "BLOCK_NONE",
+                },
+                {
+                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    "threshold": "BLOCK_NONE",
+                },
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_NONE",
+                },
+                {
+                    "category": "HARM_CATEGORY_CIVIC_INTEGRITY",
+                    "threshold": "BLOCK_NONE",
+                },
+            ]
+
         return request
 
     async def call_single_request(
@@ -222,18 +262,29 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             GenericResponse: The response from LiteLLM
         """
         # Get response directly without extra logging
-        if request.generic_request.response_format:
-            response, completion_obj = await self.client.chat.completions.create_with_completion(
-                **request.api_specific_request,
-                response_model=request.prompt_formatter.response_format,
-                timeout=60.0,
-            )
-            response_message = (
-                response.model_dump() if hasattr(response, "model_dump") else response
-            )
-        else:
-            completion_obj = await litellm.acompletion(**request.api_specific_request, timeout=60.0)
-            response_message = completion_obj["choices"][0]["message"]["content"]
+        try:
+            if request.generic_request.response_format:
+                response, completion_obj = (
+                    await self.client.chat.completions.create_with_completion(
+                        **request.api_specific_request,
+                        response_model=request.prompt_formatter.response_format,
+                        timeout=self.timeout,
+                    )
+                )
+                response_message = (
+                    response.model_dump() if hasattr(response, "model_dump") else response
+                )
+            else:
+                completion_obj = await litellm.acompletion(
+                    **request.api_specific_request, timeout=self.timeout
+                )
+                response_message = completion_obj["choices"][0]["message"]["content"]
+        except litellm.RateLimitError as e:
+            status_tracker.time_of_last_rate_limit_error = time.time()
+            status_tracker.num_rate_limit_errors += 1
+            # because handle_single_request_with_retries will double count otherwise
+            status_tracker.num_api_errors -= 1
+            raise e
 
         # Extract token usage
         usage = completion_obj.usage if hasattr(completion_obj, "usage") else {}
@@ -247,8 +298,20 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         try:
             cost = litellm.completion_cost(completion_response=completion_obj.model_dump())
         except litellm.NotFoundError as e:
-            logger.info(f"LiteLLM does not support cost estimation for model {self.model}: {e}")
             cost = 0
+
+        finish_reason = completion_obj.choices[0].finish_reason
+        invalid_finish_reasons = ["length", "content_filter"]
+        if finish_reason in invalid_finish_reasons:
+            logger.debug(
+                f"Invalid finish_reason {finish_reason}. Raw response {completion_obj.model_dump()} for request {request.generic_request.messages}"
+            )
+            raise ValueError(f"finish_reason was {finish_reason}")
+
+        if response_message is None:
+            raise ValueError(
+                f"response_message was None with raw response {completion_obj.model_dump()}"
+            )
 
         # Create and return response
         return GenericResponse(

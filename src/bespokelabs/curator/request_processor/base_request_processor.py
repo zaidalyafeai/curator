@@ -6,7 +6,8 @@ import os
 import resource
 from abc import ABC, abstractmethod
 from math import ceil
-from typing import Optional
+from pathlib import Path
+from typing import Optional, List
 
 import aiofiles
 import pyarrow
@@ -14,7 +15,8 @@ from datasets import Dataset
 from datasets.arrow_writer import ArrowWriter
 from pydantic import BaseModel, ValidationError
 
-from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
+from bespokelabs.curator.file_utilities import count_lines
+from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.generic_response import GenericResponse
@@ -29,8 +31,9 @@ class BaseRequestProcessor(ABC):
     Base class for all request processors.
     """
 
-    def __init__(self, batch_size: Optional[int] = None):
+    def __init__(self, batch_size: Optional[int] = None, require_all_responses: bool = True):
         self.batch_size = batch_size
+        self.require_all_responses = require_all_responses
         # Increase the number of open file descriptors to avoid "Too many open files" errors
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         desired_limit = min(10_000_000, hard)
@@ -38,16 +41,6 @@ class BaseRequestProcessor(ABC):
             f"Adjusting file descriptor limit from {soft} to {desired_limit} (hard limit: {hard})"
         )
         resource.setrlimit(resource.RLIMIT_NOFILE, (desired_limit, hard))
-
-    @abstractmethod
-    def get_rate_limits(self) -> dict:
-        """
-        Returns the rate limits for the API.
-
-        Returns:
-            dict: A dictionary containing the rate limit information.
-        """
-        pass
 
     @abstractmethod
     def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
@@ -84,6 +77,64 @@ class BaseRequestProcessor(ABC):
         """
         pass
 
+    def _verify_existing_request_files(
+        self, working_dir: str, dataset: Optional[Dataset]
+    ) -> List[int]:
+        """
+        Verify integrity of the cache (each request file has associated metadata, and the number of rows is correct),
+        and return the indices of request files that need to be regenerated (so that no work is repeated).
+
+        Args:
+            working_dir (str): Working directory where cache files are expected to be (requests.jsonl, metadata.json)
+            dataset (Optional[Dataset]): The dataset that we want to create requests from
+
+        Returns:
+            List[int]: Indices of missing files
+        """
+
+        if self.batch_size is not None and dataset is not None:
+            expected_num_files = ceil(len(dataset) / self.batch_size)
+        else:
+            expected_num_files = 1
+
+        try:
+            incomplete_files = []
+            for i in range(expected_num_files):
+                req_f = os.path.join(working_dir, f"requests_{i}.jsonl")
+                meta_f = os.path.join(working_dir, f"metadata_{i}.json")
+
+                if not os.path.exists(req_f):
+                    incomplete_files.append(i)
+                    continue
+
+                if not os.path.exists(meta_f):
+                    logger.warning(f"Cache missing metadata file {meta_f} for request file {req_f}")
+                    incomplete_files.append(i)
+                    continue
+
+                with open(req_f, "r") as f:
+                    data = f.read()
+                num_jobs = len(data.splitlines())
+
+                with open(meta_f, "r") as f:
+                    metadata = json.load(f)
+
+                expected_num_jobs = metadata["num_jobs"]
+                if num_jobs != expected_num_jobs:
+                    logger.warning(
+                        f"Request file {req_f} has {num_jobs} jobs, but metadata file {meta_f} has {expected_num_jobs} jobs"
+                    )
+                    incomplete_files.append(i)
+
+            return incomplete_files
+
+        except Exception as e:
+            logger.warning(
+                f"Cache verification failed due to {e} - regenerating all request files."
+            )
+            incomplete_files = list(range(expected_num_files))
+            return incomplete_files
+
     def create_request_files(
         self,
         dataset: Optional[Dataset],
@@ -104,7 +155,9 @@ class BaseRequestProcessor(ABC):
         request_files = glob.glob(f"{working_dir}/requests_*.jsonl")
 
         # By default use existing requests in working_dir
-        if len(request_files) > 0:
+        incomplete_files = self._verify_existing_request_files(working_dir, dataset)
+
+        if len(incomplete_files) == 0:
             logger.info(f"Using cached requests. {CACHE_MSG}")
             # count existing jobs in file and print first job
             with open(request_files[0], "r") as f:
@@ -124,18 +177,27 @@ class BaseRequestProcessor(ABC):
                     return request_files
 
         # Create new requests file
+        logger.info(f"Preparing request file(s) in {working_dir}")
         request_file = f"{working_dir}/requests_0.jsonl"
         request_files = [request_file]
+
+        metadata_file = f"{working_dir}/metadata_0.json"
+        metadata_files = [metadata_file]
 
         if dataset is None:
             with open(request_file, "w") as f:
                 generic_request = prompt_formatter.create_generic_request(dict(), 0)
                 f.write(json.dumps(generic_request.model_dump(), default=str) + "\n")
+
+            metadata_dict = {"num_jobs": 1}
+            with open(metadata_file, "w") as f:
+                f.write(json.dumps(metadata_dict, indent=4) + "\n")
             return request_files
 
         if self.batch_size:
             num_batches = ceil(len(dataset) / self.batch_size)
             request_files = [f"{working_dir}/requests_{i}.jsonl" for i in range(num_batches)]
+            metadata_files = [f"{working_dir}/metadata_{i}.json" for i in range(num_batches)]
 
             async def create_all_request_files():
                 tasks = [
@@ -143,15 +205,19 @@ class BaseRequestProcessor(ABC):
                         dataset,
                         prompt_formatter,
                         request_files[i],
+                        metadata_files[i],
                         start_idx=i * self.batch_size,
                     )
                     for i in range(num_batches)
+                    if i in incomplete_files
                 ]
                 await asyncio.gather(*tasks)
 
             run_in_event_loop(create_all_request_files())
         else:
-            run_in_event_loop(self.acreate_request_file(dataset, prompt_formatter, request_file))
+            run_in_event_loop(
+                self.acreate_request_file(dataset, prompt_formatter, request_file, metadata_file)
+            )
 
         return request_files
 
@@ -161,8 +227,9 @@ class BaseRequestProcessor(ABC):
         dataset: Dataset,
         prompt_formatter: PromptFormatter,
         request_file: str,
+        metadata_file: str,
         start_idx: int = 0,
-    ) -> str:
+    ) -> None:
         if self.batch_size is not None:
             end_idx = min(start_idx + self.batch_size, len(dataset))
             dataset = dataset.select(range(start_idx, end_idx))
@@ -176,7 +243,13 @@ class BaseRequestProcessor(ABC):
                 # Get the generic request from the map function
                 request = prompt_formatter.create_generic_request(dataset_row, dataset_row_idx)
                 await f.write(json.dumps(request.model_dump(), default=str) + "\n")
-        logger.info(f"Wrote {end_idx - start_idx} requests to {request_file}.")
+
+        num_requests = end_idx - start_idx
+        metadata_dict = {"num_jobs": num_requests}
+        async with aiofiles.open(metadata_file, "w") as f:
+            await f.write(json.dumps(metadata_dict, indent=4) + "\n")
+
+        logger.info(f"Wrote {num_requests} requests to {request_file}.")
 
     def attempt_loading_cached_dataset(
         self, working_dir: str, parse_func_hash: str
@@ -216,9 +289,6 @@ class BaseRequestProcessor(ABC):
         Returns:
             Dataset: Completed dataset
         """
-        total_responses_count = 0
-        failed_responses_count = 0
-
         responses_files = glob.glob(f"{working_dir}/responses_*.jsonl")
         if len(responses_files) == 0:
             raise ValueError(f"No responses files found in {working_dir}")
@@ -230,6 +300,8 @@ class BaseRequestProcessor(ABC):
         )
 
         # Process all response files
+        total_responses_count = 0
+        failed_responses_count = 0
         dataset_file = f"{working_dir}/{parse_func_hash}.arrow"
         with ArrowWriter(path=dataset_file) as writer:
             for responses_file in responses_files:
@@ -243,41 +315,18 @@ class BaseRequestProcessor(ABC):
                             failed_responses_count += 1
                             continue
 
-                        if prompt_formatter.response_format:
-                            # Response message is a string, which is converted to a dict
-                            # The dict is then used to construct the response_format Pydantic model
-                            try:
-                                # First try to parse the response message as JSON
-                                if isinstance(response.response_message, str):
-                                    try:
-                                        response_dict = json.loads(response.response_message)
-                                    except json.JSONDecodeError as e:
-                                        warning_msg = (
-                                            f"Failed to parse response message as JSON: {response.response_message}. "
-                                            f"The model likely returned an invalid JSON format. Will skip this response."
-                                        )
-                                        logger.warning(warning_msg)
-                                        failed_responses_count += 1
-                                        continue
-                                else:
-                                    response_dict = response.response_message
-
-                                # Then construct the Pydantic model from the parsed dict
-                                response.response_message = prompt_formatter.response_format(
-                                    **response_dict
+                        try:
+                            response.response_message = (
+                                self.prompt_formatter.response_to_response_format(
+                                    response.response_message
                                 )
-                            except ValidationError as e:
-                                schema_str = json.dumps(
-                                    prompt_formatter.response_format.model_json_schema(),
-                                    indent=2,
-                                )
-                                warning_msg = (
-                                    f"Pydantic failed to parse response message {response.response_message} with `response_format` {schema_str}. "
-                                    f"The model likely returned a JSON that does not match the schema of the `response_format`. Will skip this response."
-                                )
-                                logger.warning(warning_msg)
-                                failed_responses_count += 1
-                                continue
+                            )
+                        except (json.JSONDecodeError, ValidationError) as e:
+                            logger.warning(
+                                "Skipping response due to error parsing response message into response format"
+                            )
+                            failed_responses_count += 1
+                            continue
 
                         # parse_func can return a single row or a list of rows
                         if prompt_formatter.parse_func:
@@ -293,7 +342,13 @@ class BaseRequestProcessor(ABC):
                             if not isinstance(dataset_rows, list):
                                 dataset_rows = [dataset_rows]
                         else:
-                            dataset_rows = [{"response": response.response_message}]
+                            # Convert response to dict before adding to dataset
+                            response_value = response.response_message
+                            if hasattr(response_value, "model_dump"):
+                                response_value = response_value.model_dump()
+                            elif hasattr(response_value, "__dict__"):
+                                response_value = response_value.__dict__
+                            dataset_rows = [{"response": response_value}]
 
                         for row in dataset_rows:
                             if isinstance(row, BaseModel):
@@ -313,14 +368,35 @@ class BaseRequestProcessor(ABC):
 
                             writer.write(row)
 
-            logger.info(f"Read {total_responses_count} responses, {failed_responses_count} failed")
+            logger.info("Finalizing writer")
+            writer.finalize()
+
+            logger.info(f"Read {total_responses_count} responses.")
             if failed_responses_count == total_responses_count:
                 os.remove(dataset_file)
                 raise ValueError("All requests failed")
 
-            logger.info("Finalizing writer")
+            if failed_responses_count > 0:
+                logger.warning(f"{failed_responses_count} requests failed.")
+                if self.require_all_responses:
+                    os.remove(dataset_file)
+                    raise ValueError(f"Some requests failed and require_all_responses is True")
 
-            writer.finalize()
+            # number of responses matches number of requests
+            request_files = glob.glob(f"{working_dir}/requests_*.jsonl")
+            n_requests = 0
+            for request_file in request_files:
+                n_requests += count_lines(request_file)
+
+            if n_requests != total_responses_count:
+                logger.warning(
+                    f"{n_requests - total_responses_count} requests do not have responses. n_requests is {n_requests} and n_responses is {total_responses_count}"
+                )
+                if self.require_all_responses:
+                    os.remove(dataset_file)
+                    raise ValueError(
+                        f"Some requests do not have responses and require_all_responses is True."
+                    )
 
         return Dataset.from_file(dataset_file)
 
