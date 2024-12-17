@@ -102,28 +102,35 @@ class BaseRequestProcessor(ABC):
             for i in range(expected_num_files):
                 req_f = os.path.join(working_dir, f"requests_{i}.jsonl")
                 meta_f = os.path.join(working_dir, f"metadata_{i}.json")
-                if not os.path.exists(req_f) or not os.path.exists(meta_f):
+
+                if not os.path.exists(req_f):
                     incomplete_files.append(i)
-                else:
-                    with open(req_f, "r") as f:
-                        data = f.read()
-                    num_jobs = len(data.splitlines())
+                    continue
 
-                    with open(meta_f, "r") as f:
-                        metadata = json.load(f)
+                if not os.path.exists(meta_f):
+                    logger.warning(f"Cache missing metadata file {meta_f} for request file {req_f}")
+                    incomplete_files.append(i)
+                    continue
 
-                    expected_num_jobs = metadata["num_jobs"]
-                    if num_jobs != expected_num_jobs:
-                        incomplete_files.append(i)
+                with open(req_f, "r") as f:
+                    data = f.read()
+                num_jobs = len(data.splitlines())
 
-            logger.info(
-                f"Cache missing {len(incomplete_files)} complete request files - regenerating missing ones."
-            )
+                with open(meta_f, "r") as f:
+                    metadata = json.load(f)
+
+                expected_num_jobs = metadata["num_jobs"]
+                if num_jobs != expected_num_jobs:
+                    logger.warning(
+                        f"Request file {req_f} has {num_jobs} jobs, but metadata file {meta_f} has {expected_num_jobs} jobs"
+                    )
+                    incomplete_files.append(i)
+
             return incomplete_files
 
-        except:
-            logger.info(
-                "Cache verification failed for unexpected reasons - regenerating all request files."
+        except Exception as e:
+            logger.warning(
+                f"Cache verification failed due to {e} - regenerating all request files."
             )
             incomplete_files = list(range(expected_num_files))
             return incomplete_files
