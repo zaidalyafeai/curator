@@ -13,31 +13,40 @@ pytest -s tests/test_litellm_models.py
 
 @pytest.mark.cache_dir(os.path.expanduser("~/.cache/curator-tests/test-models"))
 @pytest.mark.usefixtures("prepare_test_cache")
-def test_litellm_models():
+class TestLiteLLMModels:
+    @pytest.fixture(autouse=True)
+    def check_environment(self):
+        env = os.environ.copy()
+        required_keys = [
+            "ANTHROPIC_API_KEY",
+            "OPENAI_API_KEY",
+            "GEMINI_API_KEY",
+            "TOGETHER_API_KEY",
+        ]
+        for key in required_keys:
+            assert key in env, f"{key} must be set"
 
-    env = os.environ.copy()
-    assert "ANTHROPIC_API_KEY" in env, "ANTHROPIC_API_KEY must be set"
-    assert "OPENAI_API_KEY" in env, "OPENAI_API_KEY must be set"
-    assert "GEMINI_API_KEY" in env, "GEMINI_API_KEY must be set"
-    assert "TOGETHER_API_KEY" in env, "TOGETHER_API_KEY must be set"
-
-    models_list = [
-        "claude-3-5-sonnet-20240620",  # https://docs.litellm.ai/docs/providers/anthropic # anthropic has a different hidden param tokens structure.
-        "claude-3-5-haiku-20241022",
-        "claude-3-haiku-20240307",
-        "claude-3-opus-20240229",
-        "claude-3-sonnet-20240229",
-        "gpt-4o-mini",  # https://docs.litellm.ai/docs/providers/openai
-        "gpt-4o-2024-08-06",
-        "gpt-4-0125-preview",
-        "gpt-3.5-turbo-1106",
-        "gemini/gemini-1.5-flash",  # https://docs.litellm.ai/docs/providers/gemini; https://ai.google.dev/gemini-api/docs/models # 20-30 iter/s
-        "gemini/gemini-1.5-pro",  # 20-30 iter/s
-        "together_ai/meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",  # https://docs.together.ai/docs/serverless-models
-        "together_ai/meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
-    ]
-
-    for model in models_list:
+    @pytest.mark.parametrize(
+        "model",
+        [
+            pytest.param("claude-3-5-sonnet-20240620", id="claude-3-5-sonnet"),
+            pytest.param("claude-3-5-haiku-20241022", id="claude-3-5-haiku"),
+            pytest.param("claude-3-haiku-20240307", id="claude-3-haiku"),
+            pytest.param("claude-3-opus-20240229", id="claude-3-opus"),
+            pytest.param("claude-3-sonnet-20240229", id="claude-3-sonnet"),
+            pytest.param("gpt-4o-mini", id="gpt-4-mini"),
+            pytest.param("gpt-4o-2024-08-06", id="gpt-4"),
+            pytest.param("gpt-4-0125-preview", id="gpt-4-preview"),
+            pytest.param("gpt-3.5-turbo-1106", id="gpt-3.5"),
+            pytest.param("gemini/gemini-1.5-flash", id="gemini-flash"),
+            pytest.param("gemini/gemini-1.5-pro", id="gemini-pro"),
+            pytest.param("together_ai/meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", id="llama-8b"),
+            pytest.param(
+                "together_ai/meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo", id="llama-70b"
+            ),
+        ],
+    )
+    def test_model(self, model):
         print(f"\n\n========== TESTING {model} ==========\n\n")
         logger = logging.getLogger("bespokelabs.curator")
         logger.setLevel(logging.DEBUG)
