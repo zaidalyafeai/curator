@@ -4,8 +4,8 @@ import sys
 from pathlib import Path
 
 
-def run_command(command, cwd=None):
-    result = subprocess.run(command, shell=True, cwd=cwd, check=True)
+def run_command(command):
+    result = subprocess.run(command, shell=True, check=True)
     return result
 
 
@@ -90,7 +90,7 @@ def run_pytest():
 def main():
     npm_install()
     nextjs_build()
-    # run_pytest()
+    run_pytest()
     print("Build completed successfully.")
 
 
