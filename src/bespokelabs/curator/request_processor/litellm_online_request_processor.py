@@ -304,7 +304,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         invalid_finish_reasons = ["length", "content_filter"]
         if finish_reason in invalid_finish_reasons:
             logger.debug(
-                f"Invalid finish_reason {finish_reason} raw response {completion_obj.model_dump()} for request {request.generic_request.messages}"
+                f"Invalid finish_reason {finish_reason}. Raw response {completion_obj.model_dump()} for request {request.generic_request.messages}"
             )
             raise ValueError(f"finish_reason was {finish_reason}")
 
