@@ -474,6 +474,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 status_tracker=status_tracker,
             )
 
+            # Allows us to retry on responses that don't match the response format
+            self.prompt_formatter.response_to_response_format(generic_response.response_message)
+
             # Save response in the base class
             await self.append_generic_response(generic_response, save_filepath)
 
