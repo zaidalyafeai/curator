@@ -128,8 +128,10 @@ class BaseRequestProcessor(ABC):
 
             return incomplete_files
 
-        except:
-            logger.warning("Cache verification failed due to {e} - regenerating all request files.")
+        except Exception as e:
+            logger.warning(
+                f"Cache verification failed due to {e} - regenerating all request files."
+            )
             incomplete_files = list(range(expected_num_files))
             return incomplete_files
 
