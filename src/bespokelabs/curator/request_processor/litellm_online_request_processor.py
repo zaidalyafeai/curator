@@ -301,9 +301,10 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             cost = 0
 
         finish_reason = completion_obj.choices[0].finish_reason
-        if finish_reason != "stop":
+        invalid_finish_reasons = ["length", "content_filter"]
+        if finish_reason in invalid_finish_reasons:
             logger.debug(
-                f"finish_reason {finish_reason} was not 'stop' with raw response {completion_obj.model_dump()} for request {request.generic_request.messages}"
+                f"Invalid finish_reason {finish_reason}. Raw response {completion_obj.model_dump()} for request {request.generic_request.messages}"
             )
             raise ValueError(f"finish_reason was {finish_reason}")
 
