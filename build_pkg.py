@@ -4,8 +4,8 @@ import sys
 from pathlib import Path
 
 
-def run_command(command):
-    result = subprocess.run(command, shell=True, check=True)
+def run_command(command, cwd=None):
+    result = subprocess.run(command, shell=True, cwd=cwd, check=True)
     return result
 
 
@@ -81,7 +81,7 @@ def nextjs_build():
 def run_pytest():
     print("Running pytest")
     try:
-        run_command("pytest -s")
+        run_command("pytest", cwd="tests")
     except subprocess.CalledProcessError:
         print("Pytest failed. Aborting build.")
         sys.exit(1)
