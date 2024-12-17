@@ -110,6 +110,9 @@ class PromptFormatter:
         """
         # Response message is a string, which is converted to a dict
         # The dict is then used to construct the response_format Pydantic model
+        if self.response_format is None:
+            return response_message
+
         try:
             # First try to parse the response message as JSON
             if isinstance(response_message, str):
