@@ -14,9 +14,6 @@ from xxhash import xxh64
 
 from bespokelabs.curator.db import MetadataDB
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
-from bespokelabs.curator.request_processor.base_request_processor import (
-    BaseRequestProcessor,
-)
 from bespokelabs.curator.request_processor.litellm_online_request_processor import (
     LiteLLMOnlineRequestProcessor,
 )
@@ -31,7 +28,7 @@ _CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")
 _DictOrBaseModel = Union[Dict[str, Any], BaseModel]
 
-logger = logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class LLM:
@@ -185,29 +182,12 @@ class LLM:
 
         # Default to LiteLLM for all other cases
         logger.info(
-            f"Requesting {f'structured' if response_format else 'text'} output from {model_name}, using LiteLLM backend"
+            f"Requesting {'structured' if response_format else 'text'} output from {model_name}, using LiteLLM backend"
         )
         return "litellm"
 
     def __call__(
         self,
-        dataset: Optional[Iterable] = None,
-        working_dir: str = None,
-        batch_cancel: bool = False,
-    ) -> Dataset:
-        """
-        Run completions on a dataset.
-
-        Args:
-            dataset (Iterable): A dataset consisting of a list of items to apply completions
-            working_dir (str): The working directory to save the requests.jsonl, responses.jsonl, and dataset.arrow files.
-            batch_cancel (bool): Whether to cancel batches
-        """
-        return self._completions(self._request_processor, dataset, working_dir, batch_cancel)
-
-    def _completions(
-        self,
-        request_processor: BaseRequestProcessor,
         dataset: Optional[Iterable] = None,
         working_dir: str = None,
         batch_cancel: bool = False,
@@ -225,12 +205,9 @@ class LLM:
         Returns:
             Iterable: A list of structured outputs from the completions
         """
-        # NOTE(Ryan): We convert from iterable to Dataset because Dataset has random access via row_idx
+        # We convert from iterable to Dataset because Dataset has random access via row_idx
         if not isinstance(dataset, Dataset) and dataset is not None:
             dataset = Dataset.from_generator(dataset)
-
-        if self is None:
-            raise ValueError("LLM must be provided")
 
         if working_dir is None:
             curator_cache_dir = os.environ.get(
@@ -295,14 +272,14 @@ class LLM:
         run_cache_dir = os.path.join(curator_cache_dir, fingerprint)
 
         if batch_cancel:
-            if type(request_processor) != OpenAIBatchRequestProcessor:
+            if not isinstance(self._request_processor, OpenAIBatchRequestProcessor):
                 raise ValueError("batch_cancel can only be used with batch mode")
 
-            dataset = request_processor.cancel_batches(
+            dataset = self._request_processor.cancel_batches(
                 working_dir=run_cache_dir,
             )
         else:
-            dataset = request_processor.run(
+            dataset = self._request_processor.run(
                 dataset=dataset,
                 working_dir=run_cache_dir,
                 parse_func_hash=parse_func_hash,
