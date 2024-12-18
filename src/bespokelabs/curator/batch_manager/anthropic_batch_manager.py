@@ -17,8 +17,9 @@ from bespokelabs.curator.types.generic_batch_object import GenericBatchObject
 logger = logging.getLogger(__name__)
 
 # https://docs.anthropic.com/en/api/creating-message-batches
-MAX_REQUESTS_PER_BATCH = 10_000
-MAX_BYTES_PER_BATCH = 32 * 1024 * 1024
+# https://docs.anthropic.com/en/docs/build-with-claude/message-batches#batch-limitations
+MAX_REQUESTS_PER_BATCH = 100_000
+MAX_BYTES_PER_BATCH = 256 * 1024 * 1024
 
 MAX_CONCURRENT_BATCH_OPERATIONS = 100  # this might need to be reduced
 MAX_RETRIES_PER_OPERATION = 10
