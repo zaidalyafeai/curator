@@ -1,5 +1,5 @@
-from typing import List
-from pydantic import BaseModel, Field
+"""Generate synthetic recipes for different cuisines."""
+
 from bespokelabs import curator
 from datasets import Dataset
 

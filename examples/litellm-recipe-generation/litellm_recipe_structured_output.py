@@ -1,3 +1,8 @@
+"""Generate synthetic recipes for different cuisines. 
+
+Demonstrates how to use a structured output format with Litellm.
+"""
+
 from typing import List
 from pydantic import BaseModel, Field
 from bespokelabs import curator

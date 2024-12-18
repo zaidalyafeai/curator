@@ -1,3 +1,8 @@
+"""Generate diverse set of questions and answers by generating diverse subjects and subsubjects.
+
+This is similar to how data is generated for the Camel dataset.
+See section F (appendix) of https://arxiv.org/pdf/2303.17760.
+"""
 from typing import List
 
 from pydantic import BaseModel, Field
@@ -23,7 +28,7 @@ class QAs(BaseModel):
 
 
 subject_prompter = curator.LLM(
-    prompt_func=lambda: f"Generate a diverse list of 3 subjects. Keep it high-level (e.g. Math, Science).",
+    prompt_func=lambda: "Generate a diverse list of 3 subjects. Keep it high-level (e.g. Math, Science).",
     parse_func=lambda _, subjects: [subject for subject in subjects.subjects],
     model_name="gpt-4o-mini",
     response_format=Subjects,
