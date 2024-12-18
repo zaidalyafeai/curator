@@ -5,7 +5,7 @@ import os
 import litellm
 
 from bespokelabs.curator.dataset import Dataset
-from bespokelabs.curator.prompter.prompt_formatter import PromptFormatter
+from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import (
     parse_response_message,
     BaseRequestProcessor,
@@ -121,7 +121,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         return api_specific_requests
 
     def generic_response_file_from_responses(
-        self, responses: str, batch: BetaMessageBatch, response_file: str
+        self, responses: str, batch: GenericBatchObject, response_file: str
     ) -> str | None:
         """Processes API-specific responses and creates a generic response file.
 

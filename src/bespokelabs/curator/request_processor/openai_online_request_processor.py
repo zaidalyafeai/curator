@@ -16,7 +16,7 @@ from bespokelabs.curator.request_processor.base_online_request_processor import 
 from bespokelabs.curator.request_processor.base_online_request_processor import APIRequest
 from bespokelabs.curator.status_tracker.online_status_tracker import OnlineStatusTracker
 from bespokelabs.curator.types.generic_request import GenericRequest
-from bespokelabs.curator.request_processor.generic_response import TokenUsage, GenericResponse
+from bespokelabs.curator.types.generic_response import TokenUsage, GenericResponse
 
 T = TypeVar("T")
 logger = logger = logging.getLogger(__name__)

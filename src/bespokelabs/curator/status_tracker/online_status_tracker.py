@@ -3,9 +3,12 @@ import time
 import tqdm
 
 from dataclasses import dataclass, field
-from bespokelabs.curator.request_processor.base_online_request_processor import SECONDS_TO_PAUSE_ON_RATE_LIMIT
+from bespokelabs.curator.request_processor.base_online_request_processor import (
+    SECONDS_TO_PAUSE_ON_RATE_LIMIT,
+)
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class OnlineStatusTracker:
