@@ -16,3 +16,16 @@ Shows how to use `curator` along with the litellm backend to generate diverse re
 
 5. [Reannotation](./reannotation/)
 Shows how to use `curator` to take an existing dataset and reannotate it with a new model.
+
+
+## How to run
+
+Go to the folder, and install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+Run the example:
+```bash
+python <example>.py
+```
