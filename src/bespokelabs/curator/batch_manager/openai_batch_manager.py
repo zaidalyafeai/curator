@@ -21,9 +21,6 @@ from bespokelabs.curator.status_tracker.batch_status_tracker import BatchStatusT
 
 logger = logging.getLogger(__name__)
 
-MAX_REQUESTS_PER_BATCH = 50_000
-MAX_BYTES_PER_BATCH = 200 * 1024 * 1024
-
 # NOTE(Ryan): This allows us to stay under the rate limit when submitting ~1,000 batches at a time
 # When submitting >1,000 batches the batch submission and batch download operations get rate limited
 MAX_CONCURRENT_BATCH_OPERATIONS = 100
@@ -52,12 +49,18 @@ class OpenAIBatchManager(BaseBatchManager):
             delete_failed_batch_files (bool): Whether to delete input/error files from OpenAI
                 after batch failure.
         """
-        self.client = AsyncOpenAI(max_retries=max_retries)
+        super().__init__(
+            working_dir=working_dir,
+            check_interval=check_interval,
+            delete_successful_batch_files=delete_successful_batch_files,
+            delete_failed_batch_files=delete_failed_batch_files,
+        )
+        self.client = AsyncOpenAI(max_retries=max_retries or self.max_retries_per_operation)
         self.check_interval = check_interval
         self.working_dir = working_dir
         self.tracker = BatchStatusTracker()
         self.prompt_formatter = prompt_formatter
-        self.semaphore = asyncio.Semaphore(MAX_CONCURRENT_BATCH_OPERATIONS)
+        self.semaphore = asyncio.Semaphore(self.max_concurrent_batch_operations)
         self.delete_successful_batch_files = delete_successful_batch_files
         self.delete_failed_batch_files = delete_failed_batch_files
         self._submitted_batch_objects_file_lock = asyncio.Lock()
@@ -70,6 +73,18 @@ class OpenAIBatchManager(BaseBatchManager):
         )
         self.batch_submit_pbar: tqdm | None = None
         self.request_pbar: tqdm | None = None
+
+    @property
+    def max_requests_per_batch(self) -> int:
+        return 50_000
+
+    @property
+    def max_bytes_per_batch(self) -> int:
+        return 200 * 1024 * 1024  # 200 MB
+
+    @property
+    def max_concurrent_batch_operations(self) -> int:
+        return 100
 
     def parse_api_specific_response(
         self,
@@ -239,7 +254,7 @@ class OpenAIBatchManager(BaseBatchManager):
 
         return batch_file_upload
 
-    async def create_batch(self, batch_file_id: str, metadata: dict) -> Batch:
+    async def create_batch(self, batch_file_id: str, metadata: dict) -> GenericBatchObject:
         """
         Creates a batch job with OpenAI using an uploaded file.
 
@@ -266,7 +281,7 @@ class OpenAIBatchManager(BaseBatchManager):
             raise e
         return batch_object
 
-    async def submit_batch(self, requests: list[dict], metadata: dict) -> Batch:
+    async def submit_batch(self, requests: list[dict], metadata: dict) -> GenericBatchObject:
         """
         Handles the complete batch submission process.
 
@@ -311,14 +326,14 @@ class OpenAIBatchManager(BaseBatchManager):
                 f"{len(results)-failed:,} out of {len(results):,} batches successfully cancelled"
             )
 
-    async def retrieve_batch(self, batch_id: str) -> Batch:
+    async def retrieve_batch(self, batch_id: str) -> GenericBatchObject:
         try:
             batch_object = await self.client.batches.retrieve(batch_id)
         except Exception as e:
             raise e
         return batch_object
 
-    async def check_batch_status(self, batch_id: str) -> Batch | None:
+    async def check_batch_status(self, batch_id: str) -> GenericBatchObject | None:
         """
         Checks the current status of a batch job.
 
@@ -375,7 +390,7 @@ class OpenAIBatchManager(BaseBatchManager):
                 # This is fine, the file may have been deleted already. Deletion should be best-effort.
                 logger.warning(f"Trying to delete file {file_id} but it was not found.")
 
-    async def download_batch(self, batch: Batch) -> str | None:
+    async def download_batch(self, batch: GenericBatchObject) -> str | None:
         file_content = None
         async with self.semaphore:
             # Completed batches have an output file

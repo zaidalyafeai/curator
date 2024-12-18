@@ -21,14 +21,23 @@ logger = logging.getLogger(__name__)
 MAX_REQUESTS_PER_BATCH = 100_000
 MAX_BYTES_PER_BATCH = 256 * 1024 * 1024
 
-MAX_CONCURRENT_BATCH_OPERATIONS = 100  # this might need to be reduced
-MAX_RETRIES_PER_OPERATION = 10
-
 BATCH_STATUSES = ["in_progress", "canceling", "ended"]
 REQUEST_STATUSES = ["succeeded", "errored", "cancelled", "expired"]
 
 
 class AnthropicBatchManager(BaseBatchManager):
+    @property
+    def max_requests_per_batch(self) -> int:
+        return 100_000
+
+    @property
+    def max_bytes_per_batch(self) -> int:
+        return 256 * 1024 * 1024  # 256 MB
+
+    @property
+    def max_concurrent_batch_operations(self) -> int:
+        return 100
+
     def __init__(
         self,
         working_dir: str,
@@ -48,13 +57,12 @@ class AnthropicBatchManager(BaseBatchManager):
                 after batch failure.
         """
         super().__init__(
-            working_dir,
-            max_concurrent_batch_operations=MAX_CONCURRENT_BATCH_OPERATIONS,
+            working_dir=working_dir,
             check_interval=check_interval,
             delete_successful_batch_files=delete_successful_batch_files,
             delete_failed_batch_files=delete_failed_batch_files,
         )
-        self.client = AsyncAnthropic(max_retries=MAX_RETRIES_PER_OPERATION)
+        self.client = AsyncAnthropic(max_retries=self.max_retries_per_operation)
 
     def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
         """

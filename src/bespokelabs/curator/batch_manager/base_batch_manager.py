@@ -26,7 +26,6 @@ class BaseBatchManager:
     def __init__(
         self,
         working_dir: str,
-        max_concurrent_batch_operations: int,
         check_interval: int = 60,
         delete_successful_batch_files: bool = False,
         delete_failed_batch_files: bool = False,
@@ -45,13 +44,32 @@ class BaseBatchManager:
         self.check_interval = check_interval
         self.working_dir = working_dir
         self.tracker = BatchStatusTracker()
-        self.semaphore = asyncio.Semaphore(max_concurrent_batch_operations)
+        self.semaphore = asyncio.Semaphore(self.max_concurrent_batch_operations)
         self.delete_successful_batch_files = delete_successful_batch_files
         self.delete_failed_batch_files = delete_failed_batch_files
         self._batch_objects_file_lock = asyncio.Lock()
         self.batch_objects_file = f"{working_dir}/batch_objects_{self.client.api_key[-4:]}.jsonl"
         self.batch_submit_pbar: tqdm | None = None
         self.request_pbar: tqdm | None = None
+        self.max_retries_per_operation = 50
+
+    @property
+    @abstractmethod
+    def max_requests_per_batch(self) -> int:
+        """Maximum number of requests allowed in a single batch."""
+        pass
+
+    @property
+    @abstractmethod
+    def max_bytes_per_batch(self) -> int:
+        """Maximum size in bytes allowed for a single batch."""
+        pass
+
+    @property
+    @abstractmethod
+    def max_concurrent_batch_operations(self) -> int:
+        """Maximum number of concurrent batch operations allowed."""
+        pass
 
     @abstractmethod
     async def submit_batch(
