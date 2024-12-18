@@ -123,7 +123,7 @@ def test_function_hash_dir_change():
     import tempfile
     from pathlib import Path
 
-    from bespokelabs.curator.prompter.llm import _get_function_hash
+    from bespokelabs.curator.llm.llm import _get_function_hash
 
     # Set up logging to write to a file in the current directory
     debug_log = Path("function_debug.log")

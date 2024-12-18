@@ -13,6 +13,7 @@ from bespokelabs.curator.status_tracker.online_status_tracker import OnlineStatu
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.generic_response import TokenUsage, GenericResponse
 from pydantic import BaseModel
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         frequency_penalty: Optional[float] = None,
         max_requests_per_minute: Optional[int] = None,
         max_tokens_per_minute: Optional[int] = None,
-        require_all_responses: bool = False,
+        require_all_responses: Optional[bool] = None,
         max_retries: Optional[int] = None,
     ):
         super().__init__(
@@ -214,6 +215,31 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         if "frequency_penalty" in supported_params and self.frequency_penalty is not None:
             request["frequency_penalty"] = self.frequency_penalty
 
+        # Add safety settings for Gemini models
+        if "gemini" in generic_request.model.lower():
+            request["safety_settings"] = [
+                {
+                    "category": "HARM_CATEGORY_HARASSMENT",
+                    "threshold": "BLOCK_NONE",
+                },
+                {
+                    "category": "HARM_CATEGORY_HATE_SPEECH",
+                    "threshold": "BLOCK_NONE",
+                },
+                {
+                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    "threshold": "BLOCK_NONE",
+                },
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_NONE",
+                },
+                {
+                    "category": "HARM_CATEGORY_CIVIC_INTEGRITY",
+                    "threshold": "BLOCK_NONE",
+                },
+            ]
+
         return request
 
     async def call_single_request(
@@ -236,18 +262,29 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             GenericResponse: The response from LiteLLM
         """
         # Get response directly without extra logging
-        if request.generic_request.response_format:
-            response, completion_obj = await self.client.chat.completions.create_with_completion(
-                **request.api_specific_request,
-                response_model=request.prompt_formatter.response_format,
-                timeout=60.0,
-            )
-            response_message = (
-                response.model_dump() if hasattr(response, "model_dump") else response
-            )
-        else:
-            completion_obj = await litellm.acompletion(**request.api_specific_request, timeout=60.0)
-            response_message = completion_obj["choices"][0]["message"]["content"]
+        try:
+            if request.generic_request.response_format:
+                response, completion_obj = (
+                    await self.client.chat.completions.create_with_completion(
+                        **request.api_specific_request,
+                        response_model=request.prompt_formatter.response_format,
+                        timeout=self.timeout,
+                    )
+                )
+                response_message = (
+                    response.model_dump() if hasattr(response, "model_dump") else response
+                )
+            else:
+                completion_obj = await litellm.acompletion(
+                    **request.api_specific_request, timeout=self.timeout
+                )
+                response_message = completion_obj["choices"][0]["message"]["content"]
+        except litellm.RateLimitError as e:
+            status_tracker.time_of_last_rate_limit_error = time.time()
+            status_tracker.num_rate_limit_errors += 1
+            # because handle_single_request_with_retries will double count otherwise
+            status_tracker.num_api_errors -= 1
+            raise e
 
         # Extract token usage
         usage = completion_obj.usage if hasattr(completion_obj, "usage") else {}
@@ -262,6 +299,19 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             cost = litellm.completion_cost(completion_response=completion_obj.model_dump())
         except litellm.NotFoundError as e:
             cost = 0
+
+        finish_reason = completion_obj.choices[0].finish_reason
+        invalid_finish_reasons = ["length", "content_filter"]
+        if finish_reason in invalid_finish_reasons:
+            logger.debug(
+                f"Invalid finish_reason {finish_reason}. Raw response {completion_obj.model_dump()} for request {request.generic_request.messages}"
+            )
+            raise ValueError(f"finish_reason was {finish_reason}")
+
+        if response_message is None:
+            raise ValueError(
+                f"response_message was None with raw response {completion_obj.model_dump()}"
+            )
 
         # Create and return response
         return GenericResponse(

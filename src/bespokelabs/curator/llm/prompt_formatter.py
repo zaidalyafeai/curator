@@ -1,13 +1,16 @@
 import dataclasses
 import inspect
+import json
+import logging
 from typing import Any, Callable, Dict, Optional, Type, TypeVar, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
 
 T = TypeVar("T")
 _DictOrBaseModel = Union[Dict[str, Any], BaseModel]
+logger = logging.getLogger(__name__)
 
 
 def _validate_messages(messages: list[dict]) -> None:
@@ -82,3 +85,56 @@ class PromptFormatter:
                 self.response_format.model_json_schema() if self.response_format else None
             ),
         )
+
+    def response_to_response_format(self, response_message: str | dict) -> Optional[dict | str]:
+        """
+        Converts a response message to a specified Pydantic model format.
+
+        This method takes a response message (either as a string or dict) and validates/converts it
+        according to the provided Pydantic model format. If the response message is a string,
+        it first attempts to parse it as JSON. The resulting dict is then used to construct
+        an instance of the specified Pydantic model.
+
+        Args:
+            response_message (str | dict): The response message to convert, either as a JSON string
+                or a dictionary.
+            response_format (Optional[BaseModel]): The Pydantic model class that defines the
+                expected format of the response.
+
+        Returns:
+            Optional[dict | str]: The validated response message as a Pydantic model instance.
+
+        Raises:
+            json.JSONDecodeError: If the response_message is a string but cannot be parsed as valid JSON.
+            ValidationError: If the parsed response does not match the schema defined by response_format.
+        """
+        # Response message is a string, which is converted to a dict
+        # The dict is then used to construct the response_format Pydantic model
+        if self.response_format is None:
+            return response_message
+
+        try:
+            # First try to parse the response message as JSON
+            if isinstance(response_message, str):
+                try:
+                    response_dict = json.loads(response_message)
+                except json.JSONDecodeError as e:
+                    logger.warning(
+                        f"Failed to parse response message as JSON: {response_message}. "
+                        f"The model likely returned an invalid JSON format."
+                    )
+                    raise e
+            else:
+                response_dict = response_message
+
+            # Then construct the Pydantic model from the parsed dict
+            response_message = self.response_format(**response_dict)
+            return response_message
+
+        except ValidationError as e:
+            schema_str = json.dumps(self.response_format.model_json_schema(), indent=2)
+            logger.warning(
+                f"Pydantic failed to parse response message {response_message} with `response_format` {schema_str}. "
+                f"The model likely returned a JSON that does not match the schema of the `response_format`."
+            )
+            raise e

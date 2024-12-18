@@ -200,9 +200,7 @@ class OpenAIBatchRequestProcessor(BaseRequestProcessor):
                     )
                     generic_response = GenericResponse(
                         response_message=None,
-                        response_errors=[
-                            f"Request {generic_request} failed with status code {raw_response['response']['status_code']}"
-                        ],
+                        response_errors=[raw_response["response"]["status_code"]],
                         raw_response=raw_response,
                         raw_request=None,
                         generic_request=generic_request,

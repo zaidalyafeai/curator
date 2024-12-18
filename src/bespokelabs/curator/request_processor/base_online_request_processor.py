@@ -26,6 +26,8 @@ logger.setLevel(logging.INFO)
 DEFAULT_MAX_REQUESTS_PER_MINUTE = 100
 DEFAULT_MAX_TOKENS_PER_MINUTE = 100_000
 DEFAULT_MAX_RETRIES = 10
+SECONDS_TO_PAUSE_ON_RATE_LIMIT = 10
+DEFAULT_REQUEST_TIMEOUT = 10 * 60  # 10 minutes
 
 
 @dataclass
@@ -69,6 +71,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             self.max_retries = DEFAULT_MAX_RETRIES
         else:
             self.max_retries = max_retries
+        self.timeout = DEFAULT_REQUEST_TIMEOUT
 
     @property
     def max_requests_per_minute(self) -> int:
@@ -127,6 +130,11 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         parse_func_hash: str,
         prompt_formatter: PromptFormatter,
     ) -> Dataset:
+        # load from already completed dataset
+        output_dataset = self.attempt_loading_cached_dataset(working_dir, parse_func_hash)
+        if output_dataset is not None:
+            return output_dataset
+
         """Run completions using the online API with async processing."""
         logger.info(f"Running {self.__class__.__name__} completions with model: {self.model}")
 
@@ -147,7 +155,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 self.process_requests_from_file(
                     generic_request_filepath=request_file,
                     save_filepath=response_file,
-                    max_attempts=self.max_retries,
                     resume=True,
                 )
             )
@@ -158,7 +165,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         self,
         generic_request_filepath: str,
         save_filepath: str,
-        max_attempts: int,
         resume: bool,
         resume_no_retry: bool = False,
     ) -> None:
@@ -182,7 +188,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         completed_request_ids = set()
         if os.path.exists(save_filepath):
             if resume:
-                logger.debug(f"Resuming progress from existing file: {save_filepath}")
+                logger.info(f"Resuming progress by reading existing file: {save_filepath}")
                 logger.debug(
                     f"Removing all failed requests from {save_filepath} so they can be retried"
                 )
@@ -198,6 +204,11 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                             logger.debug(
                                 f"Request {response.generic_request.original_row_idx} previously failed due to errors: "
                                 f"{response.response_errors}, removing from output and will retry"
+                            )
+                            num_previously_failed_requests += 1
+                        if response.response_message is None:
+                            logger.debug(
+                                f"Request {response.generic_request.original_row_idx} previously failed due to no response, removing from output and will retry"
                             )
                             num_previously_failed_requests += 1
                         else:
@@ -273,7 +284,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                         task_id=status_tracker.num_tasks_started,
                         generic_request=generic_request,
                         api_specific_request=self.create_api_specific_request(generic_request),
-                        attempts_left=max_attempts,
+                        attempts_left=self.max_retries,
                         prompt_formatter=self.prompt_formatter,
                     )
 
@@ -282,6 +293,19 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     # Wait for capacity if needed
                     while not status_tracker.has_capacity(token_estimate):
                         await asyncio.sleep(0.1)
+
+                    # Wait for rate limits cool down if needed
+                    seconds_since_rate_limit_error = (
+                        time.time() - status_tracker.time_of_last_rate_limit_error
+                    )
+                    if seconds_since_rate_limit_error < SECONDS_TO_PAUSE_ON_RATE_LIMIT:
+                        remaining_seconds_to_pause = (
+                            SECONDS_TO_PAUSE_ON_RATE_LIMIT - seconds_since_rate_limit_error
+                        )
+                        await asyncio.sleep(remaining_seconds_to_pause)
+                        logger.warn(
+                            f"Pausing to cool down for {int(remaining_seconds_to_pause)} seconds"
+                        )
 
                     # Consume capacity before making request
                     status_tracker.consume_capacity(token_estimate)
@@ -313,10 +337,10 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     token_estimate = self.estimate_total_tokens(
                         retry_request.generic_request.messages
                     )
-                    attempt_number = 1 + self.max_retries - retry_request.attempts_left
-                    logger.info(
-                        f"Processing retry for request {retry_request.task_id} "
-                        f"(attempt #{attempt_number} of {self.max_retries}). "
+                    attempt_number = self.max_retries - retry_request.attempts_left
+                    logger.debug(
+                        f"Retrying request {retry_request.task_id} "
+                        f"(attempt #{attempt_number} of {self.max_retries})"
                         f"Previous errors: {retry_request.result}"
                     )
 
@@ -381,6 +405,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 status_tracker=status_tracker,
             )
 
+            # Allows us to retry on responses that don't match the response format
+            self.prompt_formatter.response_to_response_format(generic_response.response_message)
+
             # Save response in the base class
             await self.append_generic_response(generic_response, save_filepath)
 
@@ -389,18 +416,15 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             status_tracker.pbar.update(1)
 
         except Exception as e:
-            logger.warning(
-                f"Request {request.task_id} failed with Exception {e}, attempts left {request.attempts_left}"
-            )
             status_tracker.num_other_errors += 1
             request.result.append(e)
 
             if request.attempts_left > 0:
                 request.attempts_left -= 1
-                # Add retry queue logging
-                logger.info(
-                    f"Adding request {request.task_id} to retry queue. Will retry in next available slot. "
-                    f"Attempts remaining: {request.attempts_left}"
+                logger.warning(
+                    f"Encountered '{e.__class__.__name__}: {e}' during attempt "
+                    f"{self.max_retries - request.attempts_left} of {self.max_retries} "
+                    f"while processing request {request.task_id}"
                 )
                 retry_queue.put_nowait(request)
             else:

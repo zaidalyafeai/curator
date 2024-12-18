@@ -81,7 +81,7 @@ def nextjs_build():
 def run_pytest():
     print("Running pytest")
     try:
-        run_command("pytest", cwd="tests")
+        run_command("pytest")
     except subprocess.CalledProcessError:
         print("Pytest failed. Aborting build.")
         sys.exit(1)
