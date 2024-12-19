@@ -26,8 +26,8 @@ class RequestProcessorConfig:
 
     model: str
     max_retries: int = 10
-    request_timeout: int = 10 * 60  # 10 minutes
-    require_all_responses: bool = False
+    request_timeout: int = 10 * 60
+    require_all_responses: bool = True
     generation_params: dict = field(default_factory=dict)
     supported_params: list[str] = field(default_factory=list)
 
@@ -51,7 +51,7 @@ class RequestProcessorConfig:
 class BatchRequestProcessorConfig(RequestProcessorConfig):
     """Additional configuration specific to batch processors."""
 
-    batch_size: int
+    batch_size: int = 10_000
     batch_check_interval: int = 60
     delete_successful_batch_files: bool = False
     delete_failed_batch_files: bool = False

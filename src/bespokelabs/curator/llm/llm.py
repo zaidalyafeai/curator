@@ -20,6 +20,10 @@ from bespokelabs.curator.request_processor import (
     AnthropicBatchRequestProcessor,
     OpenAIBatchRequestProcessor,
 )
+from bespokelabs.curator.request_processor.config import (
+    BatchRequestProcessorConfig,
+    OnlineRequestProcessorConfig,
+)
 
 _CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")
@@ -39,16 +43,16 @@ class LLM:
             Callable[[_DictOrBaseModel, _DictOrBaseModel], _DictOrBaseModel]
         ] = None,
         response_format: Optional[Type[BaseModel]] = None,
+        batch: bool = False,
         backend: Optional[str] = None,
         max_requests_per_minute: Optional[int] = None,
         max_tokens_per_minute: Optional[int] = None,
-        batch: bool = False,
         batch_size: Optional[int] = None,
-        batch_check_interval: Optional[int] = 60,
-        delete_successful_batch_files: bool = True,
-        delete_failed_batch_files: bool = False,  # To allow users to debug failed batches
+        batch_check_interval: Optional[int] = None,
+        delete_successful_batch_files: bool = None,
+        delete_failed_batch_files: bool = None,
         max_retries: Optional[int] = None,
-        require_all_responses: Optional[bool] = True,
+        require_all_responses: Optional[bool] = None,
         generation_params: dict | None = None,
     ):
         """Initialize a LLM.
@@ -71,77 +75,29 @@ class LLM:
             require_all_responses: Whether to require all responses
             generation_params: The generation kwargs to use for the LLM
         """
-
-        if generation_params is None:
-            generation_params = {}
-
         self.prompt_formatter = PromptFormatter(
             model_name, prompt_func, parse_func, response_format, generation_params
         )
         self.batch_mode = batch
 
-        # Auto-determine backend if not specified
-        # Use provided backend or auto-determine based on model and format
         if backend is not None:
             self.backend = backend
         else:
             self.backend = self._determine_backend(model_name, response_format, batch)
 
-        # Select request processor based on backend
-        if self.backend == "openai":
-            if batch:
-                if batch_size is None:
-                    batch_size = 1_000
-                    logger.info(
-                        f"batch=True but no batch_size provided, using default batch_size of {batch_size:,}"
-                    )
-                if max_requests_per_minute is not None or max_tokens_per_minute is not None:
-                    logger.warning(
-                        "max_requests_per_minute and max_tokens_per_minute not supported with batch mode"
-                    )
-                self._request_processor = OpenAIBatchRequestProcessor(
-                    model=model_name,
-                    batch_size=batch_size,
-                    batch_check_interval=batch_check_interval,
-                    delete_successful_batch_files=delete_successful_batch_files,
-                    delete_failed_batch_files=delete_failed_batch_files,
-                    max_retries=max_retries,
-                    require_all_responses=require_all_responses,
-                    generation_params=generation_params,
-                )
-            else:
-                if batch_size is not None:
-                    logger.warning(
-                        f"LLM argument `batch_size` {batch_size} is ignored because `batch` is False"
-                    )
-                self._request_processor = OpenAIOnlineRequestProcessor(
-                    model=model_name,
-                    max_requests_per_minute=max_requests_per_minute,
-                    max_tokens_per_minute=max_tokens_per_minute,
-                    max_retries=max_retries,
-                    require_all_responses=require_all_responses,
-                    generation_params=generation_params,
-                )
-        elif self.backend == "anthropic":
-            if batch:
-                self._request_processor = AnthropicBatchRequestProcessor(
-                    model=model_name,
-                    batch_size=batch_size,
-                    batch_check_interval=batch_check_interval,
-                    delete_successful_batch_files=delete_successful_batch_files,
-                    delete_failed_batch_files=delete_failed_batch_files,
-                    max_retries=max_retries,
-                    require_all_responses=require_all_responses,
-                    generation_params=generation_params,
-                )
-            else:
-                raise ValueError("Online mode is not supported with Anthropic backend")
-        elif self.backend == "litellm":
-            if batch:
-                logger.warning(
-                    "Batch mode is not supported with LiteLLM backend, ignoring batch=True"
-                )
-            self._request_processor = LiteLLMOnlineRequestProcessor(
+        if batch:
+            config = BatchRequestProcessorConfig(
+                model=model_name,
+                batch_size=batch_size,
+                batch_check_interval=batch_check_interval,
+                delete_successful_batch_files=delete_successful_batch_files,
+                delete_failed_batch_files=delete_failed_batch_files,
+                max_retries=max_retries,
+                require_all_responses=require_all_responses,
+                generation_params=generation_params,
+            )
+        else:
+            config = OnlineRequestProcessorConfig(
                 model=model_name,
                 max_requests_per_minute=max_requests_per_minute,
                 max_tokens_per_minute=max_tokens_per_minute,
@@ -149,6 +105,19 @@ class LLM:
                 require_all_responses=require_all_responses,
                 generation_params=generation_params,
             )
+
+        if self.backend == "openai" and not batch:
+            self._request_processor = OpenAIOnlineRequestProcessor(config)
+        elif self.backend == "openai" and batch:
+            self._request_processor = OpenAIBatchRequestProcessor(config)
+        elif self.backend == "anthropic" and batch:
+            self._request_processor = AnthropicBatchRequestProcessor(config)
+        elif self.backend == "anthropic" and not batch:
+            raise ValueError("Online mode is not currently supported with Anthropic backend.")
+        elif self.backend == "litellm" and batch:
+            raise ValueError("Batch mode is not supported with LiteLLM backend")
+        elif self.backend == "litellm":
+            self._request_processor = LiteLLMOnlineRequestProcessor(config)
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
 

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import inspect
 import json
 import logging
@@ -53,11 +53,7 @@ class PromptFormatter:
     prompt_func: Callable[[_DictOrBaseModel], Dict[str, str]]
     parse_func: Optional[Callable[[_DictOrBaseModel, _DictOrBaseModel], T]] = None
     response_format: Optional[Type[BaseModel]] = None
-    generation_params: dict | None = None
-
-    def __post_init__(self):
-        if self.generation_params is None:
-            self.generation_params = {}
+    generation_params: dict = field(default_factory=dict)
 
     def create_generic_request(self, row: _DictOrBaseModel, idx: int) -> GenericRequest:
         """Format the request object based off of `LLM` attributes."""
