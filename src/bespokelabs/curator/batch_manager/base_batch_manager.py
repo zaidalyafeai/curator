@@ -208,7 +208,7 @@ class BaseBatchManager:
         return api_specific_requests
 
     def generic_response_file_from_responses(
-        self, responses: str, batch: GenericBatch
+        self, responses: list[dict], batch: GenericBatch
     ) -> str | None:
         """Processes API-specific responses and creates a generic response file.
 
@@ -239,8 +239,7 @@ class BaseBatchManager:
                 generic_request_map[generic_request.original_row_idx] = generic_request
 
         with open(response_file, "w") as f:
-            for raw_response in responses.text.splitlines():
-                raw_response = json.loads(raw_response)
+            for raw_response in responses:
                 request_idx = int(raw_response["custom_id"])
                 generic_request = generic_request_map[request_idx]
                 generic_response = self.parse_api_specific_response(
@@ -291,7 +290,6 @@ class BaseBatchManager:
             f"All batch objects submitted and written to {self.submitted_batch_objects_file}"
         )
 
-    # TODO(Ryan): This needs to be broken down to general and api specific
     async def check_batch_status(self, batch_id: str) -> GenericBatch | None:
         """
         Checks the current status of a batch job.
@@ -300,30 +298,33 @@ class BaseBatchManager:
             batch_id (str): The ID of the batch to check
 
         Returns:
-            Batch | None: The batch object if completed (including failures), None if in progress
+            Batch | None: The batch object if found, None if not found
 
         Side Effects:
             - Updates tracker with current batch status
             - Updates request completion counts
         """
         async with self.semaphore:
-            batch = await self.client.batches.retrieve(batch_id)
+            batch = await self.retrieve_batch(batch_id)
+            if batch is None:
+                return None
             self.tracker.update_submitted(batch)
 
-            n_completed_requests = batch.request_counts.completed
+            n_succeeded_requests = batch.request_counts.succeeded
             n_failed_requests = batch.request_counts.failed
             n_total_requests = batch.request_counts.total
 
             logger.debug(
                 f"Batch {batch.id} status: {batch.status} requests: "
-                f"{n_completed_requests}/{n_failed_requests}/{n_total_requests} "
-                "completed/failed/total"
+                f"{n_succeeded_requests}/{n_failed_requests}/{n_total_requests} "
+                "succeeded/failed/total"
             )
 
             if batch.status == "finished":
-                logger.debug(f"Batch {batch.id} returned with status: {batch.status}")
+                logger.debug(f"Batch {batch.id} finished with status: {batch.raw_status}")
                 self.tracker.mark_as_finished(batch)
-                return batch
+
+            return batch
 
     async def poll_and_process_batches(self) -> None:
         """Monitors and processes batches until all are completed.
@@ -425,24 +426,12 @@ class BaseBatchManager:
         await self.update_batch_objects_file()
         return response_file
 
-    def requests_from_api_specific_request_file(self, request_file: str) -> list[dict]:
-        with open(request_file, "r") as file:
-            return file.read().splitlines()
-
-    def api_specific_response_file_from_responses(
-        responses: str, batch: GenericBatch, response_file: str
-    ) -> str | None:
-        open(response_file, "w").write(responses.text)
-
     async def cancel_batches(self):
-        if not os.path.exists(self.batch_objects_file):
+        if self.tracker.n_submitted_batches == 0:
             logger.warning("No batches to be cancelled, but cancel_batches=True.")
-        else:
-            logger.info(f"Batch objects file exists, cancelling all batches.")
-            batch_ids = []
-            with open(self.batch_objects_file, "r") as f:
-                for line in f:
-                    batch_obj = GenericBatch.model_validate_json(line.strip())
-                    batch_ids.append(batch_obj.id)
-            tasks = [self.cancel_batch(batch_id) for batch_id in batch_ids]
-            await asyncio.gather(*tasks)
+            return
+        tasks = [self.cancel_batch(batch.id) for batch in self.tracker.submitted_batches]
+        results = await asyncio.gather(*tasks)
+        n_cancelled = len(results) - abs(sum(results))
+        n_total = len(self.tracker.submitted_batches)
+        logger.warning(f"{n_cancelled:,} out of {n_total:,} batches successfully cancelled")

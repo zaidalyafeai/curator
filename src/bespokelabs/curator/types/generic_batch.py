@@ -18,4 +18,5 @@ class GenericBatch(BaseModel):
     status: Literal["submitted", "finished", "downloaded"]
     api_key_suffix: str
     request_counts: GenericBatchRequestCounts
+    raw_status: str
     raw_batch: dict

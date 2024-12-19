@@ -8,6 +8,7 @@ import litellm
 from typing import Optional
 from openai import AsyncOpenAI, NotFoundError
 from openai.types.batch import Batch
+from openai.types.file_object import FileObject
 from openai.types.batch_request_counts import BatchRequestCounts
 
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
@@ -111,6 +112,7 @@ class OpenAIBatchManager(BaseBatchManager):
             api_key_suffix=self.client.api_key[-4:],
             request_counts=self.parse_api_specific_request_counts(batch.request_counts),
             raw_batch=batch.model_dump(),
+            raw_status=batch.status,
         )
 
     def parse_api_specific_response(
@@ -216,7 +218,7 @@ class OpenAIBatchManager(BaseBatchManager):
 
         return request
 
-    async def upload_batch_file(self, file_content: bytes) -> str:
+    async def upload_batch_file(self, file_content: bytes) -> FileObject:
         """
         Uploads a batch file to OpenAI and waits until ready.
 
@@ -246,7 +248,7 @@ class OpenAIBatchManager(BaseBatchManager):
 
         return batch_file_upload
 
-    async def create_batch(self, batch_file_id: str, metadata: dict) -> GenericBatch:
+    async def create_batch(self, batch_file_id: str, metadata: dict) -> Batch:
         """
         Creates a batch job with OpenAI using an uploaded file.
 
@@ -286,37 +288,12 @@ class OpenAIBatchManager(BaseBatchManager):
 
         Side Effects:
             - Updates tracker with submitted batch status
-            - Appends batch object to submitted_batch_objects_file
         """
         async with self.semaphore:
             file_content = self.create_batch_file(requests)
             batch_file_upload = await self.upload_batch_file(file_content)
             batch = await self.create_batch(batch_file_upload.id, metadata)
-
-            # Simplified file writing
-            with open(self.submitted_batch_objects_file, "a") as f:
-                json.dump(batch.model_dump(), f, default=str)
-                f.write("\n")
-                f.flush()
-
-            return batch
-
-    async def cancel_batches(self):
-        if not os.path.exists(self.submitted_batch_objects_file):
-            logger.warning("No batches to be cancelled, but cancel_batches=True.")
-        else:
-            logger.info(f"Batch objects file exists, cancelling all batches.")
-            batch_ids = []
-            with open(self.submitted_batch_objects_file, "r") as f:
-                for line in f:
-                    batch_obj = json.loads(line.strip())
-                    batch_ids.append(batch_obj["id"])
-            tasks = [self.cancel_batch(batch_id) for batch_id in batch_ids]
-            results = await asyncio.gather(*tasks)
-            failed = abs(sum(results))
-            logger.warning(
-                f"{len(results)-failed:,} out of {len(results):,} batches successfully cancelled"
-            )
+            return self.parse_api_specific_batch_object(batch)
 
     async def retrieve_batch(self, batch_id: str) -> GenericBatch:
         try:
@@ -326,46 +303,8 @@ class OpenAIBatchManager(BaseBatchManager):
                 f"batch object {batch_id} not found. "
                 f"Your API key (***{self.client.api_key[-4:]}) might not have access to this batch."
             )
-        self._validate_batch_status(batch.status)
-        return batch
-
-    async def check_batch_status(self, batch_id: str) -> GenericBatch | None:
-        """
-        Checks the current status of a batch job.
-
-        Args:
-            batch_id (str): The ID of the batch to check
-
-        Returns:
-            Batch | None: The batch object if completed (including failures), None if in progress
-
-        Side Effects:
-            - Updates tracker with current batch status
-            - Updates request completion counts
-        """
-        async with self.semaphore:
-            batch = await self.client.batches.retrieve(batch_id)
-            self.tracker.update_submitted(batch)
-
-            n_completed_requests = batch.request_counts.completed
-            n_failed_requests = batch.request_counts.failed
-            n_total_requests = batch.request_counts.total
-
-            logger.debug(
-                f"Batch {batch.id} status: {batch.status} requests: "
-                f"{n_completed_requests}/{n_failed_requests}/{n_total_requests} "
-                "completed/failed/total"
-            )
-
-            finished_statuses = ["completed", "failed", "expired", "cancelled"]
-            batch_returned = batch.status in finished_statuses
-            if not self._validate_batch_status(batch.status):
-                logger.warning(f"Unknown batch status: {batch.status}")
-
-            if batch_returned:
-                logger.debug(f"Batch {batch.id} returned with status: {batch.status}")
-                self.tracker.mark_as_finished(batch)
-                return batch
+            return None
+        return self.parse_api_specific_batch_object(batch)
 
     async def delete_file(self, file_id: str, semaphore: asyncio.Semaphore):
         """
@@ -386,52 +325,50 @@ class OpenAIBatchManager(BaseBatchManager):
                 # This is fine, the file may have been deleted already. Deletion should be best-effort.
                 logger.warning(f"Trying to delete file {file_id} but it was not found.")
 
-    async def download_batch(self, batch: GenericBatch) -> str | None:
-        file_content = None
+    async def download_batch(self, batch: GenericBatch) -> list[dict] | None:
+        output_file_content = None
+        error_file_content = None  # TODO how should we use this?
+        openai_batch = Batch.model_validate(batch.raw_batch)
         async with self.semaphore:
             # Completed batches have an output file
-            if batch.status == "completed" and batch.output_file_id:
-                file_content = await self.client.files.content(batch.output_file_id)
+            if batch.output_file_id:
+                output_file_content = await self.client.files.content(batch.output_file_id)
+            if batch.error_file_id:
+                error_file_content = await self.client.files.content(batch.error_file_id)
+
+            if openai_batch.status == "completed" and openai_batch.output_file_id:
                 logger.debug(f"Batch {batch.id} completed and downloaded")
+                if self.delete_successful_batch_files:
+                    await self.delete_file(openai_batch.input_file_id, self.semaphore)
+                    await self.delete_file(openai_batch.output_file_id, self.semaphore)
 
             # Failed batches with an error file
-            elif batch.status == "failed" and batch.error_file_id:
-                file_content = await self.client.files.content(batch.error_file_id)
+            elif openai_batch.status == "failed" and openai_batch.error_file_id:
                 logger.warning(f"Batch {batch.id} failed\n. Errors will be parsed below.")
                 if self.delete_failed_batch_files:
-                    await self.delete_file(batch.input_file_id, self.semaphore)
-                    await self.delete_file(batch.error_file_id, self.semaphore)
+                    await self.delete_file(openai_batch.input_file_id, self.semaphore)
+                    await self.delete_file(openai_batch.error_file_id, self.semaphore)
 
             # Failed batches without an error file
-            elif batch.status == "failed" and not batch.error_file_id:
-                errors = "\n".join([str(error) for error in batch.errors.data])
+            elif openai_batch.status == "failed" and not openai_batch.error_file_id:
+                errors = "\n".join([str(error) for error in openai_batch.errors.data])
                 logger.error(
                     f"Batch {batch.id} failed and likely failed validation. "
                     f"Batch errors: {errors}. "
                     f"Check https://platform.openai.com/batches/{batch.id} for more details."
                 )
                 if self.delete_failed_batch_files:
-                    await self.delete_file(batch.input_file_id, self.semaphore)
+                    await self.delete_file(openai_batch.input_file_id, self.semaphore)
 
             # Cancelled or expired batches
-            elif batch.status == "cancelled" or batch.status == "expired":
+            elif openai_batch.status == "cancelled" or openai_batch.status == "expired":
                 logger.warning(f"Batch {batch.id} was cancelled or expired")
-                if self.delete_failed_batch_files:
-                    await self.delete_file(batch.input_file_id, self.semaphore)
+                if self.delete_successful_batch_files:
+                    await self.delete_file(openai_batch.input_file_id, self.semaphore)
+                    await self.delete_file(openai_batch.output_file_id, self.semaphore)
 
-        return file_content
-
-    @staticmethod
-    def _validate_batch_status(status: str) -> bool:
-        # See https://github.com/openai/openai-python/blob/995cce048f9427bba4f7ac1e5fc60abbf1f8f0b7/src/openai/types/batch.py#L40C1-L41C1
-        # for all possible batch statuses
-        return status in [
-            "completed",
-            "failed",
-            "expired",
-            "cancelled",
-            "validating",
-            "finalizing",
-            "cancelling",
-            "in_progress",
-        ]
+        responses = []
+        for line in output_file_content.text.splitlines():
+            raw_response = json.loads(line)
+            responses.append(str(raw_response))
+        return responses
