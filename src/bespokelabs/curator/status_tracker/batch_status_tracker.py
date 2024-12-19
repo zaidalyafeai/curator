@@ -1,23 +1,17 @@
 import logging
-from dataclasses import dataclass, field
 
-from bespokelabs.curator.request_processor.generic_batch_object import GenericBatchObject
+from pydantic import BaseModel, Field
+from bespokelabs.curator.types.generic_batch import GenericBatch
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class BatchStatusTracker:
-    # total number of requests in all request files
-    n_total_requests: int = 0
-
-    # request files that have not been submitted yet
-    unsubmitted_request_files: list[str] = field(default_factory=list)
-
-    # batches in OpenAI
-    submitted_batches: dict[str, GenericBatchObject] = field(default_factory=dict)
-    finished_batches: dict[str, GenericBatchObject] = field(default_factory=dict)
-    downloaded_batches: dict[str, GenericBatchObject] = field(default_factory=dict)
+class BatchStatusTracker(BaseModel):
+    n_total_requests: int = Field(default=0)
+    unsubmitted_request_files: list[str] = Field(default_factory=list)
+    submitted_batches: dict[str, GenericBatch] = Field(default_factory=dict)
+    finished_batches: dict[str, GenericBatch] = Field(default_factory=dict)
+    downloaded_batches: dict[str, GenericBatch] = Field(default_factory=dict)
 
     @property
     def n_total_batches(self) -> int:
@@ -66,32 +60,35 @@ class BatchStatusTracker:
     def n_finished_or_downloaded_batches(self) -> int:
         return self.n_finished_batches + self.n_downloaded_batches
 
-    def mark_as_submitted(
-        self, request_file: str, batch_object: GenericBatchObject, n_requests: int
-    ):
-        assert request_file in self.unsubmitted_request_files
+    def mark_as_submitted(self, batch: GenericBatch, n_requests: int):
         assert n_requests > 0
-        self.unsubmitted_request_files.remove(request_file)
-        self.submitted_batches[batch_object.id] = batch_object
-        self.n_total_requests += n_requests
-        logger.debug(f"Marked {request_file} as submitted with batch {batch_object.id}")
+        batch.status = "submitted"
+        if batch.request_file in self.unsubmitted_request_files:
+            self.unsubmitted_request_files.remove(batch.request_file)
+            self.n_total_requests += n_requests
+        else:
+            logger.warning(f"Request file {batch.request_file} has already been submitted.")
+        self.submitted_batches[batch.id] = batch
+        logger.debug(f"Marked {batch.request_file} as submitted with batch {batch.id}")
 
-    def mark_as_finished(self, batch_object: GenericBatchObject):
-        assert batch_object.id in self.submitted_batches
-        self.submitted_batches.pop(batch_object.id)
-        self.finished_batches[batch_object.id] = batch_object
-        logger.debug(f"Marked batch {batch_object.id} as finished")
+    def mark_as_finished(self, batch: GenericBatch):
+        assert batch.id in self.submitted_batches
+        batch.status = "finished"
+        self.submitted_batches.pop(batch.id)
+        self.finished_batches[batch.id] = batch
+        logger.debug(f"Marked batch {batch.id} as finished")
 
-    def mark_as_downloaded(self, batch_object: GenericBatchObject):
-        assert batch_object.id in self.finished_batches
-        self.finished_batches.pop(batch_object.id)
-        self.downloaded_batches[batch_object.id] = batch_object
-        logger.debug(f"Marked batch {batch_object.id} as downloaded")
+    def mark_as_downloaded(self, batch: GenericBatch):
+        assert batch.id in self.finished_batches
+        batch.status = "downloaded"
+        self.finished_batches.pop(batch.id)
+        self.downloaded_batches[batch.id] = batch
+        logger.debug(f"Marked batch {batch.id} as downloaded")
 
-    def update_submitted(self, batch_object: GenericBatchObject):
-        assert batch_object.id in self.submitted_batches
-        self.submitted_batches[batch_object.id] = batch_object
-        logger.debug(f"Updated submitted batch {batch_object.id} with new request counts")
+    def update_submitted(self, batch: GenericBatch):
+        assert batch.id in self.submitted_batches
+        self.submitted_batches[batch.id] = batch
+        logger.debug(f"Updated submitted batch {batch.id} with new request counts")
 
     def __str__(self) -> str:
         """Returns a human-readable string representation of the batch status."""

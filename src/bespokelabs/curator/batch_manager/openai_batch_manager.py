@@ -3,12 +3,12 @@ import datetime
 import json
 import logging
 import os
-from typing import Optional
-
 import litellm
+
+from typing import Optional
 from openai import AsyncOpenAI, NotFoundError
-from openai.types import Batch
-from tqdm import tqdm
+from openai.types.batch import Batch
+from openai.types.batch_request_counts import BatchRequestCounts
 
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import parse_response_message
@@ -16,15 +16,11 @@ from bespokelabs.curator.types.token_usage import TokenUsage
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
 from bespokelabs.curator.batch_manager.base_batch_manager import BaseBatchManager
-from bespokelabs.curator.batch_manager.base_batch_manager import GenericBatchObject
-from bespokelabs.curator.status_tracker.batch_status_tracker import BatchStatusTracker
+from bespokelabs.curator.batch_manager.base_batch_manager import GenericBatch
+from bespokelabs.curator.types.generic_batch import GenericBatchRequestCounts
+
 
 logger = logging.getLogger(__name__)
-
-# NOTE(Ryan): This allows us to stay under the rate limit when submitting ~1,000 batches at a time
-# When submitting >1,000 batches the batch submission and batch download operations get rate limited
-MAX_CONCURRENT_BATCH_OPERATIONS = 100
-MAX_RETRIES_PER_OPERATION = 50
 
 
 class OpenAIBatchManager(BaseBatchManager):
@@ -52,27 +48,13 @@ class OpenAIBatchManager(BaseBatchManager):
         super().__init__(
             working_dir=working_dir,
             check_interval=check_interval,
+            prompt_formatter=prompt_formatter,
             delete_successful_batch_files=delete_successful_batch_files,
             delete_failed_batch_files=delete_failed_batch_files,
+            max_retries=max_retries,
+            working_dir=working_dir,
         )
-        self.client = AsyncOpenAI(max_retries=max_retries or self.max_retries_per_operation)
-        self.check_interval = check_interval
-        self.working_dir = working_dir
-        self.tracker = BatchStatusTracker()
-        self.prompt_formatter = prompt_formatter
-        self.semaphore = asyncio.Semaphore(self.max_concurrent_batch_operations)
-        self.delete_successful_batch_files = delete_successful_batch_files
-        self.delete_failed_batch_files = delete_failed_batch_files
-        self._submitted_batch_objects_file_lock = asyncio.Lock()
-        self._downloaded_batch_objects_file_lock = asyncio.Lock()
-        self.submitted_batch_objects_file = (
-            f"{working_dir}/batch_objects_submitted_{self.client.api_key[-4:]}.jsonl"
-        )
-        self.downloaded_batch_objects_file = (
-            f"{working_dir}/batch_objects_downloaded_{self.client.api_key[-4:]}.jsonl"
-        )
-        self.batch_submit_pbar: tqdm | None = None
-        self.request_pbar: tqdm | None = None
+        self.client = AsyncOpenAI(max_retries=self.max_retries_per_operation)
 
     @property
     def max_requests_per_batch(self) -> int:
@@ -85,6 +67,34 @@ class OpenAIBatchManager(BaseBatchManager):
     @property
     def max_concurrent_batch_operations(self) -> int:
         return 100
+
+    def parse_api_specific_batch_object(self, batch: object) -> GenericBatch:
+        if batch.status in ["validating", "finalizing", "cancelling", "in_progress"]:
+            status = "submitted"
+        elif batch.status in ["completed", "failed", "expired", "cancelled"]:
+            status = "finished"
+        else:
+            raise ValueError(f"Unknown batch status: {batch.status}")
+
+        request_counts = GenericBatchRequestCounts(
+            completed=batch.request_counts.completed,
+            failed=batch.request_counts.failed,
+            succeeded=batch.request_counts.completed,  # OpenAI uses "completed" for succeeded
+            total=batch.request_counts.total,
+            raw_request_counts_object=batch.request_counts.model_dump(),
+        )
+
+        return GenericBatch(
+            request_file=batch.request_file,
+            id=batch.id,
+            output=batch.output,
+            created_at=batch.created_at,
+            finished_at=batch.finished_at,
+            status=status,
+            api_key_suffix=self.client.api_key[-4:],
+            request_counts=request_counts,
+            raw_batch=batch.model_dump(),
+        )
 
     def parse_api_specific_response(
         self,
@@ -189,41 +199,6 @@ class OpenAIBatchManager(BaseBatchManager):
 
         return request
 
-    def create_batch_file(self, api_specific_requests: list[dict]) -> str:
-        """
-        Creates a batch file from a list of API-specific requests.
-
-        Args:
-            api_specific_requests (list[dict]): List of API-specific request bodies
-
-        Returns:
-            str: The encoded file content ready for upload
-
-        Raises:
-            ValueError: If the batch file contains more requests than OpenAI supports
-        """
-        n_requests = len(api_specific_requests)
-        if n_requests > MAX_REQUESTS_PER_BATCH:
-            raise ValueError(
-                f"Batch file contains {n_requests:,} requests, "
-                f"which is more than the maximum of {MAX_REQUESTS_PER_BATCH:,} requests per batch that OpenAI supports. "
-                f"Preventing batch submission. Please reduce `batch_size`."
-            )
-
-        # Join requests with newlines and encode to bytes for upload
-        file_content = "\n".join(api_specific_requests).encode()
-        file_content_size = len(file_content)
-        logger.debug(
-            f"Batch file content size: {file_content_size / (1024*1024):.2f} MB ({file_content_size:,} bytes)"
-        )
-        if file_content_size > MAX_BYTES_PER_BATCH:
-            raise ValueError(
-                f"Batch file content size {file_content_size:,} bytes "
-                f"is greater than the maximum of {MAX_BYTES_PER_BATCH:,} bytes per batch that OpenAI supports. "
-                f"Please reduce your batch size or request content size (via prompt_func and response_format)."
-            )
-        return file_content
-
     async def upload_batch_file(self, file_content: bytes) -> str:
         """
         Uploads a batch file to OpenAI and waits until ready.
@@ -254,7 +229,7 @@ class OpenAIBatchManager(BaseBatchManager):
 
         return batch_file_upload
 
-    async def create_batch(self, batch_file_id: str, metadata: dict) -> GenericBatchObject:
+    async def create_batch(self, batch_file_id: str, metadata: dict) -> GenericBatch:
         """
         Creates a batch job with OpenAI using an uploaded file.
 
@@ -269,19 +244,19 @@ class OpenAIBatchManager(BaseBatchManager):
             Exception: If batch creation fails
         """
         try:
-            batch_object = await self.client.batches.create(
+            batch = await self.client.batches.create(
                 input_file_id=batch_file_id,
                 endpoint="/v1/chat/completions",
                 completion_window="24h",
                 metadata=metadata,
             )
-            logger.debug(f"Batch submitted with id {batch_object.id}")
+            logger.debug(f"Batch submitted with id {batch.id}")
         except Exception as e:
             logger.error(f"Error submitting batch: {e}")
             raise e
-        return batch_object
+        return batch
 
-    async def submit_batch(self, requests: list[dict], metadata: dict) -> GenericBatchObject:
+    async def submit_batch(self, requests: list[dict], metadata: dict) -> GenericBatch:
         """
         Handles the complete batch submission process.
 
@@ -299,15 +274,15 @@ class OpenAIBatchManager(BaseBatchManager):
         async with self.semaphore:
             file_content = self.create_batch_file(requests)
             batch_file_upload = await self.upload_batch_file(file_content)
-            batch_object = await self.create_batch(batch_file_upload.id, metadata)
+            batch = await self.create_batch(batch_file_upload.id, metadata)
 
             # Simplified file writing
             with open(self.submitted_batch_objects_file, "a") as f:
-                json.dump(batch_object.model_dump(), f, default=str)
+                json.dump(batch.model_dump(), f, default=str)
                 f.write("\n")
                 f.flush()
 
-            return batch_object
+            return batch
 
     async def cancel_batches(self):
         if not os.path.exists(self.submitted_batch_objects_file):
@@ -326,14 +301,18 @@ class OpenAIBatchManager(BaseBatchManager):
                 f"{len(results)-failed:,} out of {len(results):,} batches successfully cancelled"
             )
 
-    async def retrieve_batch(self, batch_id: str) -> GenericBatchObject:
+    async def retrieve_batch(self, batch_id: str) -> GenericBatch:
         try:
-            batch_object = await self.client.batches.retrieve(batch_id)
-        except Exception as e:
-            raise e
-        return batch_object
+            batch = await self.client.batches.retrieve(batch_id)
+        except NotFoundError:
+            logger.warning(
+                f"batch object {batch_id} not found. "
+                f"Your API key (***{self.client.api_key[-4:]}) might not have access to this batch."
+            )
+        self._validate_batch_status(batch.status)
+        return batch
 
-    async def check_batch_status(self, batch_id: str) -> GenericBatchObject | None:
+    async def check_batch_status(self, batch_id: str) -> GenericBatch | None:
         """
         Checks the current status of a batch job.
 
@@ -390,7 +369,7 @@ class OpenAIBatchManager(BaseBatchManager):
                 # This is fine, the file may have been deleted already. Deletion should be best-effort.
                 logger.warning(f"Trying to delete file {file_id} but it was not found.")
 
-    async def download_batch(self, batch: GenericBatchObject) -> str | None:
+    async def download_batch(self, batch: GenericBatch) -> str | None:
         file_content = None
         async with self.semaphore:
             # Completed batches have an output file

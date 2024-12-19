@@ -1,12 +1,6 @@
-from typing import Literal
 import datetime
-
+from typing import Literal
 from pydantic import BaseModel
-
-from openai.types.batch import Batch
-from anthropic.types.beta.messages import BetaMessageBatch
-from anthropic.types.beta.messages import BetaMessageBatchRequestCounts
-from openai.types.batch_request_counts import BatchRequestCounts
 
 
 class GenericBatchRequestCounts(BaseModel):
@@ -28,14 +22,16 @@ class GenericBatchRequestCounts(BaseModel):
     # succeeded: "completed"
 
 
-class GenericBatchObject(BaseModel):
+class GenericBatch(BaseModel):
     request_file: str
     id: str
     output: str
     created_at: datetime.datetime
     finished_at: datetime.datetime
     status: Literal["submitted", "finished", "downloaded"]
-    raw_batch_object: dict
+    api_key_suffix: str
+    request_counts: GenericBatchRequestCounts
+    raw_batch: dict
 
     # https://github.com/anthropics/anthropic-sdk-python/blob/e7c5fd1cf9226d73122870d07906664696da3ab8/src/anthropic/types/beta/messages/beta_message_batch.py#L53
     # Batch Status (Anthropic): "in_progress", "canceling", "ended"

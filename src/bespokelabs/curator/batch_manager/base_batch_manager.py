@@ -1,23 +1,19 @@
 import asyncio
 import os
 import json
-import glob
 import datetime
-from typing import Optional, Callable
-import litellm
+import logging
 
+from typing import Optional
 from tqdm import tqdm
-
 from abc import abstractmethod
 
 from bespokelabs.curator.status_tracker.batch_status_tracker import BatchStatusTracker
-from bespokelabs.curator.types.generic_batch_object import GenericBatchObject
+from bespokelabs.curator.types.generic_batch import GenericBatch
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
-from bespokelabs.curator.request_processor.base_request_processor import (
-    request_file_to_response_file,
-)
-import logging
+from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
+
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +22,7 @@ class BaseBatchManager:
     def __init__(
         self,
         working_dir: str,
+        prompt_formatter: PromptFormatter | None = None,
         check_interval: int = 60,
         delete_successful_batch_files: bool = False,
         delete_failed_batch_files: bool = False,
@@ -43,15 +40,16 @@ class BaseBatchManager:
         """
         self.check_interval = check_interval
         self.working_dir = working_dir
-        self.tracker = BatchStatusTracker()
+        self.prompt_formatter = prompt_formatter
         self.semaphore = asyncio.Semaphore(self.max_concurrent_batch_operations)
         self.delete_successful_batch_files = delete_successful_batch_files
         self.delete_failed_batch_files = delete_failed_batch_files
         self._batch_objects_file_lock = asyncio.Lock()
-        self.batch_objects_file = f"{working_dir}/batch_objects_{self.client.api_key[-4:]}.jsonl"
+        self.batch_objects_file = f"{working_dir}/batch_objects.jsonl"
         self.batch_submit_pbar: tqdm | None = None
         self.request_pbar: tqdm | None = None
         self.max_retries_per_operation = 50
+        self._attempt_loading_batch_status_tracker()
 
     @property
     @abstractmethod
@@ -74,22 +72,22 @@ class BaseBatchManager:
     @abstractmethod
     async def submit_batch(
         self, requests: list[dict], metadata: Optional[dict] = None
-    ) -> GenericBatchObject:
+    ) -> GenericBatch:
         """Needs to use self.semaphore. Used in submit_batch_from_request_file --> submit_batches_from_request_files"""
         pass
 
     @abstractmethod
-    async def retrieve_batch(self, batch_id: str) -> GenericBatchObject:
+    async def retrieve_batch(self, batch_id: str) -> GenericBatch:
         """Needs to use self.semaphore. Used in track_already_submitted_batches --> submit_batches_from_request_files"""
         pass
 
     @abstractmethod
-    async def cancel_batch(self, batch_id: str) -> GenericBatchObject:
+    async def cancel_batch(self, batch_id: str) -> GenericBatch:
         """Needs to use self.semaphore. Used in cancel_batches."""
         pass
 
     @abstractmethod
-    async def download_batch(self, batch: GenericBatchObject) -> str | None:
+    async def download_batch(self, batch: GenericBatch) -> str | None:
         pass
 
     @abstractmethod
@@ -107,6 +105,59 @@ class BaseBatchManager:
         """Used in requests_from_generic_request_file --> submit_batch_from_request_file --> submit_batches_from_request_files"""
         pass
 
+    @abstractmethod
+    def parse_api_specific_batch_object(self, batch: object) -> GenericBatch:
+        pass
+
+    def _attempt_loading_batch_status_tracker(self):
+        if os.path.exists(self.batch_objects_file):
+            with open(self.batch_objects_file, "r") as f:
+                self.tracker = BatchStatusTracker.model_validate_json(f.read())
+            logger.info(f"Loaded existing tracker from {self.batch_objects_file}:\n{self.tracker}")
+        else:
+            self.tracker = BatchStatusTracker()
+
+    async def update_batch_objects_file(self):
+        """Updates the batch objects file with the current tracker state."""
+        async with self._batch_objects_file_lock:
+            with open(self.batch_objects_file, "w") as f:
+                f.write(self.tracker.model_dump_json())
+
+    def create_batch_file(self, api_specific_requests: list[dict]) -> str:
+        """
+        Creates a batch file from a list of API-specific requests.
+
+        Args:
+            api_specific_requests (list[dict]): List of API-specific request bodies
+
+        Returns:
+            str: The encoded file content ready for upload
+
+        Raises:
+            ValueError: If the batch file contains more requests than OpenAI supports
+        """
+        n_requests = len(api_specific_requests)
+        if n_requests > self.max_requests_per_batch:
+            raise ValueError(
+                f"Batch file contains {n_requests:,} requests, "
+                f"which is more than the maximum of {self.max_requests_per_batch:,} requests per batch that {self.__class__.__name__} supports. "
+                f"Preventing batch submission. Please reduce `batch_size`."
+            )
+
+        # Join requests with newlines and encode to bytes for upload
+        file_content = "\n".join(api_specific_requests).encode()
+        file_content_size = len(file_content)
+        logger.debug(
+            f"Batch file content size: {file_content_size / (1024*1024):.2f} MB ({file_content_size:,} bytes)"
+        )
+        if file_content_size > self.max_bytes_per_batch:
+            raise ValueError(
+                f"Batch file content size {file_content_size:,} bytes "
+                f"is greater than the maximum of {self.max_bytes_per_batch:,} bytes per batch that {self.__class__.__name__} supports. "
+                f"Please reduce your batch size or request content size (via prompt_func and response_format)."
+            )
+        return file_content
+
     async def submit_batch_from_request_file(
         self,
         request_file: str,
@@ -121,14 +172,11 @@ class BaseBatchManager:
             - Updates batch submission progress bar
             - Updates tracker with submitted batch status
         """
-        metadata = {"request_file_name": request_file}
+        metadata = {"request_file": request_file}
         requests = self.requests_from_generic_request_file(request_file)
-        batch_object = await self.submit_batch(requests, metadata)
-        self.tracker.mark_as_submitted(request_file, batch_object, len(requests))
-        with open(self.submitted_batch_objects_file, "a") as f:
-            json.dump(batch_object.model_dump(), f, default=str)
-            f.write("\n")
-            f.flush()
+        batch = await self.submit_batch(requests, metadata)
+        self.tracker.mark_as_submitted(request_file, batch, len(requests))
+        await self.update_batch_objects_file()
         self.batch_submit_pbar.update(1)
 
     def requests_from_generic_request_file(self, request_file: str) -> list[dict]:
@@ -152,7 +200,7 @@ class BaseBatchManager:
         return api_specific_requests
 
     def generic_response_file_from_responses(
-        self, responses: str, batch: GenericBatchObject, response_file: str
+        self, responses: str, batch: GenericBatch
     ) -> str | None:
         """Processes API-specific responses and creates a generic response file.
 
@@ -173,7 +221,8 @@ class BaseBatchManager:
             Failed requests will have response_message=None and include error details.
             Costs are calculated using litellm with 50% discount applied for batch requests.
         """
-        request_file = batch.metadata["request_file_name"]
+        request_file = batch.request_file
+        response_file = request_file.replace("requests_", "responses_")
         generic_request_map = {}
         batch_created_at = datetime.datetime.fromtimestamp(batch.created_at)
         with open(request_file, "r") as f:
@@ -192,138 +241,6 @@ class BaseBatchManager:
                 json.dump(generic_response.model_dump(), f, default=str)
                 f.write("\n")
 
-    async def track_already_submitted_batches(self):
-        """
-        Tracks previously submitted batches from the submitted batch objects file.
-        We need to check all submitted batch objects files because we might be looking at a cancelled batch
-        or a batch from another key but same project.
-
-        Side Effects:
-            - Updates tracker with previously submitted batch statuses
-        """
-        all_submitted_batches_files = set(
-            glob.glob(f"{self.working_dir}/batch_objects_submitted_*.jsonl")
-        )
-
-        existing_submitted_batches = {}
-        for submitted_batch_objects_file in all_submitted_batches_files:
-            logger.info(
-                f"Processing submitted batch objects file: {submitted_batch_objects_file} Your API key is ***{self.client.api_key[-4:]}."
-            )
-            with open(submitted_batch_objects_file, "r") as f:
-                for line in f:
-                    batch_object = GenericBatchObject.model_validate(json.loads(line))
-                    request_file_name = batch_object.metadata["request_file_name"]
-                    logger.debug(
-                        f"Already submitted batch {batch_object.id} for request file {request_file_name}. "
-                        f"Getting batch object to update tracker."
-                    )
-                    try:
-                        batch_object = await self.retrieve_batch(batch_object.id)
-                    except NotFoundError:
-                        logger.warning(
-                            f"Already submitted batch object {batch_object.id} not found. This might be fine since we might be "
-                            "looking at a batch object submitted by another project. Will ignore this batch object..."
-                        )
-                        continue
-
-                    # We skip the batch if it has a status that means it can no longer be used.
-                    if batch_object.status in ["expired", "cancelling", "cancelled"]:
-                        logger.info(
-                            f"Batch {batch_object.id} has status {batch_object.status}, which means it can "
-                            "no longer be used. Will ignore this batch object..."
-                        )
-                        continue
-
-                    # Edge case where the batch is still validating, and we need to know the total number of requests
-                    if batch_object.status == "validating":
-                        n_requests = len(open(request_file_name, "r").readlines())
-                        batch_object.request_counts.total = n_requests
-                    else:
-                        n_requests = batch_object.request_counts.total
-
-                    # For each request file, we only want to keep the latest batch object.
-                    if (
-                        request_file_name not in existing_submitted_batches
-                        or existing_submitted_batches[request_file_name].created_at
-                        < batch_object.created_at
-                    ):
-                        existing_submitted_batches[request_file_name] = batch_object
-
-        for request_file_name, batch_object in existing_submitted_batches.items():
-
-            output_file_id = batch_object.output_file_id
-            if output_file_id is not None:
-                try:
-                    await self.client.files.retrieve(output_file_id)
-                except NotFoundError:
-                    logger.warning(
-                        f"Output file {output_file_id} exists in batch object but cannot be found "
-                        "in OpenAI storage. The file may have been deleted. Will resubmit this batch..."
-                    )
-                    continue
-
-            if request_file_name in self.tracker.unsubmitted_request_files:
-                self.tracker.mark_as_submitted(request_file_name, batch_object, n_requests)
-            else:
-                response_file = request_file_to_response_file(request_file_name, self.working_dir)
-                if not os.path.exists(response_file):
-                    raise ValueError(
-                        f"While processing {batch_object.id}, we found that its corresponding request_file_name {request_file_name} is "
-                        f"not in tracker.unsubmitted_request_files, but its corresponding response_file {response_file} does not exist. "
-                        f"This is an invalid state. \n"
-                        f"batch_object: {batch_object} \n"
-                        f"request_file_name: {request_file_name} \n"
-                        f"tracker.unsubmitted_request_files: {self.tracker.unsubmitted_request_files} \n"
-                        f"tracker.submitted_batches: {self.tracker.submitted_batches} \n"
-                        f"tracker.downloaded_batches: {self.tracker.downloaded_batches} \n"
-                    )
-
-        if self.tracker.n_submitted_batches > 0:
-            logger.info(
-                f"{self.tracker.n_submitted_batches:,} out of {self.tracker.n_total_batches - self.tracker.n_downloaded_batches:,} remaining batches are already submitted."
-            )
-
-    async def track_already_downloaded_batches(self):
-        """
-        Tracks previously downloaded batches from the downloaded batch objects files.
-
-        Side Effects:
-            - Updates tracker with previously downloaded batch statuses
-        """
-        downloaded_batch_object_files = set(
-            glob.glob(f"{self.working_dir}/batch_objects_downloaded_*.jsonl")
-        )
-        for downloaded_batch_object_file in downloaded_batch_object_files:
-            logger.info(
-                f"Processing downloaded batch objects file: {downloaded_batch_object_file} Your API key is ***{self.client.api_key[-4:]}."
-            )
-            with open(downloaded_batch_object_file, "r") as f:
-                for line in f:
-                    batch_object = GenericBatchObject.model_validate(json.loads(line))
-                    request_file = batch_object.metadata["request_file_name"]
-                    response_file = request_file_to_response_file(request_file, self.working_dir)
-                    assert (
-                        request_file in self.tracker.unsubmitted_request_files
-                    ), f"request_file {request_file} not in unsubmitted_request_files: {self.tracker.unsubmitted_request_files}"
-                    if not os.path.exists(response_file):
-                        logger.warning(
-                            f"Downloaded batch object {batch_object.id} has a response_file {response_file} that does not exist. "
-                            "Will resubmit this batch..."
-                        )
-                        continue
-
-                    self.tracker.mark_as_submitted(
-                        request_file, batch_object, batch_object.request_counts.total
-                    )
-                    self.tracker.mark_as_finished(batch_object)
-                    self.tracker.mark_as_downloaded(batch_object)
-
-        if self.tracker.n_downloaded_batches > 0:
-            logger.info(
-                f"{self.tracker.n_downloaded_batches:,} out of {self.tracker.n_total_batches:,} batches already downloaded."
-            )
-
     async def submit_batches_from_request_files(
         self,
         request_files: set[str],
@@ -340,7 +257,11 @@ class BaseBatchManager:
         """
         self.tracker.unsubmitted_request_files = request_files
         await self.track_already_downloaded_batches()
-        await self.track_already_submitted_batches()
+        if self.tracker.n_submitted_batches > 0:
+            remaining_batches = self.tracker.n_total_batches - self.tracker.n_downloaded_batches
+            logger.info(
+                f"{self.tracker.n_submitted_batches:,} out of {remaining_batches:,} remaining batches are already submitted."
+            )
         # exit early
         if self.tracker.n_unsubmitted_request_files == 0:
             return
@@ -363,7 +284,7 @@ class BaseBatchManager:
         )
 
     # TODO(Ryan): This needs to be broken down to general and api specific
-    async def check_batch_status(self, batch_id: str) -> GenericBatchObject | None:
+    async def check_batch_status(self, batch_id: str) -> GenericBatch | None:
         """
         Checks the current status of a batch job.
 
@@ -391,20 +312,12 @@ class BaseBatchManager:
                 "completed/failed/total"
             )
 
-            finished_statuses = ["completed", "failed", "expired", "cancelled"]
-            batch_returned = batch.status in finished_statuses
-            if not self._validate_batch_status(batch.status):
-                logger.warning(f"Unknown batch status: {batch.status}")
-
-            if batch_returned:
+            if batch.status == "finished":
                 logger.debug(f"Batch {batch.id} returned with status: {batch.status}")
                 self.tracker.mark_as_finished(batch)
                 return batch
 
-    async def poll_and_process_batches(
-        self,
-        response_file_from_responses_func: Callable = generic_response_file_from_responses,
-    ) -> None:
+    async def poll_and_process_batches(self) -> None:
         """Monitors and processes batches until all are completed.
 
         Continuously polls the status of submitted batches and downloads their results
@@ -432,11 +345,12 @@ class BaseBatchManager:
 
         # loop until all batches have been returned
         all_response_files = []
-        while len(self.tracker.submitted_batches) > 0:
+        while self.tracker.n_submitted_batches > 0:
             # check batch status also updates the tracker
             status_tasks = [
                 self.check_batch_status(batch_id) for batch_id in self.tracker.submitted_batches
             ]
+            await self.update_batch_objects_file()
             batches_to_download = await asyncio.gather(*status_tasks)
             batches_to_download = filter(None, batches_to_download)
 
@@ -445,8 +359,7 @@ class BaseBatchManager:
             self.request_pbar.refresh()
 
             download_tasks = [
-                self.download_batch_to_response_file(batch, response_file_from_responses_func)
-                for batch in batches_to_download
+                self.download_batch_to_response_file(batch) for batch in batches_to_download
             ]
             # Failed downloads return None and print any errors that occurred
             all_response_files.extend(await asyncio.gather(*download_tasks))
@@ -460,17 +373,13 @@ class BaseBatchManager:
 
         self.request_pbar.close()
         response_files = filter(None, all_response_files)
-        if len(self.tracker.downloaded_batches) == 0 or not response_files:
+        if self.tracker.n_downloaded_batches == 0 or not response_files:
             raise RuntimeError(
                 "None of the submitted batches completed successfully. "
                 "Please check the logs above and https://platform.openai.com/batches for errors."
             )
 
-    async def download_batch_to_response_file(
-        self,
-        batch: GenericBatchObject,
-        response_file_from_responses_func: Callable = generic_response_file_from_responses,
-    ) -> str | None:
+    async def download_batch_to_response_file(self, batch: GenericBatch) -> str | None:
         """
         Downloads and processes the results of a completed batch.
 
@@ -494,26 +403,18 @@ class BaseBatchManager:
         if file_content is None:
             return None
 
-        request_file = batch.metadata["request_file_name"]
-        response_file = request_file_to_response_file(request_file, self.working_dir)
-        response_file_from_responses_func(file_content, batch, response_file)
+        request_file = batch.request_file
+        response_file = request_file.replace("requests_", "responses_")
+        self.generic_response_file_from_responses(file_content, batch)
 
         logger.debug(f"Batch {batch.id} written to {response_file}")
-
-        # Simplified file writing
-        with open(self.downloaded_batch_objects_file, "a") as f:
-            json.dump(batch.model_dump(), f, default=str)
-            f.write("\n")
-            f.flush()
-
-        logger.debug(f"Batch {batch.id} written to {self.downloaded_batch_objects_file}")
 
         if self.delete_successful_batch_files:
             await self.delete_file(batch.input_file_id, self.semaphore)
             await self.delete_file(batch.output_file_id, self.semaphore)
 
         self.tracker.mark_as_downloaded(batch)
-
+        await self.update_batch_objects_file()
         return response_file
 
     def requests_from_api_specific_request_file(self, request_file: str) -> list[dict]:
@@ -521,7 +422,7 @@ class BaseBatchManager:
             return file.read().splitlines()
 
     def api_specific_response_file_from_responses(
-        responses: str, batch: GenericBatchObject, response_file: str
+        responses: str, batch: GenericBatch, response_file: str
     ) -> str | None:
         open(response_file, "w").write(responses.text)
 
@@ -533,7 +434,7 @@ class BaseBatchManager:
             batch_ids = []
             with open(self.batch_objects_file, "r") as f:
                 for line in f:
-                    batch_obj = GenericBatchObject.model_validate_json(line.strip())
+                    batch_obj = GenericBatch.model_validate_json(line.strip())
                     batch_ids.append(batch_obj.id)
             tasks = [self.cancel_batch(batch_id) for batch_id in batch_ids]
             await asyncio.gather(*tasks)

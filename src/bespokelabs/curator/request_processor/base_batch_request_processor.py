@@ -10,8 +10,8 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     parse_response_message,
     BaseRequestProcessor,
 )
-from bespokelabs.curator.types.generic_batch_object import GenericBatchObject
-from bespokelabs.curator.types.generic_batch_object import GenericBatchRequestCounts
+from bespokelabs.curator.types.generic_batch import GenericBatch
+from bespokelabs.curator.types.generic_batch import GenericBatchRequestCounts
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.types.token_usage import TokenUsage
 from bespokelabs.curator.types.generic_request import GenericRequest

@@ -1,49 +1,42 @@
 import asyncio
 import datetime
-import json
 import logging
-
 import litellm
-from anthropic import AsyncAnthropic
-from anthropic.types import BetaMessageBatch
 
-from bespokelabs.curator.batch_manager.base_batch_manager import BaseBatchManager
-from bespokelabs.curator.types.generic_batch_object import GenericBatchObject
-from bespokelabs.curator.types.generic_request import GenericRequest
+from anthropic import AsyncAnthropic
+from anthropic.types.beta.messages import BetaMessageBatch
+from anthropic.types.beta.messages import BetaMessageBatchRequestCounts
+
+from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import parse_response_message
 from bespokelabs.curator.types.token_usage import TokenUsage
+from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
+from bespokelabs.curator.batch_manager.base_batch_manager import BaseBatchManager
+from bespokelabs.curator.batch_manager.base_batch_manager import GenericBatch
+from bespokelabs.curator.types.generic_batch import GenericBatchRequestCounts
 
 logger = logging.getLogger(__name__)
-
-# https://docs.anthropic.com/en/api/creating-message-batches
-# https://docs.anthropic.com/en/docs/build-with-claude/message-batches#batch-limitations
-MAX_REQUESTS_PER_BATCH = 100_000
-MAX_BYTES_PER_BATCH = 256 * 1024 * 1024
 
 BATCH_STATUSES = ["in_progress", "canceling", "ended"]
 REQUEST_STATUSES = ["succeeded", "errored", "cancelled", "expired"]
 
 
 class AnthropicBatchManager(BaseBatchManager):
-    @property
-    def max_requests_per_batch(self) -> int:
-        return 100_000
-
-    @property
-    def max_bytes_per_batch(self) -> int:
-        return 256 * 1024 * 1024  # 256 MB
-
-    @property
-    def max_concurrent_batch_operations(self) -> int:
-        return 100
+    """
+    Information about limits:
+    https://docs.anthropic.com/en/api/creating-message-batches
+    https://docs.anthropic.com/en/docs/build-with-claude/message-batches#batch-limitations
+    """
 
     def __init__(
         self,
         working_dir: str,
         check_interval: int = 60,
+        prompt_formatter: PromptFormatter | None = None,
         delete_successful_batch_files: bool = False,
         delete_failed_batch_files: bool = False,
+        max_retries: int | None = None,
     ) -> None:
         """Initialize BatchManager to handle OpenAI batch processing operations.
 
@@ -59,10 +52,25 @@ class AnthropicBatchManager(BaseBatchManager):
         super().__init__(
             working_dir=working_dir,
             check_interval=check_interval,
+            prompt_formatter=prompt_formatter,
             delete_successful_batch_files=delete_successful_batch_files,
             delete_failed_batch_files=delete_failed_batch_files,
+            max_retries=max_retries,
+            working_dir=working_dir,
         )
         self.client = AsyncAnthropic(max_retries=self.max_retries_per_operation)
+
+    @property
+    def max_requests_per_batch(self) -> int:
+        return 100_000
+
+    @property
+    def max_bytes_per_batch(self) -> int:
+        return 256 * 1024 * 1024  # 256 MB
+
+    @property
+    def max_concurrent_batch_operations(self) -> int:
+        return 100
 
     def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
         """
@@ -160,41 +168,6 @@ class AnthropicBatchManager(BaseBatchManager):
             response_cost=cost,
         )
 
-    def create_batch_file(self, api_specific_requests: list[dict]) -> str:
-        """
-        Creates a batch file from a list of API-specific requests.
-
-        Args:
-            api_specific_requests (list[dict]): List of API-specific request bodies
-
-        Returns:
-            str: The encoded file content ready for upload
-
-        Raises:
-            ValueError: If the batch file contains more requests than OpenAI supports
-        """
-        n_requests = len(api_specific_requests)
-        if n_requests > MAX_REQUESTS_PER_BATCH:
-            raise ValueError(
-                f"Batch file contains {n_requests:,} requests, "
-                f"which is more than the maximum of {MAX_REQUESTS_PER_BATCH:,} requests per batch that OpenAI supports. "
-                f"Preventing batch submission. Please reduce `batch_size`."
-            )
-
-        # Join requests with newlines and encode to bytes for upload
-        file_content = "\n".join(api_specific_requests).encode()
-        file_content_size = len(file_content)
-        logger.debug(
-            f"Batch file content size: {file_content_size / (1024*1024):.2f} MB ({file_content_size:,} bytes)"
-        )
-        if file_content_size > MAX_BYTES_PER_BATCH:
-            raise ValueError(
-                f"Batch file content size {file_content_size:,} bytes "
-                f"is greater than the maximum of {MAX_BYTES_PER_BATCH:,} bytes per batch that OpenAI supports. "
-                f"Please reduce your batch size or request content size (via prompt_func and response_format)."
-            )
-        return file_content
-
     async def upload_batch_file(self, file_content: bytes) -> str:
         """
         Uploads a batch file to OpenAI and waits until ready.
@@ -225,7 +198,7 @@ class AnthropicBatchManager(BaseBatchManager):
 
         return batch_file_upload
 
-    async def create_batch(self, batch_file_id: str, metadata: dict) -> GenericBatchObject:
+    async def create_batch(self, batch_file_id: str, metadata: dict) -> GenericBatch:
         """
         Creates a batch job with OpenAI using an uploaded file.
 
@@ -234,25 +207,25 @@ class AnthropicBatchManager(BaseBatchManager):
             metadata (dict): Metadata to be included with the batch
 
         Returns:
-            GenericBatchObject: The created batch object from OpenAI
+            GenericBatch: The created batch object from OpenAI
 
         Raises:
             Exception: If batch creation fails
         """
         try:
-            batch_object = await self.client.batches.create(
+            batch = await self.client.batches.create(
                 input_file_id=batch_file_id,
                 endpoint="/v1/chat/completions",
                 completion_window="24h",
                 metadata=metadata,
             )
-            logger.debug(f"Batch submitted with id {batch_object.id}")
+            logger.debug(f"Batch submitted with id {batch.id}")
         except Exception as e:
             logger.error(f"Error submitting batch: {e}")
             raise e
-        return batch_object
+        return batch
 
-    async def submit_batch(self, requests: list[dict], metadata: dict) -> GenericBatchObject:
+    async def submit_batch(self, requests: list[dict], metadata: dict) -> GenericBatch:
         """
         Handles the complete batch submission process.
 
@@ -261,36 +234,28 @@ class AnthropicBatchManager(BaseBatchManager):
             metadata (dict): Metadata to be included with the batch
 
         Returns:
-            GenericBatchObject: The created batch object from OpenAI
+            GenericBatch: The created batch object from OpenAI
 
         Side Effects:
             - Updates tracker with submitted batch status
-            - Appends batch object to submitted_batch_objects_file
         """
         async with self.semaphore:
             file_content = self.create_batch_file(requests)
             batch_file_upload = await self.upload_batch_file(file_content)
-            batch_object = await self.create_batch(batch_file_upload.id, metadata)
+            batch = await self.create_batch(batch_file_upload.id, metadata)
+            return batch
 
-            # Simplified file writing
-            with open(self.submitted_batch_objects_file, "a") as f:
-                json.dump(batch_object.model_dump(), f, default=str)
-                f.write("\n")
-                f.flush()
-
-            return batch_object
-
-    async def retrieve_batch(self, batch_id: str) -> GenericBatchObject:
+    async def retrieve_batch(self, batch_id: str) -> GenericBatch:
         try:
-            batch_object = await self.client.batches.retrieve(batch_id)
+            batch = await self.client.batches.retrieve(batch_id)
         except Exception as e:
             raise e
-        return batch_object
+        return batch
 
     async def cancel_batch(self, batch_id: str) -> int:
         async with self.semaphore:
-            batch_object = await self.retrieve_batch(batch_id)
-            if batch_object.status == "completed":
+            batch = await self.retrieve_batch(batch_id)
+            if batch.status == "completed":
                 logger.warning(f"Batch {batch_id} is already completed, cannot cancel")
                 return 0
             try:
@@ -302,7 +267,7 @@ class AnthropicBatchManager(BaseBatchManager):
                 logger.error(f"Failed to cancel batch {batch_id}: {error_msg}")
                 return -1
 
-    async def check_batch_status(self, batch_id: str) -> GenericBatchObject | None:
+    async def check_batch_status(self, batch_id: str) -> GenericBatch | None:
         """
         Checks the current status of a batch job.
 
@@ -310,7 +275,7 @@ class AnthropicBatchManager(BaseBatchManager):
             batch_id (str): The ID of the batch to check
 
         Returns:
-            GenericBatchObject | None: The batch object if completed (including failures), None if in progress
+            GenericBatch | None: The batch object if completed (including failures), None if in progress
 
         Side Effects:
             - Updates tracker with current batch status
@@ -359,7 +324,7 @@ class AnthropicBatchManager(BaseBatchManager):
                 # This is fine, the file may have been deleted already. Deletion should be best-effort.
                 logger.warning(f"Trying to delete file {file_id} but it was not found.")
 
-    async def download_batch(self, batch: GenericBatchObject) -> str | None:
+    async def download_batch(self, batch: GenericBatch) -> str | None:
         file_content = None
         async with self.semaphore:
             # Completed batches have an output file
