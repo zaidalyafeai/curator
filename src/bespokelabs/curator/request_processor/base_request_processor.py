@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import resource
-from abc import ABC, abstractmethod
+from abc import ABC
 from math import ceil
 from typing import Optional, List
 
@@ -17,7 +17,6 @@ from pydantic import BaseModel, ValidationError
 from bespokelabs.curator.file_utilities import count_lines
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
-from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
 
 logger = logger = logging.getLogger(__name__)
@@ -178,6 +177,7 @@ class BaseRequestProcessor(ABC):
         if dataset is None:
             with open(request_file, "w") as f:
                 generic_request = prompt_formatter.create_generic_request(dict(), 0)
+                generic_request.generation_kwargs = self.generation_kwargs
                 f.write(json.dumps(generic_request.model_dump(), default=str) + "\n")
 
             metadata_dict = {"num_jobs": 1}
@@ -212,7 +212,6 @@ class BaseRequestProcessor(ABC):
 
         return request_files
 
-    # NOTE(Ryan): Instead of doing this, just iterate over iterable and keep counter and change filename when hit batch_size, this will be slower but this whole thing is dominated by llm calls anyways
     async def acreate_request_file(
         self,
         dataset: Dataset,
@@ -227,12 +226,12 @@ class BaseRequestProcessor(ABC):
         else:
             end_idx = len(dataset)
 
-        # NOTE(Ryan): For loops only for IterableDataset which allows for _very_ large datasets, when start_idx and batch_size are not specified
         async with aiofiles.open(request_file, "w") as f:
             for idx, dataset_row in enumerate(dataset):
                 dataset_row_idx = idx + start_idx
                 # Get the generic request from the map function
                 request = prompt_formatter.create_generic_request(dataset_row, dataset_row_idx)
+                request.generation_kwargs = self.generation_kwargs
                 await f.write(json.dumps(request.model_dump(), default=str) + "\n")
 
         num_requests = end_idx - start_idx

@@ -49,21 +49,15 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
     def __init__(
         self,
         model: str,
-        temperature: Optional[float] = None,
-        top_p: Optional[float] = None,
-        presence_penalty: Optional[float] = None,
-        frequency_penalty: Optional[float] = None,
         max_requests_per_minute: Optional[int] = None,
         max_tokens_per_minute: Optional[int] = None,
         require_all_responses: bool = None,
         max_retries: Optional[int] = None,
+        generation_kwargs: Optional[dict] = None,
     ):
         super().__init__(batch_size=None, require_all_responses=require_all_responses)
         self.model: str = model
-        self.temperature: float | None = temperature
-        self.top_p: float | None = top_p
-        self.presence_penalty: float | None = presence_penalty
-        self.frequency_penalty: float | None = frequency_penalty
+        self.generation_kwargs: Optional[dict] = generation_kwargs
         self.prompt_formatter: Optional[PromptFormatter] = None
         self.manual_max_requests_per_minute: Optional[int] = max_requests_per_minute
         self.manual_max_tokens_per_minute: Optional[int] = max_tokens_per_minute

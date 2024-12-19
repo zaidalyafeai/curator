@@ -73,25 +73,19 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
         model: str = "gpt-4o-mini",
         api_key: str = os.getenv("OPENAI_API_KEY"),
         url: str = "https://api.openai.com/v1/chat/completions",
-        temperature: Optional[float] = None,
-        top_p: Optional[float] = None,
-        presence_penalty: Optional[float] = None,
-        frequency_penalty: Optional[float] = None,
         max_requests_per_minute: Optional[int] = None,
         max_tokens_per_minute: Optional[int] = None,
         require_all_responses: bool = None,
         max_retries: Optional[int] = None,
+        generation_kwargs: Optional[dict] = None,
     ):
         super().__init__(
             model=model,
-            temperature=temperature,
-            top_p=top_p,
-            presence_penalty=presence_penalty,
-            frequency_penalty=frequency_penalty,
             max_requests_per_minute=max_requests_per_minute,
             max_tokens_per_minute=max_tokens_per_minute,
             require_all_responses=require_all_responses,
             max_retries=max_retries,
+            generation_kwargs=generation_kwargs,
         )
         self.url = url
         self.api_key = api_key

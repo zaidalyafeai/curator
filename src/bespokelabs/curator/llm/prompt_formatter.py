@@ -84,6 +84,7 @@ class PromptFormatter:
             response_format=(
                 self.response_format.model_json_schema() if self.response_format else None
             ),
+            generation_kwargs=None,
         )
 
     def response_to_response_format(self, response_message: str | dict) -> Optional[dict | str]:
