@@ -10,6 +10,7 @@ import aiohttp
 import os
 import json
 import resource
+import aiofiles
 
 from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.request_processor.base_request_processor import BaseRequestProcessor
@@ -18,16 +19,10 @@ from bespokelabs.curator.status_tracker.online_status_tracker import OnlineStatu
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.types.generic_response import GenericResponse
-import aiofiles
+from bespokelabs.curator.request_processor.config import OnlineRequestProcessorConfig
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-DEFAULT_MAX_REQUESTS_PER_MINUTE = 100
-DEFAULT_MAX_TOKENS_PER_MINUTE = 100_000
-DEFAULT_MAX_RETRIES = 10
-SECONDS_TO_PAUSE_ON_RATE_LIMIT = 10
-DEFAULT_REQUEST_TIMEOUT = 10 * 60  # 10 minutes
 
 
 @dataclass
@@ -46,29 +41,14 @@ class APIRequest:
 class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
     """Abstract base class for online request processors that make real-time API calls."""
 
-    def __init__(
-        self,
-        model: str,
-        max_requests_per_minute: Optional[int] = None,
-        max_tokens_per_minute: Optional[int] = None,
-        require_all_responses: bool = None,
-        max_retries: Optional[int] = None,
-        generation_params: dict | None = None,
-    ):
-        super().__init__(
-            model=model,
-            batch_size=None,
-            require_all_responses=require_all_responses,
-            generation_params=generation_params,
-        )
-        self.prompt_formatter: Optional[PromptFormatter] = None
-        self.manual_max_requests_per_minute: Optional[int] = max_requests_per_minute
-        self.manual_max_tokens_per_minute: Optional[int] = max_tokens_per_minute
-        if max_retries is None:
-            self.max_retries = DEFAULT_MAX_RETRIES
-        else:
-            self.max_retries = max_retries
-        self.timeout = DEFAULT_REQUEST_TIMEOUT
+    def __init__(self, config: OnlineRequestProcessorConfig):
+        super().__init__(config)
+        self.manual_max_requests_per_minute = config.max_requests_per_minute
+        self.manual_max_tokens_per_minute = config.max_tokens_per_minute
+        self.default_max_requests_per_minute = 10
+        self.default_max_tokens_per_minute = 100_000
+        self.header_based_max_requests_per_minute = None
+        self.header_based_max_tokens_per_minute = None
 
     @property
     def max_requests_per_minute(self) -> int:
@@ -84,9 +64,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             return self.header_based_max_requests_per_minute
         else:
             logger.warning(
-                f"No manual max_requests_per_minute set, and headers based detection failed, using default value of {DEFAULT_MAX_REQUESTS_PER_MINUTE}"
+                f"No manual max_requests_per_minute set, and headers based detection failed, using default value of {self.default_max_requests_per_minute}"
             )
-            return DEFAULT_MAX_REQUESTS_PER_MINUTE
+            return self.default_max_requests_per_minute
 
     @property
     def max_tokens_per_minute(self) -> int:
@@ -102,9 +82,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             return self.header_based_max_tokens_per_minute
         else:
             logger.warning(
-                f"No manual max_tokens_per_minute set, and headers based detection failed, using default value of {DEFAULT_MAX_TOKENS_PER_MINUTE}"
+                f"No manual max_tokens_per_minute set, and headers based detection failed, using default value of {self.default_max_tokens_per_minute}"
             )
-            return DEFAULT_MAX_TOKENS_PER_MINUTE
+            return self.default_max_tokens_per_minute
 
     @abstractmethod
     def estimate_total_tokens(self, messages: list) -> int:
@@ -125,34 +105,12 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         """Check if the model supports structured output"""
         return True
 
-    def run(
+    def requests_to_responses(
         self,
-        dataset: Optional[Dataset],
-        working_dir: str,
-        parse_func_hash: str,
-        prompt_formatter: PromptFormatter,
-    ) -> Dataset:
-        # load from already completed dataset
-        output_dataset = self.attempt_loading_cached_dataset(working_dir, parse_func_hash)
-        if output_dataset is not None:
-            return output_dataset
-
-        """Run completions using the online API with async processing."""
-        logger.info(f"Running {self.__class__.__name__} completions with model: {self.model}")
-
-        self.prompt_formatter = prompt_formatter
-        if self.prompt_formatter.response_format:
-            if not self.check_structured_output_support():
-                raise ValueError(
-                    f"Model {self.model} does not support structured output, "
-                    f"response_format: {self.prompt_formatter.response_format}"
-                )
-        generic_request_files = self.create_request_files(dataset, working_dir, prompt_formatter)
-        generic_responses_files = [
-            f"{working_dir}/responses_{i}.jsonl" for i in range(len(generic_request_files))
-        ]
-
-        for request_file, response_file in zip(generic_request_files, generic_responses_files):
+        generic_request_files: list[str],
+    ) -> None:
+        for request_file in generic_request_files:
+            response_file = request_file.replace("requests_", "responses_")
             run_in_event_loop(
                 self.process_requests_from_file(
                     generic_request_filepath=request_file,
@@ -160,8 +118,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     resume=True,
                 )
             )
-
-        return self.create_dataset_files(working_dir, parse_func_hash, prompt_formatter)
 
     async def process_requests_from_file(
         self,

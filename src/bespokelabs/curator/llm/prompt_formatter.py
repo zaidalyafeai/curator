@@ -55,6 +55,10 @@ class PromptFormatter:
     response_format: Optional[Type[BaseModel]] = None
     generation_params: dict | None = None
 
+    def __post_init__(self):
+        if self.generation_params is None:
+            self.generation_params = {}
+
     def create_generic_request(self, row: _DictOrBaseModel, idx: int) -> GenericRequest:
         """Format the request object based off of `LLM` attributes."""
         sig = inspect.signature(self.prompt_func)

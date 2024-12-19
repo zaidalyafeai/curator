@@ -10,6 +10,7 @@ from bespokelabs.curator.request_processor import BaseOnlineRequestProcessor
 from bespokelabs.curator.status_tracker import OnlineStatusTracker
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import TokenUsage, GenericResponse
+from bespokelabs.curator.request_processor.config import OnlineRequestProcessorConfig
 from pydantic import BaseModel
 import time
 
@@ -34,29 +35,10 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         model (str): The model identifier (e.g., "gpt-4", "claude-2")
         client: Instructor-wrapped LiteLLM client for structured outputs
         generation_params: The generation kwargs to use for the LLM
-        max_requests_per_minute: The max requests per minute to use for the LLM
-        max_tokens_per_minute: The max tokens per minute to use for the LLM
-        require_all_responses: Whether to require all responses
-        max_retries: The max retries to use for the LLM
     """
 
-    def __init__(
-        self,
-        model: str,
-        max_requests_per_minute: Optional[int] = None,
-        max_tokens_per_minute: Optional[int] = None,
-        require_all_responses: Optional[bool] = None,
-        max_retries: Optional[int] = None,
-        generation_params: dict | None = None,
-    ):
-        super().__init__(
-            model=model,
-            max_requests_per_minute=max_requests_per_minute,
-            max_tokens_per_minute=max_tokens_per_minute,
-            require_all_responses=require_all_responses,
-            max_retries=max_retries,
-            generation_params=generation_params,
-        )
+    def __init__(self, config: OnlineRequestProcessorConfig):
+        super().__init__(config)
         self.client = instructor.from_litellm(litellm.acompletion)
         self.header_based_max_requests_per_minute, self.header_based_max_tokens_per_minute = (
             self.get_header_based_rate_limits()
@@ -84,23 +66,23 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         try:
             client = instructor.from_litellm(litellm.completion)
             response = client.chat.completions.create(
-                model=self.model,
+                model=self.config.model,
                 messages=[{"role": "user", "content": "Jason is 25 years old."}],
                 response_model=User,
             )
             logger.info(f"Check instructor structure output response: {response}")
             assert isinstance(response, User)
             logger.info(
-                f"Model {self.model} supports structured output via instructor, response: {response}"
+                f"Model {self.config.model} supports structured output via instructor, response: {response}"
             )
             return True
         except instructor.exceptions.InstructorRetryException as e:
             if "litellm.AuthenticationError" in str(e):
-                logger.warning(f"Please provide a valid API key for model {self.model}.")
+                logger.warning(f"Please provide a valid API key for model {self.config.model}.")
                 raise e
             else:
                 logger.warning(
-                    f"Model {self.model} does not support structured output via instructor: {e} {type(e)} {e.__cause__}"
+                    f"Model {self.config.model} does not support structured output via instructor: {e} {type(e)} {e.__cause__}"
                 )
                 return False
 
@@ -117,7 +99,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             Falls back to 0 if token estimation fails
         """
         try:
-            return litellm.get_max_tokens(model=self.model) // 4
+            return litellm.get_max_tokens(model=self.config.model) // 4
         except Exception:
             return 0
 
@@ -133,13 +115,13 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         Returns:
             int: Total estimated tokens (input + output)
         """
-        input_tokens = litellm.token_counter(model=self.model, messages=messages)
+        input_tokens = litellm.token_counter(model=self.config.model, messages=messages)
         output_tokens = self.estimate_output_tokens()
         return input_tokens + output_tokens
 
     def test_call(self):
         completion = litellm.completion(
-            model=self.model,
+            model=self.config.model,
             messages=[
                 {"role": "user", "content": "hi"}
             ],  # Some models (e.g. Claude) require an non-empty message to get rate limits.
@@ -149,7 +131,9 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         try:
             litellm.completion_cost(completion_response=completion.model_dump())
         except litellm.NotFoundError as e:
-            logger.warning(f"LiteLLM does not support cost estimation for model {self.model}: {e}")
+            logger.warning(
+                f"LiteLLM does not support cost estimation for model {self.config.model}: {e}"
+            )
 
         headers = completion._hidden_params.get("additional_headers", {})
         logger.info(f"Test call headers: {headers}")
@@ -165,7 +149,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             - Makes a test request to get rate limit information from response headers.
             - Some providers (e.g., Claude) require non-empty messages
         """
-        logger.info(f"Getting rate limits for model: {self.model}")
+        logger.info(f"Getting rate limits for model: {self.config.model}")
 
         headers = self.test_call()
         rpm = int(headers.get("x-ratelimit-limit-requests", 0))

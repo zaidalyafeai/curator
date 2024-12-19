@@ -13,6 +13,7 @@ from bespokelabs.curator.types.token_usage import TokenUsage
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
 from bespokelabs.curator.types.generic_batch import GenericBatch, GenericBatchRequestCounts
+from bespokelabs.curator.request_processor.config import BatchRequestProcessorConfig
 
 logger = logging.getLogger(__name__)
 
@@ -24,35 +25,9 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
     https://docs.anthropic.com/en/docs/build-with-claude/message-batches#batch-limitations
     """
 
-    def __init__(
-        self,
-        working_dir: str,
-        check_interval: int = 60,
-        prompt_formatter: PromptFormatter | None = None,
-        delete_successful_batch_files: bool = False,
-        delete_failed_batch_files: bool = False,
-        max_retries: int | None = None,
-    ) -> None:
-        """Initialize BatchManager to handle OpenAI batch processing operations.
-
-        Args:
-            working_dir (str): Directory for storing batch-related files including requests, responses,
-                and tracking files.
-            check_interval (int): Time interval (in seconds) between batch status checks.
-            delete_successful_batch_files (bool): Whether to delete input/output files from OpenAI
-                after successful batch completion.
-            delete_failed_batch_files (bool): Whether to delete input/error files from OpenAI
-                after batch failure.
-        """
-        super().__init__(
-            working_dir=working_dir,
-            check_interval=check_interval,
-            prompt_formatter=prompt_formatter,
-            delete_successful_batch_files=delete_successful_batch_files,
-            delete_failed_batch_files=delete_failed_batch_files,
-            max_retries=max_retries,
-        )
-        self.client = AsyncAnthropic(max_retries=self.max_retries_per_operation)
+    def __init__(self, config: BatchRequestProcessorConfig) -> None:
+        super().__init__(config)
+        self.client = AsyncAnthropic(max_retries=self.config.max_retries_per_operation)
 
     @property
     def max_requests_per_batch(self) -> int:
@@ -160,12 +135,12 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
                 completion_tokens=usage.get("completion_tokens", 0),
                 total_tokens=usage.get("total_tokens", 0),
             )
-            response_message, response_errors = parse_response_message(
+            response_message, response_errors = self.prompt_formatter.parse_response_message(
                 response_message_raw, self.prompt_formatter.response_format
             )
 
             cost = litellm.completion_cost(
-                model=self.model,
+                model=self.config.model,
                 prompt=str(self.generic_request.messages),
                 completion=response_message,
             )
@@ -204,21 +179,39 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
             )
 
     async def retrieve_batch(self, batch_id: str) -> GenericBatch:
-        try:
-            batch = await self.client.messages.batches.retrieve(batch_id)
-        except NotFoundError:
-            logger.warning(
-                f"batch object {batch_id} not found. "
-                f"Your API key (***{self.client.api_key[-4:]}) might not have access to this batch."
-            )
-            return None
+        async with self.semaphore:
+            try:
+                batch = await self.client.messages.batches.retrieve(batch_id)
+            except NotFoundError:
+                logger.warning(
+                    f"batch object {batch_id} not found. "
+                    f"Your API key (***{self.client.api_key[-4:]}) might not have access to this batch."
+                )
+                return None
 
-        request_file = self.tracker.submitted_batches[batch_id].request_file
-        return self.parse_api_specific_batch_object(batch, request_file=request_file)
+            request_file = self.tracker.submitted_batches[batch_id].request_file
+            return self.parse_api_specific_batch_object(batch, request_file=request_file)
 
     async def download_batch(self, batch: GenericBatch) -> list[dict] | None:
-        anthropic_batch = MessageBatch.model_validate(batch.raw_batch)
-        responses = []
-        async for result in self.client.messages.batches.results(batch.id):
-            responses.append(result.model_dump())
-        return responses
+        async with self.semaphore:
+            anthropic_batch = MessageBatch.model_validate(batch.raw_batch)
+            responses = []
+            async for result in self.client.messages.batches.results(batch.id):
+                responses.append(result.model_dump())
+            return responses
+
+    async def cancel_batch(self, batch: GenericBatch) -> GenericBatch:
+        async with self.semaphore:
+            request_file = self.tracker.submitted_batches[batch.id].request_file
+            batch_object = await self.retrieve_batch(batch)
+            if batch_object.status == "ended":
+                logger.warning(f"Batch {batch.id} is already ended, cannot cancel")
+                return self.parse_api_specific_batch_object(batch_object, request_file=request_file)
+            try:
+                await self.client.messages.batches.cancel(batch.id)
+                logger.info(f"Successfully cancelled batch: {batch.id}")
+                return self.parse_api_specific_batch_object(batch_object, request_file=request_file)
+            except Exception as e:
+                error_msg = str(e)
+                logger.error(f"Failed to cancel batch {batch.id}: {error_msg}")
+                return self.parse_api_specific_batch_object(batch_object, request_file=request_file)

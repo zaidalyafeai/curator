@@ -17,42 +17,15 @@ from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
 from bespokelabs.curator.types.generic_batch import GenericBatch, GenericBatchRequestCounts
 from bespokelabs.curator.request_processor.openai_request_mixin import OpenAIRequestMixin
-
+from bespokelabs.curator.request_processor.config import BatchRequestProcessorConfig
 
 logger = logging.getLogger(__name__)
 
 
 class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin):
-    def __init__(
-        self,
-        working_dir: str,
-        check_interval: int = 60,
-        prompt_formatter: PromptFormatter | None = None,
-        delete_successful_batch_files: bool = False,
-        delete_failed_batch_files: bool = False,
-        max_retries: Optional[int] = None,
-    ) -> None:
-        """Initialize BatchManager to handle OpenAI batch processing operations.
-
-        Args:
-            working_dir (str): Directory for storing batch-related files including requests, responses,
-                and tracking files.
-            check_interval (int): Time interval (in seconds) between batch status checks.
-            prompt_formatter (PromptFormatter): Formatter used to process prompts and validate responses.
-            delete_successful_batch_files (bool): Whether to delete input/output files from OpenAI
-                after successful batch completion.
-            delete_failed_batch_files (bool): Whether to delete input/error files from OpenAI
-                after batch failure.
-        """
-        super().__init__(
-            working_dir=working_dir,
-            check_interval=check_interval,
-            prompt_formatter=prompt_formatter,
-            delete_successful_batch_files=delete_successful_batch_files,
-            delete_failed_batch_files=delete_failed_batch_files,
-            max_retries=max_retries,
-        )
-        self.client = AsyncOpenAI(max_retries=self.max_retries_per_operation)
+    def __init__(self, config: BatchRequestProcessorConfig) -> None:
+        super().__init__(config)
+        self.client = AsyncOpenAI(max_retries=self.config.max_retries_per_operation)
 
     @property
     def max_requests_per_batch(self) -> int:
@@ -134,12 +107,12 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
                 completion_tokens=usage.get("completion_tokens", 0),
                 total_tokens=usage.get("total_tokens", 0),
             )
-            response_message, response_errors = parse_response_message(
+            response_message, response_errors = self.prompt_formatter.parse_response_message(
                 response_message_raw, self.prompt_formatter.response_format
             )
 
             cost = litellm.completion_cost(
-                model=self.model,
+                model=self.config.model,
                 prompt=str(self.generic_request.messages),
                 completion=response_message,
             )
@@ -263,12 +236,12 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
             batch = await self.create_batch(batch_file_upload.id, metadata)
             return self.parse_api_specific_batch_object(batch)
 
-    async def retrieve_batch(self, batch_id: str) -> GenericBatch:
+    async def retrieve_batch(self, batch: GenericBatch) -> GenericBatch:
         try:
-            batch = await self.client.batches.retrieve(batch_id)
+            batch = await self.client.batches.retrieve(batch.id)
         except NotFoundError:
             logger.warning(
-                f"batch object {batch_id} not found. "
+                f"batch object {batch.id} not found. "
                 f"Your API key (***{self.client.api_key[-4:]}) might not have access to this batch."
             )
             return None
@@ -306,14 +279,14 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
 
             if openai_batch.status == "completed" and openai_batch.output_file_id:
                 logger.debug(f"Batch {batch.id} completed and downloaded")
-                if self.delete_successful_batch_files:
+                if self.config.delete_successful_batch_files:
                     await self.delete_file(openai_batch.input_file_id, self.semaphore)
                     await self.delete_file(openai_batch.output_file_id, self.semaphore)
 
             # Failed batches with an error file
             elif openai_batch.status == "failed" and openai_batch.error_file_id:
                 logger.warning(f"Batch {batch.id} failed\n. Errors will be parsed below.")
-                if self.delete_failed_batch_files:
+                if self.config.delete_failed_batch_files:
                     await self.delete_file(openai_batch.input_file_id, self.semaphore)
                     await self.delete_file(openai_batch.error_file_id, self.semaphore)
 
@@ -325,13 +298,13 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
                     f"Batch errors: {errors}. "
                     f"Check https://platform.openai.com/batches/{batch.id} for more details."
                 )
-                if self.delete_failed_batch_files:
+                if self.config.delete_failed_batch_files:
                     await self.delete_file(openai_batch.input_file_id, self.semaphore)
 
             # Cancelled or expired batches
             elif openai_batch.status == "cancelled" or openai_batch.status == "expired":
                 logger.warning(f"Batch {batch.id} was cancelled or expired")
-                if self.delete_successful_batch_files:
+                if self.config.delete_successful_batch_files:
                     await self.delete_file(openai_batch.input_file_id, self.semaphore)
                     await self.delete_file(openai_batch.output_file_id, self.semaphore)
 
@@ -340,3 +313,18 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
             raw_response = json.loads(line)
             responses.append(str(raw_response))
         return responses
+
+    async def cancel_batch(self, batch: GenericBatch) -> int:
+        async with self.semaphore:
+            batch_object = await self.retrieve_batch(batch)
+            if batch_object.status == "completed":
+                logger.warning(f"Batch {batch.id} is already completed, cannot cancel")
+                return 0
+            try:
+                await self.client.batches.cancel(batch.id)
+                logger.info(f"Successfully cancelled batch: {batch.id}")
+                return 0
+            except Exception as e:
+                error_msg = str(e)
+                logger.error(f"Failed to cancel batch {batch.id}: {error_msg}")
+                return -1

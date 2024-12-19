@@ -71,6 +71,10 @@ class LLM:
             require_all_responses: Whether to require all responses
             generation_params: The generation kwargs to use for the LLM
         """
+
+        if generation_params is None:
+            generation_params = {}
+
         self.prompt_formatter = PromptFormatter(
             model_name, prompt_func, parse_func, response_format, generation_params
         )

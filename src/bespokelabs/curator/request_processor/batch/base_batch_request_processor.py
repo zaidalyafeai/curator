@@ -17,46 +17,17 @@ from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
 from bespokelabs.curator.status_tracker.batch_status_tracker import BatchStatusTracker
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
+from bespokelabs.curator.request_processor.config import BatchRequestProcessorConfig
 
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MAX_RETRIES = 50
-
 
 class BaseBatchRequestProcessor(BaseRequestProcessor):
-    def __init__(
-        self,
-        batch_size: int,
-        model: str,
-        delete_successful_batch_files: bool,
-        delete_failed_batch_files: bool,
-        batch_check_interval: int,
-        max_retries: int | None = None,
-        require_all_responses: bool = False,
-        generation_params: dict | None = None,
-    ):
-        super().__init__(
-            model=model,
-            batch_size=batch_size,
-            require_all_responses=require_all_responses,
-            generation_params=generation_params,
-        )
-        self.check_interval: int = batch_check_interval
-        self.delete_successful_batch_files: bool = delete_successful_batch_files
-        self.delete_failed_batch_files: bool = delete_failed_batch_files
-        if max_retries is None:
-            self.max_retries = DEFAULT_MAX_RETRIES
-        else:
-            self.max_retries = max_retries
+    def __init__(self, config: BatchRequestProcessorConfig):
+        super().__init__(config)
 
-    def run(
-        self,
-        dataset: Dataset | None,
-        working_dir: str,
-        parse_func_hash: str,
-        prompt_formatter: PromptFormatter,
-    ) -> Dataset:
+    def requests_to_responses(self, generic_request_files: list[str]) -> None:
         """
         Processes a dataset using OpenAI's batch API.
 
@@ -78,42 +49,25 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         Raises:
             RuntimeError: If batch processing fails or no successful responses are received.
         """
-        # load from already completed dataset
-        output_dataset = self.attempt_loading_cached_dataset(working_dir, parse_func_hash)
-        if output_dataset is not None:
-            return output_dataset
-
-        request_files = set(self.create_request_files(dataset, working_dir, prompt_formatter))
-        self.prompt_formatter = prompt_formatter
-
-        if self.batch_size > self.max_requests_per_batch:
+        if self.config.batch_size > self.max_requests_per_batch:
             raise ValueError(
-                f"batch_size {self.batch_size} is greater than the maximum of "
+                f"batch_size {self.config.batch_size} is greater than the maximum of "
                 f"{self.max_requests_per_batch:,} requests per batch that {self.__class__.__name__} supports. "
                 f"Please set your batch_size to be less than or equal to {self.max_requests_per_batch:,}."
             )
 
         self.semaphore = asyncio.Semaphore(self.max_concurrent_batch_operations)
         self._batch_objects_file_lock = asyncio.Lock()
-        self.batch_objects_file = f"{working_dir}/batch_objects.jsonl"
+        self.batch_objects_file = f"{self.working_dir}/batch_objects.jsonl"
         self.batch_submit_pbar: tqdm | None = None
         self.request_pbar: tqdm | None = None
         self._attempt_loading_batch_status_tracker()
 
-        run_in_event_loop(self.submit_batches_from_request_files(request_files))
+        run_in_event_loop(self.submit_batches_from_request_files(generic_request_files))
         run_in_event_loop(self.poll_and_process_batches())
 
-        return self.create_dataset_files(working_dir, parse_func_hash, prompt_formatter)
-
-    def cancel_batches(self, working_dir: str) -> Dataset:
-        """
-        Cancels all submitted batches and exits the program.
-
-        Args:
-            working_dir (str): The directory where submitted batch object file is stored.
-        """
-        batch_manager = self.get_batch_manager(working_dir)
-        run_in_event_loop(batch_manager.cancel_batches())
+    def cancel_batches(self) -> Dataset:
+        run_in_event_loop(self.cancel_batches())
         logger.warning("Exiting program after batch cancellation.")
         os._exit(1)
 
@@ -143,12 +97,12 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         pass
 
     @abstractmethod
-    async def retrieve_batch(self, batch_id: str) -> GenericBatch:
+    async def retrieve_batch(self, batch: GenericBatch) -> GenericBatch:
         """Needs to use self.semaphore. Used in track_already_submitted_batches --> submit_batches_from_request_files"""
         pass
 
     @abstractmethod
-    async def cancel_batch(self, batch_id: str) -> GenericBatch:
+    async def cancel_batch(self, batch: GenericBatch) -> GenericBatch:
         """Needs to use self.semaphore. Used in cancel_batches."""
         pass
 
@@ -442,8 +396,8 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
                     f"Batches returned: {self.tracker.n_finished_or_downloaded_batches:,}/{self.tracker.n_total_batches:,} "
                     f"Requests completed: {self.tracker.n_finished_or_downloaded_requests:,}/{self.tracker.n_total_requests:,}"
                 )
-                logger.debug(f"Sleeping for {self.check_interval} seconds...")
-                await asyncio.sleep(self.check_interval)
+                logger.debug(f"Sleeping for {self.config.check_interval} seconds...")
+                await asyncio.sleep(self.config.check_interval)
 
         self.request_pbar.close()
         response_files = filter(None, all_response_files)
@@ -483,7 +437,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
 
         logger.debug(f"Batch {batch.id} written to {response_file}")
 
-        if self.delete_successful_batch_files:
+        if self.config.delete_successful_batch_files:
             await self.delete_file(batch.input_file_id, self.semaphore)
             await self.delete_file(batch.output_file_id, self.semaphore)
 
@@ -495,8 +449,5 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         if self.tracker.n_submitted_batches == 0:
             logger.warning("No batches to be cancelled, but cancel_batches=True.")
             return
-        tasks = [self.cancel_batch(batch.id) for batch in self.tracker.submitted_batches]
+        tasks = [self.cancel_batch(batch) for batch in self.tracker.submitted_batches]
         results = await asyncio.gather(*tasks)
-        n_cancelled = len(results) - abs(sum(results))
-        n_total = len(self.tracker.submitted_batches)
-        logger.warning(f"{n_cancelled:,} out of {n_total:,} batches successfully cancelled")
