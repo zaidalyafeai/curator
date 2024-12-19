@@ -8,9 +8,7 @@ class OpenAIRequestMixin:
     Provides shared functionality for both batch and online OpenAI request processors.
     """
 
-    def create_api_specific_request_online(
-        self, generic_request: GenericRequest, generation_kwargs: dict | None = None
-    ) -> dict:
+    def create_api_specific_request_online(self, generic_request: GenericRequest) -> dict:
         """Create an OpenAI-specific request from a generic request.
 
         Args:
@@ -37,20 +35,8 @@ class OpenAIRequestMixin:
                 },
             }
 
-        # TODO probably want to call to litellm here to get supported params
-        if generation_kwargs is None:
-            return request
-
-        if generation_kwargs.get("temperature") is not None:
-            request["temperature"] = generation_kwargs["temperature"]
-
-        if generation_kwargs.get("top_p") is not None:
-            request["top_p"] = generation_kwargs["top_p"]
-
-        if generation_kwargs.get("presence_penalty") is not None:
-            request["presence_penalty"] = generation_kwargs["presence_penalty"]
-
-        if generation_kwargs.get("frequency_penalty") is not None:
-            request["frequency_penalty"] = generation_kwargs["frequency_penalty"]
+        for key, value in generic_request.generation_kwargs.items():
+            if key in self.supported_params:
+                request[key] = value
 
         return request

@@ -12,6 +12,7 @@ import aiofiles
 import pyarrow
 from datasets import Dataset
 from datasets.arrow_writer import ArrowWriter
+from litellm import get_supported_openai_params
 from pydantic import BaseModel, ValidationError
 
 from bespokelabs.curator.file_utilities import count_lines
@@ -47,6 +48,12 @@ class BaseRequestProcessor(ABC):
             f"Adjusting file descriptor limit from {soft} to {desired_limit} (hard limit: {hard})"
         )
         resource.setrlimit(resource.RLIMIT_NOFILE, (desired_limit, hard))
+        self.supported_params = get_supported_openai_params(model=self.model)
+        for key in self.generation_kwargs.keys():
+            if key not in self.supported_params:
+                logger.warning(
+                    f"Generation parameter {key} is not supported for model {self.model}"
+                )
 
     def run(
         self,

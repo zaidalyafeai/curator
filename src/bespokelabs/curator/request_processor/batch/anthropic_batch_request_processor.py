@@ -120,23 +120,15 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
         params = {
             "model": generic_request.model,
         }
-        if self.generic_request.messages[0]["role"] == "system":
-            params["system"] = self.generic_request.messages[0]["content"]
-            params["messages"] = self.generic_request.messages[1:]
+        if generic_request.messages[0]["role"] == "system":
+            params["system"] = generic_request.messages[0]["content"]
+            params["messages"] = generic_request.messages[1:]
         else:
-            params["messages"] = self.generic_request.messages
+            params["messages"] = generic_request.messages
 
-        if self.temperature is not None:
-            params["temperature"] = self.temperature
-
-        if self.top_p is not None:
-            params["top_p"] = self.top_p
-
-        if self.presence_penalty is not None:
-            raise NotImplementedError("presence_penalty is not yet supported for Anthropic")
-
-        if self.frequency_penalty is not None:
-            raise NotImplementedError("frequency_penalty is not yet supported for Anthropic")
+        for key, value in generic_request.generation_kwargs.items():
+            if key in self.supported_params:
+                params[key] = value
 
         request = {
             "custom_id": str(generic_request.original_row_idx),

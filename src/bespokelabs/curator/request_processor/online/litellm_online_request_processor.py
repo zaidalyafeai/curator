@@ -32,11 +32,12 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
 
     Attributes:
         model (str): The model identifier (e.g., "gpt-4", "claude-2")
-        temperature (Optional[float]): Temperature for response randomness
-        top_p (Optional[float]): Top-p sampling parameter
-        presence_penalty (Optional[float]): Presence penalty for response diversity
-        frequency_penalty (Optional[float]): Frequency penalty for response diversity
         client: Instructor-wrapped LiteLLM client for structured outputs
+        generation_kwargs: The generation kwargs to use for the LLM
+        max_requests_per_minute: The max requests per minute to use for the LLM
+        max_tokens_per_minute: The max tokens per minute to use for the LLM
+        require_all_responses: Whether to require all responses
+        max_retries: The max retries to use for the LLM
     """
 
     def __init__(
@@ -187,25 +188,14 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         Note:
             Uses LiteLLM's get_supported_openai_params to check parameter support
         """
-        # Get supported parameters for this model
-        supported_params = get_supported_openai_params(model=self.model)
         request = {
             "model": generic_request.model,
             "messages": generic_request.messages,
         }
 
-        # Only add parameters that are supported by this model
-        if "temperature" in supported_params and self.temperature is not None:
-            request["temperature"] = self.temperature
-
-        if "top_p" in supported_params and self.top_p is not None:
-            request["top_p"] = self.top_p
-
-        if "presence_penalty" in supported_params and self.presence_penalty is not None:
-            request["presence_penalty"] = self.presence_penalty
-
-        if "frequency_penalty" in supported_params and self.frequency_penalty is not None:
-            request["frequency_penalty"] = self.frequency_penalty
+        for key, value in generic_request.generation_kwargs.items():
+            if key in self.supported_params:
+                request[key] = value
 
         # Add safety settings for Gemini models
         if "gemini" in generic_request.model.lower():

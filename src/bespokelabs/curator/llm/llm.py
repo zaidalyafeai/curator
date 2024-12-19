@@ -47,12 +47,9 @@ class LLM:
         batch_check_interval: Optional[int] = 60,
         delete_successful_batch_files: bool = True,
         delete_failed_batch_files: bool = False,  # To allow users to debug failed batches
-        temperature: Optional[float] = None,
-        top_p: Optional[float] = None,
-        presence_penalty: Optional[float] = None,
-        frequency_penalty: Optional[float] = None,
         max_retries: Optional[int] = None,
         require_all_responses: Optional[bool] = True,
+        generation_kwargs: Optional[dict] = None,
     ):
         """Initialize a LLM.
 
@@ -70,12 +67,9 @@ class LLM:
             batch_check_interval: The interval to check for batch completions, only used if batch is True
             delete_successful_batch_files: Whether to delete successful batch files, only used if batch is True
             delete_failed_batch_files: Whether to delete failed batch files, only used if batch is True
-            temperature: The temperature to use for the LLM, only used if batch is False
-            top_p: The top_p to use for the LLM, only used if batch is False
-            presence_penalty: The presence_penalty to use for the LLM, only used if batch is False
-            frequency_penalty: The frequency_penalty to use for the LLM, only used if batch is False
             max_retries: The maximum number of retries to use for the LLM
             require_all_responses: Whether to require all responses
+            generation_kwargs: The generation kwargs to use for the LLM
         """
         self.prompt_formatter = PromptFormatter(
             model_name, prompt_func, parse_func, response_format
@@ -106,10 +100,12 @@ class LLM:
                 self._request_processor = OpenAIBatchRequestProcessor(
                     model=model_name,
                     batch_size=batch_size,
+                    batch_check_interval=batch_check_interval,
                     delete_successful_batch_files=delete_successful_batch_files,
                     delete_failed_batch_files=delete_failed_batch_files,
                     max_retries=max_retries,
                     require_all_responses=require_all_responses,
+                    generation_kwargs=generation_kwargs,
                 )
             else:
                 if batch_size is not None:
@@ -122,16 +118,19 @@ class LLM:
                     max_tokens_per_minute=max_tokens_per_minute,
                     max_retries=max_retries,
                     require_all_responses=require_all_responses,
+                    generation_kwargs=generation_kwargs,
                 )
         elif self.backend == "anthropic":
             if batch:
                 self._request_processor = AnthropicBatchRequestProcessor(
                     model=model_name,
                     batch_size=batch_size,
+                    batch_check_interval=batch_check_interval,
                     delete_successful_batch_files=delete_successful_batch_files,
                     delete_failed_batch_files=delete_failed_batch_files,
                     max_retries=max_retries,
                     require_all_responses=require_all_responses,
+                    generation_kwargs=generation_kwargs,
                 )
             else:
                 raise ValueError("Online mode is not supported with Anthropic backend")
@@ -146,6 +145,7 @@ class LLM:
                 max_tokens_per_minute=max_tokens_per_minute,
                 max_retries=max_retries,
                 require_all_responses=require_all_responses,
+                generation_kwargs=generation_kwargs,
             )
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
