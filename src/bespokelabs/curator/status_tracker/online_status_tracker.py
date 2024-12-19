@@ -69,8 +69,8 @@ class OnlineStatusTracker:
         if not has_capacity:
             logger.debug(
                 f"No capacity for request with {token_estimate} tokens. "
-                f"Available capacity: {self.available_token_capacity} tokens, "
-                f"{self.available_request_capacity} requests."
+                f"Available capacity: {int(self.available_token_capacity)} tokens, "
+                f"{int(self.available_request_capacity)} requests."
             )
         return has_capacity
 

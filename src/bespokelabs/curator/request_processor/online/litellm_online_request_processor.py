@@ -33,7 +33,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
     Attributes:
         model (str): The model identifier (e.g., "gpt-4", "claude-2")
         client: Instructor-wrapped LiteLLM client for structured outputs
-        generation_kwargs: The generation kwargs to use for the LLM
+        generation_params: The generation kwargs to use for the LLM
         max_requests_per_minute: The max requests per minute to use for the LLM
         max_tokens_per_minute: The max tokens per minute to use for the LLM
         require_all_responses: Whether to require all responses
@@ -47,7 +47,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         max_tokens_per_minute: Optional[int] = None,
         require_all_responses: Optional[bool] = None,
         max_retries: Optional[int] = None,
-        generation_kwargs: Optional[dict] = None,
+        generation_params: dict | None = None,
     ):
         super().__init__(
             model=model,
@@ -55,7 +55,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             max_tokens_per_minute=max_tokens_per_minute,
             require_all_responses=require_all_responses,
             max_retries=max_retries,
-            generation_kwargs=generation_kwargs,
+            generation_params=generation_params,
         )
         self.client = instructor.from_litellm(litellm.acompletion)
         self.header_based_max_requests_per_minute, self.header_based_max_tokens_per_minute = (
@@ -173,7 +173,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
 
         return rpm, tpm
 
-    def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
+    def create_api_specific_request_online(self, generic_request: GenericRequest) -> dict:
         """Convert a generic request into a LiteLLM-compatible format.
 
         Checks supported parameters for the specific model and only includes
@@ -193,7 +193,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             "messages": generic_request.messages,
         }
 
-        for key, value in generic_request.generation_kwargs.items():
+        for key, value in generic_request.generation_params.items():
             if key in self.supported_params:
                 request[key] = value
 

@@ -112,7 +112,7 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
             raw_status=batch.processing_status,
         )
 
-    def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
+    def create_api_specific_request_batch(self, generic_request: GenericRequest) -> dict:
         if generic_request.response_format:
             # TODO(Ryan) how can we support this the way litellm does?
             raise NotImplementedError("response_format is not yet supported for Anthropic")
@@ -126,7 +126,7 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
         else:
             params["messages"] = generic_request.messages
 
-        for key, value in generic_request.generation_kwargs.items():
+        for key, value in generic_request.generation_params.items():
             if key in self.supported_params:
                 params[key] = value
 

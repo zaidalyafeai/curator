@@ -6,7 +6,6 @@ from .online.base_online_request_processor import APIRequest
 from .online.base_online_request_processor import BaseOnlineRequestProcessor
 from .online.litellm_online_request_processor import LiteLLMOnlineRequestProcessor
 from .online.openai_online_request_processor import OpenAIOnlineRequestProcessor
-from .openai_request_mixin import OpenAIRequestMixin
 
 __all__ = [
     "BaseBatchRequestProcessor",
@@ -16,5 +15,4 @@ __all__ = [
     "LiteLLMOnlineRequestProcessor",
     "OpenAIOnlineRequestProcessor",
     "APIRequest",
-    "OpenAIRequestMixin",
 ]

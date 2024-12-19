@@ -53,11 +53,14 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         max_tokens_per_minute: Optional[int] = None,
         require_all_responses: bool = None,
         max_retries: Optional[int] = None,
-        generation_kwargs: Optional[dict] = None,
+        generation_params: dict | None = None,
     ):
-        super().__init__(batch_size=None, require_all_responses=require_all_responses)
-        self.model: str = model
-        self.generation_kwargs: Optional[dict] = generation_kwargs
+        super().__init__(
+            model=model,
+            batch_size=None,
+            require_all_responses=require_all_responses,
+            generation_params=generation_params,
+        )
         self.prompt_formatter: Optional[PromptFormatter] = None
         self.manual_max_requests_per_minute: Optional[int] = max_requests_per_minute
         self.manual_max_tokens_per_minute: Optional[int] = max_tokens_per_minute
@@ -111,6 +114,11 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
     @abstractmethod
     def estimate_output_tokens(self) -> int:
         """Estimate output tokens for a request"""
+        pass
+
+    @abstractmethod
+    def create_api_specific_request_online(self, generic_request: GenericRequest) -> dict:
+        """Create an API-specific request body from a generic request body."""
         pass
 
     def check_structured_output_support(self) -> bool:
@@ -277,7 +285,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     request = APIRequest(
                         task_id=status_tracker.num_tasks_started,
                         generic_request=generic_request,
-                        api_specific_request=self.create_api_specific_request(generic_request),
+                        api_specific_request=self.create_api_specific_request_online(
+                            generic_request
+                        ),
                         attempts_left=self.max_retries,
                         prompt_formatter=self.prompt_formatter,
                     )

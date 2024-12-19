@@ -49,7 +49,7 @@ class LLM:
         delete_failed_batch_files: bool = False,  # To allow users to debug failed batches
         max_retries: Optional[int] = None,
         require_all_responses: Optional[bool] = True,
-        generation_kwargs: Optional[dict] = None,
+        generation_params: dict | None = None,
     ):
         """Initialize a LLM.
 
@@ -69,10 +69,10 @@ class LLM:
             delete_failed_batch_files: Whether to delete failed batch files, only used if batch is True
             max_retries: The maximum number of retries to use for the LLM
             require_all_responses: Whether to require all responses
-            generation_kwargs: The generation kwargs to use for the LLM
+            generation_params: The generation kwargs to use for the LLM
         """
         self.prompt_formatter = PromptFormatter(
-            model_name, prompt_func, parse_func, response_format
+            model_name, prompt_func, parse_func, response_format, generation_params
         )
         self.batch_mode = batch
 
@@ -82,8 +82,6 @@ class LLM:
             self.backend = backend
         else:
             self.backend = self._determine_backend(model_name, response_format, batch)
-
-        # TODO based on generation_kwargs, use litellm to determine if these are supported and throw if not
 
         # Select request processor based on backend
         if self.backend == "openai":
@@ -105,7 +103,7 @@ class LLM:
                     delete_failed_batch_files=delete_failed_batch_files,
                     max_retries=max_retries,
                     require_all_responses=require_all_responses,
-                    generation_kwargs=generation_kwargs,
+                    generation_params=generation_params,
                 )
             else:
                 if batch_size is not None:
@@ -118,7 +116,7 @@ class LLM:
                     max_tokens_per_minute=max_tokens_per_minute,
                     max_retries=max_retries,
                     require_all_responses=require_all_responses,
-                    generation_kwargs=generation_kwargs,
+                    generation_params=generation_params,
                 )
         elif self.backend == "anthropic":
             if batch:
@@ -130,7 +128,7 @@ class LLM:
                     delete_failed_batch_files=delete_failed_batch_files,
                     max_retries=max_retries,
                     require_all_responses=require_all_responses,
-                    generation_kwargs=generation_kwargs,
+                    generation_params=generation_params,
                 )
             else:
                 raise ValueError("Online mode is not supported with Anthropic backend")
@@ -145,7 +143,7 @@ class LLM:
                 max_tokens_per_minute=max_tokens_per_minute,
                 max_retries=max_retries,
                 require_all_responses=require_all_responses,
-                generation_kwargs=generation_kwargs,
+                generation_params=generation_params,
             )
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
@@ -241,6 +239,11 @@ class LLM:
                 str(self.backend),
             ]
         )
+
+        if self.prompt_formatter.generation_params:
+            generation_params_str = str(sorted(self.prompt_formatter.generation_params.items()))
+            fingerprint_str += f"_{generation_params_str}"
+
         fingerprint = xxh64(fingerprint_str.encode("utf-8")).hexdigest()
         logger.debug(f"Curator Cache Fingerprint String: {fingerprint_str}")
         logger.debug(f"Curator Cache Fingerprint: {fingerprint}")

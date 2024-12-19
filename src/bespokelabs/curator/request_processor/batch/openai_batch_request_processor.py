@@ -16,7 +16,7 @@ from bespokelabs.curator.types.token_usage import TokenUsage
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
 from bespokelabs.curator.types.generic_batch import GenericBatch, GenericBatchRequestCounts
-from bespokelabs.curator.request_processor import OpenAIRequestMixin
+from bespokelabs.curator.request_processor.openai_request_mixin import OpenAIRequestMixin
 
 
 logger = logging.getLogger(__name__)
@@ -158,7 +158,7 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
         )
 
     def create_api_specific_request_batch(
-        self, generic_request: GenericRequest, generation_kwargs: dict | None = None
+        self, generic_request: GenericRequest, generation_params: dict | None = None
     ) -> dict:
         """
         Creates an API-specific request body from a generic request body.
@@ -181,7 +181,7 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
             "custom_id": str(generic_request.original_row_idx),
             "method": "POST",
             "url": "/v1/chat/completions",
-            "body": self.create_api_specific_request_online(generic_request, generation_kwargs),
+            "body": self.create_api_specific_request_online(generic_request, generation_params),
         }
 
         return request

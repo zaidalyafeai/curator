@@ -34,9 +34,14 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         batch_check_interval: int,
         max_retries: int | None = None,
         require_all_responses: bool = False,
-        generation_kwargs: dict | None = None,
+        generation_params: dict | None = None,
     ):
-        super().__init__(model, batch_size, require_all_responses, generation_kwargs)
+        super().__init__(
+            model=model,
+            batch_size=batch_size,
+            require_all_responses=require_all_responses,
+            generation_params=generation_params,
+        )
         self.check_interval: int = batch_check_interval
         self.delete_successful_batch_files: bool = delete_successful_batch_files
         self.delete_failed_batch_files: bool = delete_failed_batch_files
@@ -162,7 +167,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         pass
 
     @abstractmethod
-    def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
+    def create_api_specific_request_batch(self, generic_request: GenericRequest) -> dict:
         """Used in requests_from_generic_request_file --> submit_batch_from_request_file --> submit_batches_from_request_files"""
         pass
 
@@ -263,7 +268,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         with open(request_file, "r") as file:
             for line in file:
                 request = GenericRequest.model_validate_json(line.strip())
-                api_specific_request = self.create_api_specific_request(request)
+                api_specific_request = self.create_api_specific_request_batch(request)
                 api_specific_requests.append(json.dumps(api_specific_request))
 
         return api_specific_requests

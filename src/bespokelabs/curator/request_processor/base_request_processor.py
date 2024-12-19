@@ -35,12 +35,12 @@ class BaseRequestProcessor(ABC):
         model: str,
         batch_size: Optional[int] = None,
         require_all_responses: bool = True,
-        generation_kwargs: dict | None = None,
+        generation_params: dict | None = None,
     ):
         self.model = model
         self.batch_size = batch_size
         self.require_all_responses = require_all_responses
-        self.generation_kwargs = generation_kwargs
+        self.generation_params = generation_params or {}
         # Increase the number of open file descriptors to avoid "Too many open files" errors
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         desired_limit = min(10_000_000, hard)
@@ -49,10 +49,11 @@ class BaseRequestProcessor(ABC):
         )
         resource.setrlimit(resource.RLIMIT_NOFILE, (desired_limit, hard))
         self.supported_params = get_supported_openai_params(model=self.model)
-        for key in self.generation_kwargs.keys():
+        logger.debug(f"Supported params for {self.model}: {self.supported_params}")
+        for key in self.generation_params.keys():
             if key not in self.supported_params:
-                logger.warning(
-                    f"Generation parameter {key} is not supported for model {self.model}"
+                raise ValueError(
+                    f"Generation parameter '{key}' is not supported for model '{self.model}'"
                 )
 
     def run(
@@ -184,7 +185,7 @@ class BaseRequestProcessor(ABC):
         if dataset is None:
             with open(request_file, "w") as f:
                 generic_request = prompt_formatter.create_generic_request(dict(), 0)
-                generic_request.generation_kwargs = self.generation_kwargs
+                generic_request.generation_params = self.generation_params
                 f.write(json.dumps(generic_request.model_dump(), default=str) + "\n")
 
             metadata_dict = {"num_jobs": 1}
@@ -238,7 +239,7 @@ class BaseRequestProcessor(ABC):
                 dataset_row_idx = idx + start_idx
                 # Get the generic request from the map function
                 request = prompt_formatter.create_generic_request(dataset_row, dataset_row_idx)
-                request.generation_kwargs = self.generation_kwargs
+                request.generation_params = self.generation_params
                 await f.write(json.dumps(request.model_dump(), default=str) + "\n")
 
         num_requests = end_idx - start_idx

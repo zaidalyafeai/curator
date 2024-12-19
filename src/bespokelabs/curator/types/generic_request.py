@@ -1,6 +1,6 @@
 from typing import Any, Dict, List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 """A generic request model for LLM API requests.
 
@@ -20,4 +20,4 @@ class GenericRequest(BaseModel):
     response_format: Dict[str, Any] | None = None
     original_row: Dict[str, Any]
     original_row_idx: int
-    generation_kwargs: Dict[str, Any] | None = None
+    generation_params: Dict[str, Any] = Field(default_factory=dict)

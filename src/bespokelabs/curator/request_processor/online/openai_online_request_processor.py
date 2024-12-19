@@ -15,7 +15,7 @@ from bespokelabs.curator.request_processor import BaseOnlineRequestProcessor
 from bespokelabs.curator.status_tracker import OnlineStatusTracker
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import TokenUsage, GenericResponse
-from bespokelabs.curator.request_processor import OpenAIRequestMixin
+from bespokelabs.curator.request_processor.openai_request_mixin import OpenAIRequestMixin
 
 T = TypeVar("T")
 logger = logger = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
         max_tokens_per_minute: Optional[int] = None,
         require_all_responses: bool = None,
         max_retries: Optional[int] = None,
-        generation_kwargs: Optional[dict] = None,
+        generation_params: dict | None = None,
     ):
         super().__init__(
             model=model,
@@ -85,7 +85,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
             max_tokens_per_minute=max_tokens_per_minute,
             require_all_responses=require_all_responses,
             max_retries=max_retries,
-            generation_kwargs=generation_kwargs,
+            generation_params=generation_params,
         )
         self.url = url
         self.api_key = api_key
@@ -197,6 +197,13 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
                 return True
 
         return False
+
+    def create_api_specific_request_online(self, generic_request: GenericRequest) -> dict:
+        """Create an OpenAI-specific request from a generic request.
+
+        Delegates to the mixin implementation.
+        """
+        return OpenAIRequestMixin.create_api_specific_request_online(self, generic_request)
 
     async def call_single_request(
         self,
