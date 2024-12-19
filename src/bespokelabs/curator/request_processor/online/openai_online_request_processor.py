@@ -10,13 +10,12 @@ import tiktoken
 import litellm
 import time
 
-from bespokelabs.curator.request_processor.base_online_request_processor import (
-    BaseOnlineRequestProcessor,
-)
-from bespokelabs.curator.request_processor.base_online_request_processor import APIRequest
-from bespokelabs.curator.status_tracker.online_status_tracker import OnlineStatusTracker
+from bespokelabs.curator.request_processor import APIRequest
+from bespokelabs.curator.request_processor import BaseOnlineRequestProcessor
+from bespokelabs.curator.status_tracker import OnlineStatusTracker
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import TokenUsage, GenericResponse
+from bespokelabs.curator.request_processor import OpenAIRequestMixin
 
 T = TypeVar("T")
 logger = logger = logging.getLogger(__name__)
@@ -56,7 +55,7 @@ def api_endpoint_from_url(request_url: str) -> str:
         raise NotImplementedError(f'API endpoint "{request_url}" not implemented in Curator yet.')
 
 
-class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
+class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixin):
     """OpenAI-specific implementation of the OnlineRequestProcessor.
 
     Handles API requests to OpenAI's chat completion endpoints with rate limiting,
@@ -204,47 +203,6 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
                 return True
 
         return False
-
-    def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
-        """Create an OpenAI-specific request from a generic request.
-
-        Args:
-            generic_request (GenericRequest): Generic request object
-
-        Returns:
-            dict: OpenAI API-compatible request dictionary
-
-        Note:
-            - Handles JSON schema response format if specified
-            - Applies optional parameters (temperature, top_p, etc.)
-            - Maintains compatibility with both chat and completion endpoints
-        """
-        request: dict[str, Any] = {
-            "model": generic_request.model,
-            "messages": generic_request.messages,
-        }
-        if generic_request.response_format:
-            request["response_format"] = {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "output_schema",
-                    "schema": generic_request.response_format,
-                },
-            }
-
-        if self.temperature is not None:
-            request["temperature"] = self.temperature
-
-        if self.top_p is not None:
-            request["top_p"] = self.top_p
-
-        if self.presence_penalty is not None:
-            request["presence_penalty"] = self.presence_penalty
-
-        if self.frequency_penalty is not None:
-            request["frequency_penalty"] = self.frequency_penalty
-
-        return request
 
     async def call_single_request(
         self,

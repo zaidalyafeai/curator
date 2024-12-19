@@ -14,13 +14,9 @@ from xxhash import xxh64
 
 from bespokelabs.curator.db import MetadataDB
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
-from bespokelabs.curator.request_processor.litellm_online_request_processor import (
+from bespokelabs.curator.request_processor import (
     LiteLLMOnlineRequestProcessor,
-)
-from bespokelabs.curator.batch_manager.openai_batch_manager import (
-    OpenAIBatchRequestProcessor,
-)
-from bespokelabs.curator.request_processor.openai_online_request_processor import (
+    BaseBatchRequestProcessor,
     OpenAIOnlineRequestProcessor,
 )
 
@@ -104,7 +100,7 @@ class LLM:
                     logger.warning(
                         "max_requests_per_minute and max_tokens_per_minute not supported with batch mode"
                     )
-                self._request_processor = OpenAIBatchRequestProcessor(
+                self._request_processor = BaseBatchRequestProcessor(
                     model=model_name,
                     batch_size=batch_size,
                     temperature=temperature,

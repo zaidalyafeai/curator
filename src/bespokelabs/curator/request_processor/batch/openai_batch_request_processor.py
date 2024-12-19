@@ -12,18 +12,18 @@ from openai.types.file_object import FileObject
 from openai.types.batch_request_counts import BatchRequestCounts
 
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
-from bespokelabs.curator.request_processor.base_request_processor import parse_response_message
-from bespokelabs.curator.batch_manager.base_batch_manager import BaseBatchManager
+from bespokelabs.curator.request_processor import BaseBatchRequestProcessor
 from bespokelabs.curator.types.token_usage import TokenUsage
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
 from bespokelabs.curator.types.generic_batch import GenericBatch, GenericBatchRequestCounts
+from bespokelabs.curator.request_processor import OpenAIRequestMixin
 
 
 logger = logging.getLogger(__name__)
 
 
-class OpenAIBatchManager(BaseBatchManager):
+class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin):
     def __init__(
         self,
         working_dir: str,
@@ -52,7 +52,6 @@ class OpenAIBatchManager(BaseBatchManager):
             delete_successful_batch_files=delete_successful_batch_files,
             delete_failed_batch_files=delete_failed_batch_files,
             max_retries=max_retries,
-            working_dir=working_dir,
         )
         self.client = AsyncOpenAI(max_retries=self.max_retries_per_operation)
 
@@ -159,7 +158,9 @@ class OpenAIBatchManager(BaseBatchManager):
             response_cost=cost,
         )
 
-    def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
+    def create_api_specific_request_batch(
+        self, generic_request: GenericRequest, generation_kwargs: dict | None = None
+    ) -> dict:
         """
         Creates an API-specific request body from a generic request body.
 
@@ -177,43 +178,11 @@ class OpenAIBatchManager(BaseBatchManager):
                 - url: OpenAI chat completions endpoint
                 - body: Request parameters including model, messages, and optional formatting
         """
-        # NOTE(Ryan): We can have a shared place that creates the body (since it is the same for both openai online and batch).
-        if generic_request.response_format:
-            body = {
-                "model": generic_request.model,
-                "messages": generic_request.messages,
-                "response_format": {
-                    "type": "json_schema",
-                    "json_schema": {
-                        # NOTE(Ryan): we are not using strict: True
-                        "name": "output_schema",
-                        "schema": generic_request.response_format,
-                    },
-                },
-            }
-        else:
-            body = {
-                "model": generic_request.model,
-                "messages": generic_request.messages,
-            }
-
-        if self.temperature is not None:
-            body["temperature"] = self.temperature
-
-        if self.top_p is not None:
-            body["top_p"] = self.top_p
-
-        if self.presence_penalty is not None:
-            body["presence_penalty"] = self.presence_penalty
-
-        if self.frequency_penalty is not None:
-            body["frequency_penalty"] = self.frequency_penalty
-
         request = {
             "custom_id": str(generic_request.original_row_idx),
             "method": "POST",
             "url": "/v1/chat/completions",
-            "body": body,
+            "body": self.create_api_specific_request_online(generic_request, generation_kwargs),
         }
 
         return request

@@ -26,6 +26,7 @@ class BaseBatchManager:
         check_interval: int = 60,
         delete_successful_batch_files: bool = False,
         delete_failed_batch_files: bool = False,
+        max_retries: int = 50,
     ) -> None:
         """Initialize BatchManager to handle OpenAI batch processing operations.
 
@@ -48,7 +49,7 @@ class BaseBatchManager:
         self.batch_objects_file = f"{working_dir}/batch_objects.jsonl"
         self.batch_submit_pbar: tqdm | None = None
         self.request_pbar: tqdm | None = None
-        self.max_retries_per_operation = 50
+        self.max_retries_per_operation = max_retries
         self._attempt_loading_batch_status_tracker()
 
     @property
@@ -263,7 +264,6 @@ class BaseBatchManager:
             - Creates and updates batch submission progress bar
         """
         self.tracker.unsubmitted_request_files = request_files
-        await self.track_already_downloaded_batches()
         if self.tracker.n_submitted_batches > 0:
             remaining_batches = self.tracker.n_total_batches - self.tracker.n_downloaded_batches
             logger.info(

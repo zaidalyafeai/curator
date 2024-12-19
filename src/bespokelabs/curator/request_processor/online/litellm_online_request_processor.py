@@ -5,11 +5,9 @@ import litellm
 from litellm import get_supported_openai_params
 import datetime
 import instructor
-from bespokelabs.curator.request_processor.base_online_request_processor import (
-    BaseOnlineRequestProcessor,
-)
-from bespokelabs.curator.request_processor.base_online_request_processor import APIRequest
-from bespokelabs.curator.status_tracker.online_status_tracker import OnlineStatusTracker
+from bespokelabs.curator.request_processor import APIRequest
+from bespokelabs.curator.request_processor import BaseOnlineRequestProcessor
+from bespokelabs.curator.status_tracker import OnlineStatusTracker
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import TokenUsage, GenericResponse
 from pydantic import BaseModel

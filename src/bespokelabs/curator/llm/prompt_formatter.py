@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel, ValidationError
 
-from bespokelabs.curator.request_processor.generic_request import GenericRequest
+from bespokelabs.curator.types.generic_request import GenericRequest
 
 T = TypeVar("T")
 _DictOrBaseModel = Union[Dict[str, Any], BaseModel]

@@ -1,4 +1,3 @@
-import asyncio
 import datetime
 import logging
 import litellm
@@ -9,8 +8,7 @@ from anthropic.types.messages import MessageBatchRequestCounts
 from anthropic.types.shared.not_found_error import NotFoundError
 
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
-from bespokelabs.curator.request_processor.base_request_processor import parse_response_message
-from bespokelabs.curator.batch_manager.base_batch_manager import BaseBatchManager
+from bespokelabs.curator.request_processor import BaseBatchRequestProcessor
 from bespokelabs.curator.types.token_usage import TokenUsage
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
@@ -19,7 +17,7 @@ from bespokelabs.curator.types.generic_batch import GenericBatch, GenericBatchRe
 logger = logging.getLogger(__name__)
 
 
-class AnthropicBatchManager(BaseBatchManager):
+class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
     """
     Information about limits:
     https://docs.anthropic.com/en/api/creating-message-batches
@@ -53,7 +51,6 @@ class AnthropicBatchManager(BaseBatchManager):
             delete_successful_batch_files=delete_successful_batch_files,
             delete_failed_batch_files=delete_failed_batch_files,
             max_retries=max_retries,
-            working_dir=working_dir,
         )
         self.client = AsyncAnthropic(max_retries=self.max_retries_per_operation)
 

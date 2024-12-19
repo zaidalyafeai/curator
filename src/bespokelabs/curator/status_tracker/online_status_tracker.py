@@ -3,9 +3,6 @@ import time
 import tqdm
 
 from dataclasses import dataclass, field
-from bespokelabs.curator.request_processor.base_online_request_processor import (
-    SECONDS_TO_PAUSE_ON_RATE_LIMIT,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +26,7 @@ class OnlineStatusTracker:
     max_tokens_per_minute: int = 0
     pbar: tqdm = field(default=None)
     response_cost: float = 0
-    time_of_last_rate_limit_error: float = field(
-        default=time.time() - SECONDS_TO_PAUSE_ON_RATE_LIMIT
-    )
+    time_of_last_rate_limit_error: float = field(default=0.0)
 
     def __str__(self):
         return (

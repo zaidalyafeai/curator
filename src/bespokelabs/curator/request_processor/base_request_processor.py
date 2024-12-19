@@ -30,9 +30,17 @@ class BaseRequestProcessor(ABC):
     Base class for all request processors.
     """
 
-    def __init__(self, batch_size: Optional[int] = None, require_all_responses: bool = True):
+    def __init__(
+        self,
+        model: str,
+        batch_size: Optional[int] = None,
+        require_all_responses: bool = True,
+        generation_kwargs: dict | None = None,
+    ):
+        self.model = model
         self.batch_size = batch_size
         self.require_all_responses = require_all_responses
+        self.generation_kwargs = generation_kwargs
         # Increase the number of open file descriptors to avoid "Too many open files" errors
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         desired_limit = min(10_000_000, hard)
@@ -40,22 +48,6 @@ class BaseRequestProcessor(ABC):
             f"Adjusting file descriptor limit from {soft} to {desired_limit} (hard limit: {hard})"
         )
         resource.setrlimit(resource.RLIMIT_NOFILE, (desired_limit, hard))
-
-    @abstractmethod
-    def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
-        """
-        Creates a API-specific request body from a GenericRequest.
-
-        Must use request_body.metadata.dataset_row or request_body.metadata.dataset_row_idx
-
-        Note that the generic request body has both the original dataset row or the index of the row in the original dataset.
-        What you pass on depends on what is works with the API. For example, OpenAI and Anthropic offline batch API allows you to pass a custom_id (can be index).
-        For online, the api_parallel_processor can store the original dataset row in the metadata.
-
-        Returns:
-            dict: API specific request body
-        """
-        pass
 
     def run(
         self,
