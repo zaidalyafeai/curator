@@ -9,7 +9,7 @@ from tqdm import tqdm
 from abc import abstractmethod
 
 from bespokelabs.curator.status_tracker.batch_status_tracker import BatchStatusTracker
-from bespokelabs.curator.types.generic_batch import GenericBatch
+from bespokelabs.curator.types.generic_batch import GenericBatch, GenericBatchRequestCounts
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
@@ -106,7 +106,15 @@ class BaseBatchManager:
         pass
 
     @abstractmethod
-    def parse_api_specific_batch_object(self, batch: object) -> GenericBatch:
+    def parse_api_specific_batch_object(
+        self, batch: object, request_file: str | None = None
+    ) -> GenericBatch:
+        pass
+
+    @abstractmethod
+    def parse_api_specific_request_counts(
+        self, request_counts: object
+    ) -> GenericBatchRequestCounts:
         pass
 
     def _attempt_loading_batch_status_tracker(self):

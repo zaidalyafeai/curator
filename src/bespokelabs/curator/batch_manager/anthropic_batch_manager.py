@@ -9,12 +9,11 @@ from anthropic.types.beta.messages import BetaMessageBatchRequestCounts
 
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import parse_response_message
+from bespokelabs.curator.batch_manager.base_batch_manager import BaseBatchManager
 from bespokelabs.curator.types.token_usage import TokenUsage
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
-from bespokelabs.curator.batch_manager.base_batch_manager import BaseBatchManager
-from bespokelabs.curator.batch_manager.base_batch_manager import GenericBatch
-from bespokelabs.curator.types.generic_batch import GenericBatchRequestCounts
+from bespokelabs.curator.types.generic_batch import GenericBatch, GenericBatchRequestCounts
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +70,51 @@ class AnthropicBatchManager(BaseBatchManager):
     @property
     def max_concurrent_batch_operations(self) -> int:
         return 100
+
+    def parse_api_specific_request_counts(
+        self, request_counts: BetaMessageBatchRequestCounts
+    ) -> GenericBatchRequestCounts:
+        """
+        https://github.com/anthropics/anthropic-sdk-python/blob/e7c5fd1cf9226d73122870d07906664696da3ab8/src/anthropic/types/beta/messages/beta_message_batch_request_counts.py#L9
+        Request Counts (Anthropic): "processing", "canceled", "errored", "expired", "succeeded"
+        """
+        failed = request_counts.canceled + request_counts.errored + request_counts.expired
+        succeeded = request_counts.succeeded
+        processing = request_counts.processing
+        return GenericBatchRequestCounts(
+            failed=failed,
+            succeeded=succeeded,
+            total=processing + succeeded + failed,
+            raw_request_counts_object=request_counts.model_dump(),
+        )
+
+    def parse_api_specific_batch_object(
+        self, batch: BetaMessageBatch, request_file: str | None = None
+    ) -> GenericBatch:
+        """
+        https://github.com/anthropics/anthropic-sdk-python/blob/e7c5fd1cf9226d73122870d07906664696da3ab8/src/anthropic/types/beta/messages/beta_message_batch.py#L53
+        Batch Status (Anthropic): "in_progress", "canceling", "ended"
+
+        https://github.com/anthropics/anthropic-sdk-python/blob/e7c5fd1cf9226d73122870d07906664696da3ab8/src/anthropic/types/beta/messages/beta_message_batch.py#L20-L51
+        Timing (Anthropic): "created_at", "cancel_initiated_at", "archived_at", "ended_at", "expires_at"
+        """
+        if batch.processing_status in ["cancelling", "in_progress"]:
+            status = "submitted"
+        elif batch.processing_status in ["ended"]:
+            status = "finished"
+        else:
+            raise ValueError(f"Unknown batch status: {batch.processing_status}")
+
+        return GenericBatch(
+            request_file=request_file,
+            id=batch.id,
+            created_at=batch.created_at,
+            finished_at=batch.ended_at,
+            status=status,
+            api_key_suffix=self.client.api_key[-4:],
+            request_counts=self.parse_api_specific_request_counts(batch.request_counts),
+            raw_batch=batch.model_dump(),
+        )
 
     def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
         """

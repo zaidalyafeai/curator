@@ -12,12 +12,11 @@ from openai.types.batch_request_counts import BatchRequestCounts
 
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import parse_response_message
+from bespokelabs.curator.batch_manager.base_batch_manager import BaseBatchManager
 from bespokelabs.curator.types.token_usage import TokenUsage
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
-from bespokelabs.curator.batch_manager.base_batch_manager import BaseBatchManager
-from bespokelabs.curator.batch_manager.base_batch_manager import GenericBatch
-from bespokelabs.curator.types.generic_batch import GenericBatchRequestCounts
+from bespokelabs.curator.types.generic_batch import GenericBatch, GenericBatchRequestCounts
 
 
 logger = logging.getLogger(__name__)
@@ -68,7 +67,30 @@ class OpenAIBatchManager(BaseBatchManager):
     def max_concurrent_batch_operations(self) -> int:
         return 100
 
-    def parse_api_specific_batch_object(self, batch: object) -> GenericBatch:
+    def parse_api_specific_request_counts(
+        self, request_counts: BatchRequestCounts
+    ) -> GenericBatchRequestCounts:
+        """
+        https://github.com/openai/openai-python/blob/6e1161bc3ed20eef070063ddd5ac52fd9a531e88/src/openai/types/batch_request_counts.py#L9
+        Request Counts (OpenAI): "completed", "failed", "total"
+        """
+        return GenericBatchRequestCounts(
+            failed=request_counts.failed,
+            succeeded=request_counts.completed,
+            total=request_counts.total,
+            raw_request_counts_object=request_counts.model_dump(),
+        )
+
+    def parse_api_specific_batch_object(
+        self, batch: Batch, request_file: str | None = None
+    ) -> GenericBatch:
+        """
+        https://github.com/openai/openai-python/blob/995cce048f9427bba4f7ac1e5fc60abbf1f8f0b7/src/openai/types/batch.py#L40C1-L41C1
+        Batch Status (OpenAI): "validating", "finalizing", "cancelling", "in_progress", "completed", "failed", "expired", "cancelled"
+
+        https://github.com/openai/openai-python/blob/bb9c2de913279acc89e79f6154173a422f31de45/src/openai/types/batch.py#L27-L71
+        Timing (OpenAI): "created_at", "in_progress_at", "expires_at", "finalizing_at", "completed_at", "failed_at", "expired_at", "cancelling_at", "cancelled_at"
+        """
         if batch.status in ["validating", "finalizing", "cancelling", "in_progress"]:
             status = "submitted"
         elif batch.status in ["completed", "failed", "expired", "cancelled"]:
@@ -76,23 +98,18 @@ class OpenAIBatchManager(BaseBatchManager):
         else:
             raise ValueError(f"Unknown batch status: {batch.status}")
 
-        request_counts = GenericBatchRequestCounts(
-            completed=batch.request_counts.completed,
-            failed=batch.request_counts.failed,
-            succeeded=batch.request_counts.completed,  # OpenAI uses "completed" for succeeded
-            total=batch.request_counts.total,
-            raw_request_counts_object=batch.request_counts.model_dump(),
+        finished_at = (
+            batch.completed_at or batch.failed_at or batch.expired_at or batch.cancelled_at
         )
 
         return GenericBatch(
-            request_file=batch.request_file,
+            request_file=batch.metadata["request_file"],
             id=batch.id,
-            output=batch.output,
             created_at=batch.created_at,
-            finished_at=batch.finished_at,
+            finished_at=finished_at,
             status=status,
             api_key_suffix=self.client.api_key[-4:],
-            request_counts=request_counts,
+            request_counts=self.parse_api_specific_request_counts(batch.request_counts),
             raw_batch=batch.model_dump(),
         )
 
