@@ -3,7 +3,7 @@ from datasets import Dataset
 import logging
 import argparse
 
-# python tests/batch/simple_batch.py --log-level DEBUG --n-requests 3 --batch-size 1 --batch-check-interval 10
+# python tests/batch/simple_batch.py --log-level DEBUG --n-requests 3 --batch-size 1 --batch-check-interval 10 --model gpt-4o-mini
 
 
 def main(args):

@@ -90,7 +90,7 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
         self,
         raw_response: dict,
         generic_request: GenericRequest,
-        batch_created_at: datetime.datetime,
+        batch: GenericBatch,
     ) -> GenericResponse:
         if raw_response["response"]["status_code"] != 200:
             response_message = None
@@ -108,12 +108,12 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
                 total_tokens=usage.get("total_tokens", 0),
             )
             response_message, response_errors = self.prompt_formatter.parse_response_message(
-                response_message_raw, self.prompt_formatter.response_format
+                response_message_raw
             )
 
             cost = litellm.completion_cost(
                 model=self.config.model,
-                prompt=str(self.generic_request.messages),
+                prompt=str(generic_request.messages),
                 completion=response_message,
             )
             cost *= 0.5  # 50% off for batch
@@ -124,15 +124,13 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
             raw_response=raw_response,
             raw_request=None,
             generic_request=generic_request,
-            created_at=batch_created_at,
-            finished_at=datetime.datetime.now(),
+            created_at=batch.created_at,
+            finished_at=batch.finished_at,
             token_usage=token_usage,
             response_cost=cost,
         )
 
-    def create_api_specific_request_batch(
-        self, generic_request: GenericRequest, generation_params: dict | None = None
-    ) -> dict:
+    def create_api_specific_request_batch(self, generic_request: GenericRequest) -> dict:
         """
         Creates an API-specific request body from a generic request body.
 
@@ -154,7 +152,7 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
             "custom_id": str(generic_request.original_row_idx),
             "method": "POST",
             "url": "/v1/chat/completions",
-            "body": self.create_api_specific_request_online(generic_request, generation_params),
+            "body": self.create_api_specific_request_online(generic_request),
         }
 
         return request
@@ -272,10 +270,10 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
         openai_batch = Batch.model_validate(batch.raw_batch)
         async with self.semaphore:
             # Completed batches have an output file
-            if batch.output_file_id:
-                output_file_content = await self.client.files.content(batch.output_file_id)
-            if batch.error_file_id:
-                error_file_content = await self.client.files.content(batch.error_file_id)
+            if openai_batch.output_file_id:
+                output_file_content = await self.client.files.content(openai_batch.output_file_id)
+            if openai_batch.error_file_id:
+                error_file_content = await self.client.files.content(openai_batch.error_file_id)
 
             if openai_batch.status == "completed" and openai_batch.output_file_id:
                 logger.debug(f"Batch {batch.id} completed and downloaded")
@@ -309,9 +307,10 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
                     await self.delete_file(openai_batch.output_file_id, self.semaphore)
 
         responses = []
-        for line in output_file_content.text.splitlines():
-            raw_response = json.loads(line)
-            responses.append(str(raw_response))
+        if output_file_content:
+            for line in output_file_content.text.splitlines():
+                raw_response = json.loads(line)
+                responses.append(raw_response)
         return responses
 
     async def cancel_batch(self, batch: GenericBatch) -> int:

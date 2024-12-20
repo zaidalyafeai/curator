@@ -115,7 +115,7 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
         self,
         raw_response: dict,
         generic_request: GenericRequest,
-        batch_created_at: datetime.datetime,
+        batch: GenericBatch,
     ) -> GenericResponse:
         if raw_response["result"]["type"] != "succeeded":
             response_message = None
@@ -135,12 +135,12 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
                 total_tokens=usage.get("total_tokens", 0),
             )
             response_message, response_errors = self.prompt_formatter.parse_response_message(
-                response_message_raw, self.prompt_formatter.response_format
+                response_message_raw
             )
 
             cost = litellm.completion_cost(
                 model=self.config.model,
-                prompt=str(self.generic_request.messages),
+                prompt=str(generic_request.messages),
                 completion=response_message,
             )
             cost *= 0.5  # 50% off for batch
@@ -151,8 +151,8 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
             raw_response=raw_response,
             raw_request=None,
             generic_request=generic_request,
-            created_at=batch_created_at,
-            finished_at=datetime.datetime.now(),
+            created_at=batch.created_at,
+            finished_at=batch.finished_at,
             token_usage=token_usage,
             response_cost=cost,
         )
@@ -177,18 +177,18 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
                 batch, request_file=metadata["request_file"]
             )
 
-    async def retrieve_batch(self, batch_id: str) -> GenericBatch:
+    async def retrieve_batch(self, batch: GenericBatch) -> GenericBatch:
         async with self.semaphore:
             try:
-                batch = await self.client.messages.batches.retrieve(batch_id)
+                batch = await self.client.messages.batches.retrieve(batch.id)
             except NotFoundError:
                 logger.warning(
-                    f"batch object {batch_id} not found. "
+                    f"batch object {batch.id} not found. "
                     f"Your API key (***{self.client.api_key[-4:]}) might not have access to this batch."
                 )
                 return None
 
-            request_file = self.tracker.submitted_batches[batch_id].request_file
+            request_file = self.tracker.submitted_batches[batch.id].request_file
             return self.parse_api_specific_batch_object(batch, request_file=request_file)
 
     async def download_batch(self, batch: GenericBatch) -> list[dict] | None:

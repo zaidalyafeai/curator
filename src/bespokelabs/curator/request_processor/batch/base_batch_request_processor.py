@@ -61,7 +61,6 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         self.batch_objects_file = f"{self.working_dir}/batch_objects.jsonl"
         self.batch_submit_pbar: tqdm | None = None
         self.request_pbar: tqdm | None = None
-        self._attempt_loading_batch_status_tracker()
 
         run_in_event_loop(self.submit_batches_from_request_files(generic_request_files))
         run_in_event_loop(self.poll_and_process_batches())
@@ -115,7 +114,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         self,
         raw_response: dict,
         generic_request: GenericRequest,
-        batch_created_at: datetime.datetime,
+        batch: GenericBatch,
     ) -> GenericResponse:
         """Used in generic_response_file_from_responses --> download_batch_to_response_file --> poll_and_process_batches"""
         pass
@@ -137,13 +136,13 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
     ) -> GenericBatchRequestCounts:
         pass
 
-    def _attempt_loading_batch_status_tracker(self):
+    def _attempt_loading_batch_status_tracker(self, request_files: set[str]):
         if os.path.exists(self.batch_objects_file):
             with open(self.batch_objects_file, "r") as f:
                 self.tracker = BatchStatusTracker.model_validate_json(f.read())
             logger.info(f"Loaded existing tracker from {self.batch_objects_file}:\n{self.tracker}")
         else:
-            self.tracker = BatchStatusTracker()
+            self.tracker = BatchStatusTracker(unsubmitted_request_files=set(request_files))
 
     async def update_batch_objects_file(self):
         """Updates the batch objects file with the current tracker state."""
@@ -203,7 +202,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         metadata = {"request_file": request_file}
         requests = self.requests_from_generic_request_file(request_file)
         batch = await self.submit_batch(requests, metadata)
-        self.tracker.mark_as_submitted(request_file, batch, len(requests))
+        self.tracker.mark_as_submitted(batch, len(requests))
         await self.update_batch_objects_file()
         self.batch_submit_pbar.update(1)
 
@@ -252,7 +251,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         request_file = batch.request_file
         response_file = request_file.replace("requests_", "responses_")
         generic_request_map = {}
-        batch_created_at = datetime.datetime.fromtimestamp(batch.created_at)
+        batch_created_at = batch.created_at
         with open(request_file, "r") as f:
             for line in f:
                 generic_request = GenericRequest.model_validate_json(line)
@@ -263,7 +262,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
                 request_idx = int(raw_response["custom_id"])
                 generic_request = generic_request_map[request_idx]
                 generic_response = self.parse_api_specific_response(
-                    raw_response, generic_request, batch_created_at
+                    raw_response, generic_request, batch
                 )
                 json.dump(generic_response.model_dump(), f, default=str)
                 f.write("\n")
@@ -282,11 +281,12 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             - Updates tracker with batch statuses
             - Creates and updates batch submission progress bar
         """
-        self.tracker.unsubmitted_request_files = request_files
+        self._attempt_loading_batch_status_tracker(request_files)
         if self.tracker.n_submitted_batches > 0:
-            remaining_batches = self.tracker.n_total_batches - self.tracker.n_downloaded_batches
+            n_remaining = self.tracker.n_total_batches - self.tracker.n_downloaded_batches
+            n_submitted = self.tracker.n_submitted_batches + self.tracker.n_finished_batches
             logger.info(
-                f"{self.tracker.n_submitted_batches:,} out of {remaining_batches:,} remaining batches are already submitted."
+                f"{n_submitted:,} out of {n_remaining:,} remaining batches previously submitted."
             )
         # exit early
         if self.tracker.n_unsubmitted_request_files == 0:
@@ -305,11 +305,8 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         await asyncio.gather(*tasks)
         self.batch_submit_pbar.close()
         assert self.tracker.unsubmitted_request_files == set()
-        logger.debug(
-            f"All batch objects submitted and written to {self.submitted_batch_objects_file}"
-        )
 
-    async def check_batch_status(self, batch_id: str) -> GenericBatch | None:
+    async def check_batch_status(self, batch: GenericBatch) -> GenericBatch | None:
         """
         Checks the current status of a batch job.
 
@@ -324,7 +321,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             - Updates request completion counts
         """
         async with self.semaphore:
-            batch = await self.retrieve_batch(batch_id)
+            batch = await self.retrieve_batch(batch)
             if batch is None:
                 return None
             self.tracker.update_submitted(batch)
@@ -334,7 +331,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             n_total_requests = batch.request_counts.total
 
             logger.debug(
-                f"Batch {batch.id} status: {batch.status} requests: "
+                f"Batch {batch.id} status: {batch.raw_status} requests: "
                 f"{n_succeeded_requests}/{n_failed_requests}/{n_total_requests} "
                 "succeeded/failed/total"
             )
@@ -342,8 +339,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             if batch.status == "finished":
                 logger.debug(f"Batch {batch.id} finished with status: {batch.raw_status}")
                 self.tracker.mark_as_finished(batch)
-
-            return batch
+                return batch
 
     async def poll_and_process_batches(self) -> None:
         """Monitors and processes batches until all are completed.
@@ -376,11 +372,14 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         while self.tracker.n_submitted_batches > 0:
             # check batch status also updates the tracker
             status_tasks = [
-                self.check_batch_status(batch_id) for batch_id in self.tracker.submitted_batches
+                self.check_batch_status(batch) for batch in self.tracker.submitted_batches.values()
             ]
-            await self.update_batch_objects_file()
             batches_to_download = await asyncio.gather(*status_tasks)
-            batches_to_download = filter(None, batches_to_download)
+            batches_to_download = list(filter(None, batches_to_download))
+            await self.update_batch_objects_file()
+
+            # in case script crashed between checking and downloading batches
+            batches_to_download += list(self.tracker.finished_batches.values())
 
             # update progress bari
             self.request_pbar.n = self.tracker.n_finished_or_downloaded_requests
@@ -396,8 +395,8 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
                     f"Batches returned: {self.tracker.n_finished_or_downloaded_batches:,}/{self.tracker.n_total_batches:,} "
                     f"Requests completed: {self.tracker.n_finished_or_downloaded_requests:,}/{self.tracker.n_total_requests:,}"
                 )
-                logger.debug(f"Sleeping for {self.config.check_interval} seconds...")
-                await asyncio.sleep(self.config.check_interval)
+                logger.debug(f"Sleeping for {self.config.batch_check_interval} seconds...")
+                await asyncio.sleep(self.config.batch_check_interval)
 
         self.request_pbar.close()
         response_files = filter(None, all_response_files)
@@ -449,5 +448,5 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         if self.tracker.n_submitted_batches == 0:
             logger.warning("No batches to be cancelled, but cancel_batches=True.")
             return
-        tasks = [self.cancel_batch(batch) for batch in self.tracker.submitted_batches]
+        tasks = [self.cancel_batch(batch) for batch in self.tracker.submitted_batches.values()]
         results = await asyncio.gather(*tasks)

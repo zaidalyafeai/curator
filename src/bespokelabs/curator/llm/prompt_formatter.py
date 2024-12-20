@@ -140,3 +140,18 @@ class PromptFormatter:
                 f"The model likely returned a JSON that does not match the schema of the `response_format`."
             )
             raise e
+
+    def parse_response_message(
+        self, response_message: str
+    ) -> tuple[Optional[dict | str], Optional[list[str]]]:
+        response_errors = None
+        if self.response_format:
+            try:
+                response_message = json.loads(response_message)
+            except json.JSONDecodeError:
+                logger.warning(
+                    f"Failed to parse response as JSON: {response_message}, skipping this response."
+                )
+                response_message = None
+                response_errors = [f"Failed to parse response as JSON: {response_message}"]
+        return response_message, response_errors

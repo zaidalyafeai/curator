@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class BatchStatusTracker(BaseModel):
     n_total_requests: int = Field(default=0)
-    unsubmitted_request_files: list[str] = Field(default_factory=list)
+    unsubmitted_request_files: set[str] = Field(default_factory=set)
     submitted_batches: dict[str, GenericBatch] = Field(default_factory=dict)
     finished_batches: dict[str, GenericBatch] = Field(default_factory=dict)
     downloaded_batches: dict[str, GenericBatch] = Field(default_factory=dict)
@@ -41,12 +41,12 @@ class BatchStatusTracker(BaseModel):
     @property
     def n_finished_requests(self) -> int:
         batches = list(self.submitted_batches.values()) + list(self.finished_batches.values())
-        return sum(b.request_counts.completed + b.request_counts.failed for b in batches)
+        return sum(b.request_counts.succeeded + b.request_counts.failed for b in batches)
 
     @property
     def n_downloaded_requests(self) -> int:
         batches = list(self.downloaded_batches.values())
-        return sum(b.request_counts.completed + b.request_counts.failed for b in batches)
+        return sum(b.request_counts.succeeded + b.request_counts.failed for b in batches)
 
     @property
     def n_finished_or_downloaded_requests(self) -> int:

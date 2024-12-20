@@ -396,19 +396,3 @@ class BaseRequestProcessor(ABC):
                     )
 
         return Dataset.from_file(dataset_file)
-
-
-def parse_response_message(
-    response_message: str, response_format: Optional[BaseModel]
-) -> tuple[Optional[dict | str], Optional[list[str]]]:
-    response_errors = None
-    if response_format:
-        try:
-            response_message = json.loads(response_message)
-        except json.JSONDecodeError:
-            logger.warning(
-                f"Failed to parse response as JSON: {response_message}, skipping this response."
-            )
-            response_message = None
-            response_errors = [f"Failed to parse response as JSON: {response_message}"]
-    return response_message, response_errors
