@@ -151,7 +151,6 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
                 {"role": "user", "content": "hi"}
             ],  # Some models (e.g. Claude) require an non-empty message to get rate limits.
         )
-        print(completion)
         # Try the method of caculating cost
         try:
             litellm.completion_cost(completion_response=completion.model_dump())
