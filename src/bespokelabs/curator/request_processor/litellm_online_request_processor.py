@@ -298,7 +298,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         # Calculate cost using litellm
         try:
             cost = litellm.completion_cost(completion_response=completion_obj.model_dump())
-        except Exception as e:  
+        except Exception as e:
             # We should ideally not catch a catch-all exception here. But litellm is not throwing any specific error.
             cost = 0
 
