@@ -132,6 +132,11 @@ class LLM:
             raise ValueError(f"Unknown backend: {self.backend}")
 
     @staticmethod
+    def _check_openai_structured_output_support(model_name: str) -> bool:
+        config = OnlineRequestProcessorConfig(model=model_name)
+        return OpenAIOnlineRequestProcessor(config).check_structured_output_support()
+
+    @staticmethod
     def _determine_backend(
         model_name: str, response_format: Optional[Type[BaseModel]] = None, batch: bool = False
     ) -> str:
@@ -147,10 +152,7 @@ class LLM:
         model_name = model_name.lower()
 
         # GPT-4o models with response format should use OpenAI
-        if (
-            response_format
-            and OpenAIOnlineRequestProcessor(model_name).check_structured_output_support()
-        ):
+        if response_format and LLM._check_openai_structured_output_support(model_name):
             logger.info(f"Requesting structured output from {model_name}, using OpenAI backend")
             return "openai"
 

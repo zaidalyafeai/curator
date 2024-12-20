@@ -178,8 +178,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         }
 
         for key, value in generic_request.generation_params.items():
-            if key in self.supported_params:
-                request[key] = value
+            request[key] = value
 
         # Add safety settings for Gemini models
         if "gemini" in generic_request.model.lower():

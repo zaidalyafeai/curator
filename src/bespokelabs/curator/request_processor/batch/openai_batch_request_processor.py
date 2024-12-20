@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin):
     def __init__(self, config: BatchRequestProcessorConfig) -> None:
         super().__init__(config)
-        self.client = AsyncOpenAI(max_retries=self.config.max_retries_per_operation)
+        self.client = AsyncOpenAI(max_retries=self.config.max_retries)
 
     @property
     def max_requests_per_batch(self) -> int:

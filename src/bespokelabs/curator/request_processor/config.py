@@ -29,22 +29,19 @@ class RequestProcessorConfig:
     request_timeout: int = 10 * 60
     require_all_responses: bool = True
     generation_params: dict = field(default_factory=dict)
-    supported_params: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         _verify_non_negative(self.max_retries, "max_retries")
 
-        if not self.supported_params:
-            self.supported_params = get_supported_openai_params(model=self.model)
-            logger.debug(
-                f"Automatically detected supported params for {self.model}: {self.supported_params}"
-            )
+        self.supported_params = get_supported_openai_params(model=self.model)
+        logger.debug(
+            f"Automatically detected supported params for {self.model}: {self.supported_params}"
+        )
 
         for key in self.generation_params.keys():
-            if key not in self.supported_params:
-                raise ValueError(
-                    f"Generation parameter '{key}' is not supported for model '{self.model}'"
-                )
+            raise ValueError(
+                f"Generation parameter '{key}' is not supported for model '{self.model}'"
+            )
 
 
 @dataclass

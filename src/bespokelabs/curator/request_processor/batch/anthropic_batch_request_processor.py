@@ -27,7 +27,7 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
 
     def __init__(self, config: BatchRequestProcessorConfig) -> None:
         super().__init__(config)
-        self.client = AsyncAnthropic(max_retries=self.config.max_retries_per_operation)
+        self.client = AsyncAnthropic(max_retries=self.config.max_retries)
 
     @property
     def max_requests_per_batch(self) -> int:
@@ -102,8 +102,7 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
             params["messages"] = generic_request.messages
 
         for key, value in generic_request.generation_params.items():
-            if key in self.supported_params:
-                params[key] = value
+            params[key] = value
 
         request = {
             "custom_id": str(generic_request.original_row_idx),

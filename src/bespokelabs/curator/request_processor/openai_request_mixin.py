@@ -36,7 +36,6 @@ class OpenAIRequestMixin:
             }
 
         for key, value in generic_request.generation_params.items():
-            if key in self.supported_params:
-                request[key] = value
+            request[key] = value
 
         return request
