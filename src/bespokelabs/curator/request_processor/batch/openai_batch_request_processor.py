@@ -103,6 +103,10 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
             response_message_raw = response_body["choices"][0]["message"]["content"]
             usage = response_body.get("usage", {})
 
+            # TODO(Ryan) will want to resubmit requests like in the online case
+            # if we get length?
+            # can use litellm and my pr https://github.com/BerriAI/litellm/pull/7264
+            # resubmission also related to the expiration
             token_usage = TokenUsage(
                 prompt_tokens=usage.get("prompt_tokens", 0),
                 completion_tokens=usage.get("completion_tokens", 0),

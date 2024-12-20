@@ -129,6 +129,11 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
         else:
             response_body = raw_response["result"]["message"]
             response_message_raw = response_body["content"][0]["text"]
+            # TODO(Ryan) will want to resubmit requests like in the online case
+            # if we get max_tokens?
+            # end_turn, max_tokens, stop_sequence, tool_use
+            stop_reason = response_body["stop_reason"]
+            stop_sequence = response_body["stop_sequence"]
             usage = response_body.get("usage", {})
 
             token_usage = TokenUsage(
