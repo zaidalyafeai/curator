@@ -27,7 +27,7 @@ from bespokelabs.curator.request_processor.config import (
 
 _CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")
-_DictOrBaseModel = Union[Dict[str, Any], BaseModel]
+_DictOrBaseModel = Dict[str, Any] | BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -39,21 +39,20 @@ class LLM:
         self,
         model_name: str,
         prompt_func: Callable[[_DictOrBaseModel], _DictOrBaseModel],
-        parse_func: Optional[
-            Callable[[_DictOrBaseModel, _DictOrBaseModel], _DictOrBaseModel]
-        ] = None,
-        response_format: Optional[Type[BaseModel]] = None,
+        parse_func: Callable[[_DictOrBaseModel, _DictOrBaseModel], _DictOrBaseModel] | None = None,
+        response_format: Type[BaseModel] | None = None,
         batch: bool = False,
-        backend: Optional[str] = None,
-        max_requests_per_minute: Optional[int] = None,
-        max_tokens_per_minute: Optional[int] = None,
-        batch_size: Optional[int] = None,
-        batch_check_interval: Optional[int] = None,
-        delete_successful_batch_files: bool = None,
-        delete_failed_batch_files: bool = None,
-        max_retries: Optional[int] = None,
-        require_all_responses: Optional[bool] = None,
+        backend: str | None = None,
+        max_requests_per_minute: int | None = None,
+        max_tokens_per_minute: int | None = None,
+        batch_size: int | None = None,
+        batch_check_interval: int | None = None,
+        delete_successful_batch_files: bool | None = None,
+        delete_failed_batch_files: bool | None = None,
+        max_retries: int | None = None,
+        require_all_responses: bool | None = None,
         generation_params: dict | None = None,
+        seconds_to_pause_on_rate_limit: int | None = None,
     ):
         """Initialize a LLM.
 
@@ -74,7 +73,11 @@ class LLM:
             max_retries: The maximum number of retries to use for the LLM
             require_all_responses: Whether to require all responses
             generation_params: The generation kwargs to use for the LLM
+            seconds_to_pause_on_rate_limit: The number of seconds to pause for if a rate limit error occurs
         """
+        if generation_params is None:
+            generation_params = {}
+
         self.prompt_formatter = PromptFormatter(
             model_name, prompt_func, parse_func, response_format, generation_params
         )
@@ -86,24 +89,31 @@ class LLM:
             self.backend = self._determine_backend(model_name, response_format, batch)
 
         if batch:
+            config_params = {
+                "model": model_name,
+                "batch_size": batch_size,
+                "batch_check_interval": batch_check_interval,
+                "delete_successful_batch_files": delete_successful_batch_files,
+                "delete_failed_batch_files": delete_failed_batch_files,
+                "max_retries": max_retries,
+                "require_all_responses": require_all_responses,
+                "generation_params": generation_params,
+            }
             config = BatchRequestProcessorConfig(
-                model=model_name,
-                batch_size=batch_size,
-                batch_check_interval=batch_check_interval,
-                delete_successful_batch_files=delete_successful_batch_files,
-                delete_failed_batch_files=delete_failed_batch_files,
-                max_retries=max_retries,
-                require_all_responses=require_all_responses,
-                generation_params=generation_params,
+                **{k: v for k, v in config_params.items() if v is not None}
             )
         else:
+            config_params = {
+                "model": model_name,
+                "max_requests_per_minute": max_requests_per_minute,
+                "max_tokens_per_minute": max_tokens_per_minute,
+                "max_retries": max_retries,
+                "require_all_responses": require_all_responses,
+                "generation_params": generation_params,
+                "seconds_to_pause_on_rate_limit": seconds_to_pause_on_rate_limit,
+            }
             config = OnlineRequestProcessorConfig(
-                model=model_name,
-                max_requests_per_minute=max_requests_per_minute,
-                max_tokens_per_minute=max_tokens_per_minute,
-                max_retries=max_retries,
-                require_all_responses=require_all_responses,
-                generation_params=generation_params,
+                **{k: v for k, v in config_params.items() if v is not None}
             )
 
         if self.backend == "openai" and not batch:

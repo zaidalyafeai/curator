@@ -234,7 +234,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
                     await self.client.chat.completions.create_with_completion(
                         **request.api_specific_request,
                         response_model=request.prompt_formatter.response_format,
-                        timeout=self.timeout,
+                        timeout=self.config.request_timeout,
                     )
                 )
                 response_message = (
@@ -242,7 +242,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
                 )
             else:
                 completion_obj = await litellm.acompletion(
-                    **request.api_specific_request, timeout=self.timeout
+                    **request.api_specific_request, timeout=self.config.request_timeout
                 )
                 response_message = completion_obj["choices"][0]["message"]["content"]
         except litellm.RateLimitError as e:

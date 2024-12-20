@@ -119,6 +119,14 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 )
             )
 
+    async def cool_down_if_rate_limit_error(self, status_tracker: OnlineStatusTracker) -> None:
+        seconds_to_pause_on_rate_limit = self.config.seconds_to_pause_on_rate_limit
+        seconds_since_rate_limit_error = time.time() - status_tracker.time_of_last_rate_limit_error
+        remaining_seconds_to_pause = seconds_to_pause_on_rate_limit - seconds_since_rate_limit_error
+        if remaining_seconds_to_pause > 0:
+            logger.warn(f"Pausing for {int(remaining_seconds_to_pause)} seconds")
+            await asyncio.sleep(remaining_seconds_to_pause)
+
     async def process_requests_from_file(
         self,
         generic_request_filepath: str,
@@ -225,9 +233,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
 
         # Use higher connector limit for better throughput
         connector = aiohttp.TCPConnector(limit=10 * status_tracker.max_requests_per_minute)
-        async with aiohttp.ClientSession(
-            connector=connector
-        ) as session:  # Initialize ClientSession here
+        async with aiohttp.ClientSession(connector=connector) as session:
             async with aiofiles.open(generic_request_filepath) as file:
                 pending_requests = []
 
@@ -244,7 +250,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                         api_specific_request=self.create_api_specific_request_online(
                             generic_request
                         ),
-                        attempts_left=self.max_retries,
+                        attempts_left=self.config.max_retries,
                         prompt_formatter=self.prompt_formatter,
                     )
 
@@ -255,17 +261,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                         await asyncio.sleep(0.1)
 
                     # Wait for rate limits cool down if needed
-                    seconds_since_rate_limit_error = (
-                        time.time() - status_tracker.time_of_last_rate_limit_error
-                    )
-                    if seconds_since_rate_limit_error < SECONDS_TO_PAUSE_ON_RATE_LIMIT:
-                        remaining_seconds_to_pause = (
-                            SECONDS_TO_PAUSE_ON_RATE_LIMIT - seconds_since_rate_limit_error
-                        )
-                        await asyncio.sleep(remaining_seconds_to_pause)
-                        logger.warn(
-                            f"Pausing to cool down for {int(remaining_seconds_to_pause)} seconds"
-                        )
+                    await self.cool_down_if_rate_limit_error(status_tracker)
 
                     # Consume capacity before making request
                     status_tracker.consume_capacity(token_estimate)
@@ -297,10 +293,10 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     token_estimate = self.estimate_total_tokens(
                         retry_request.generic_request.messages
                     )
-                    attempt_number = self.max_retries - retry_request.attempts_left
+                    attempt_number = self.config.max_retries - retry_request.attempts_left
                     logger.debug(
                         f"Retrying request {retry_request.task_id} "
-                        f"(attempt #{attempt_number} of {self.max_retries})"
+                        f"(attempt #{attempt_number} of {self.config.max_retries})"
                         f"Previous errors: {retry_request.result}"
                     )
 
@@ -383,13 +379,13 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 request.attempts_left -= 1
                 logger.warning(
                     f"Encountered '{e.__class__.__name__}: {e}' during attempt "
-                    f"{self.max_retries - request.attempts_left} of {self.max_retries} "
+                    f"{self.config.max_retries - request.attempts_left} of {self.config.max_retries} "
                     f"while processing request {request.task_id}"
                 )
                 retry_queue.put_nowait(request)
             else:
                 logger.error(
-                    f"Request {request.task_id} failed permanently after exhausting all {self.max_retries} retry attempts. "
+                    f"Request {request.task_id} failed permanently after exhausting all {self.config.max_retries} retry attempts. "
                     f"Errors: {[str(e) for e in request.result]}"
                 )
                 generic_response = GenericResponse(

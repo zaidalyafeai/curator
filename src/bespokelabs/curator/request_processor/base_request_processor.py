@@ -12,7 +12,6 @@ import aiofiles
 import pyarrow
 from datasets import Dataset
 from datasets.arrow_writer import ArrowWriter
-from litellm import get_supported_openai_params
 from pydantic import BaseModel, ValidationError
 
 from bespokelabs.curator.file_utilities import count_lines
@@ -20,6 +19,7 @@ from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.types.generic_response import GenericResponse
 from bespokelabs.curator.request_processor.config import RequestProcessorConfig
+from bespokelabs.curator.request_processor.config import BatchRequestProcessorConfig
 
 logger = logger = logging.getLogger(__name__)
 
@@ -42,10 +42,7 @@ class BaseRequestProcessor(ABC):
         self.config = config
 
     @abstractmethod
-    def requests_to_responses(
-        self,
-        generic_request_files: list[str],
-    ) -> None:
+    def requests_to_responses(self, generic_request_files: list[str]) -> None:
         pass
 
     def run(
@@ -69,18 +66,20 @@ class BaseRequestProcessor(ABC):
         self.working_dir = working_dir
 
         # load from already completed dataset
-        output_dataset = self.attempt_loading_cached_dataset()
+        output_dataset = self.attempt_loading_cached_dataset(parse_func_hash)
         if output_dataset is not None:
             return output_dataset
 
         """Run completions using the online API with async processing."""
-        logger.info(f"Running {self.__class__.__name__} completions with model: {self.model}")
+        logger.info(
+            f"Running {self.__class__.__name__} completions with model: {self.config.model}"
+        )
 
         self.prompt_formatter = prompt_formatter
         if self.prompt_formatter.response_format:
             if not self.check_structured_output_support():
                 raise ValueError(
-                    f"Model {self.model} does not support structured output, "
+                    f"Model {self.config.model} does not support structured output, "
                     f"response_format: {self.prompt_formatter.response_format}"
                 )
         generic_request_files = self.create_request_files(dataset)
@@ -88,7 +87,7 @@ class BaseRequestProcessor(ABC):
             f"{self.working_dir}/responses_{i}.jsonl" for i in range(len(generic_request_files))
         ]
 
-        self.requests_to_responses(generic_request_files, generic_responses_files)
+        self.requests_to_responses(generic_request_files)
 
         return self.create_dataset_files(parse_func_hash)
 
@@ -104,8 +103,7 @@ class BaseRequestProcessor(ABC):
         Returns:
             List[int]: Indices of missing files
         """
-
-        if self.config.batch_size is not None and dataset is not None:
+        if isinstance(self.config, BatchRequestProcessorConfig) and dataset is not None:
             expected_num_files = ceil(len(dataset) / self.config.batch_size)
         else:
             expected_num_files = 1
@@ -203,7 +201,7 @@ class BaseRequestProcessor(ABC):
                 f.write(json.dumps(metadata_dict, indent=4) + "\n")
             return request_files
 
-        if self.config.batch_size:
+        if isinstance(self.config, BatchRequestProcessorConfig):
             num_batches = ceil(len(dataset) / self.config.batch_size)
             request_files = [f"{self.working_dir}/requests_{i}.jsonl" for i in range(num_batches)]
             metadata_files = [f"{self.working_dir}/metadata_{i}.json" for i in range(num_batches)]
@@ -212,7 +210,6 @@ class BaseRequestProcessor(ABC):
                 tasks = [
                     self.acreate_request_file(
                         dataset,
-                        self.prompt_formatter,
                         request_files[i],
                         metadata_files[i],
                         start_idx=i * self.config.batch_size,
@@ -224,11 +221,7 @@ class BaseRequestProcessor(ABC):
 
             run_in_event_loop(create_all_request_files())
         else:
-            run_in_event_loop(
-                self.acreate_request_file(
-                    dataset, self.prompt_formatter, request_file, metadata_file
-                )
-            )
+            run_in_event_loop(self.acreate_request_file(dataset, request_file, metadata_file))
 
         return request_files
 
@@ -239,7 +232,7 @@ class BaseRequestProcessor(ABC):
         metadata_file: str,
         start_idx: int = 0,
     ) -> None:
-        if self.config.batch_size is not None:
+        if isinstance(self.config, BatchRequestProcessorConfig):
             end_idx = min(start_idx + self.config.batch_size, len(dataset))
             dataset = dataset.select(range(start_idx, end_idx))
         else:
@@ -260,10 +253,8 @@ class BaseRequestProcessor(ABC):
 
         logger.info(f"Wrote {num_requests} requests to {request_file}.")
 
-    def attempt_loading_cached_dataset(
-        self,
-    ) -> Optional[Dataset]:
-        dataset_file = f"{self.working_dir}/{self.parse_func_hash}.arrow"
+    def attempt_loading_cached_dataset(self, parse_func_hash: str) -> Optional[Dataset]:
+        dataset_file = f"{self.working_dir}/{parse_func_hash}.arrow"
         if os.path.exists(dataset_file):
             logger.debug(f"Loading dataset from {dataset_file}")
             try:
