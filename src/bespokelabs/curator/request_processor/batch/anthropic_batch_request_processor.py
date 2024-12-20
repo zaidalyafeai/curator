@@ -1,6 +1,6 @@
-import datetime
 import logging
 import litellm
+from litellm import get_max_tokens
 
 from anthropic import AsyncAnthropic
 from anthropic.types.messages import MessageBatch
@@ -28,6 +28,7 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
     def __init__(self, config: BatchRequestProcessorConfig) -> None:
         super().__init__(config)
         self.client = AsyncAnthropic(max_retries=self.config.max_retries)
+        self.web_dashboard = "https://console.anthropic.com/settings/workspaces/default/batches"
 
     @property
     def max_requests_per_batch(self) -> int:
@@ -92,9 +93,7 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
             # TODO(Ryan) how can we support this the way litellm does?
             raise NotImplementedError("response_format is not yet supported for Anthropic")
 
-        params = {
-            "model": generic_request.model,
-        }
+        params = {"model": generic_request.model, "max_tokens": get_max_tokens(self.config.model)}
         if generic_request.messages[0]["role"] == "system":
             params["system"] = generic_request.messages[0]["content"]
             params["messages"] = generic_request.messages[1:]
@@ -117,22 +116,25 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
         generic_request: GenericRequest,
         batch: GenericBatch,
     ) -> GenericResponse:
-        if raw_response["result"]["type"] != "succeeded":
+        result_type = raw_response["result"]["type"]
+        if result_type != "succeeded":
+            error = raw_response["result"]["error"]
+            logger.warning(
+                f"custom_id {raw_response['custom_id']} result was '{result_type}' with error '{error}'"
+            )
             response_message = None
-            response_errors = [
-                raw_response["result"]["type"]
-            ]  # no examples of a failed response, we can probably include more information here
+            response_errors = [str(error)]
             token_usage = None
             cost = None
         else:
-            response_body = raw_response["response"]["body"]
-            response_message_raw = response_body["choices"][0]["message"]["content"]
+            response_body = raw_response["result"]["message"]
+            response_message_raw = response_body["content"][0]["text"]
             usage = response_body.get("usage", {})
 
             token_usage = TokenUsage(
-                prompt_tokens=usage.get("prompt_tokens", 0),
-                completion_tokens=usage.get("completion_tokens", 0),
-                total_tokens=usage.get("total_tokens", 0),
+                prompt_tokens=usage.get("input_tokens", 0),
+                completion_tokens=usage.get("output_tokens", 0),
+                total_tokens=usage.get("input_tokens", 0) + usage.get("output_tokens", 0),
             )
             response_message, response_errors = self.prompt_formatter.parse_response_message(
                 response_message_raw
@@ -195,7 +197,8 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
         async with self.semaphore:
             anthropic_batch = MessageBatch.model_validate(batch.raw_batch)
             responses = []
-            async for result in self.client.messages.batches.results(batch.id):
+            results_stream = await self.client.messages.batches.results(batch.id)
+            async for result in results_stream:
                 responses.append(result.model_dump())
             return responses
 

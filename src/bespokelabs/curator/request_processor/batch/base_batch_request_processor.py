@@ -367,7 +367,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
 
         # loop until all batches have been returned
         all_response_files = []
-        while self.tracker.n_submitted_batches > 0:
+        while self.tracker.n_submitted_batches + self.tracker.n_finished_batches > 0:
             # check batch status also updates the tracker
             status_tasks = [
                 self.check_batch_status(batch) for batch in self.tracker.submitted_batches.values()
@@ -398,7 +398,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         if self.tracker.n_downloaded_batches == 0 or not response_files:
             raise RuntimeError(
                 "None of the submitted batches completed successfully. "
-                "Please check the logs above and https://platform.openai.com/batches for errors."
+                f"Please check the logs above and {self.web_dashboard} for errors."
             )
 
     async def download_batch_to_response_file(self, batch: GenericBatch) -> str | None:

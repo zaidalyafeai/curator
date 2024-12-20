@@ -300,6 +300,7 @@ class BaseRequestProcessor(ABC):
         # Process all response files
         total_responses_count = 0
         failed_responses_count = 0
+        error_sample = []
         dataset_file = f"{self.working_dir}/{parse_func_hash}.arrow"
         with ArrowWriter(path=dataset_file) as writer:
             for responses_file in responses_files:
@@ -310,6 +311,8 @@ class BaseRequestProcessor(ABC):
 
                         if response.response_errors is not None:
                             failed_responses_count += 1
+                            if len(error_sample) < 10:
+                                error_sample.append(str(response.response_errors))
                             continue
 
                         try:
@@ -365,19 +368,27 @@ class BaseRequestProcessor(ABC):
 
                             writer.write(row)
 
-            logger.info("Finalizing writer")
-            writer.finalize()
-
             logger.info(f"Read {total_responses_count} responses.")
+            error_sample_str = "\n".join(error_sample)
+            error_sample_msg = (
+                f"Sample of the first {len(error_sample)} errors encountered: \n {error_sample_str}"
+            )
             if failed_responses_count == total_responses_count:
+                writer.write({"error": "All requests failed"})
+                writer.finalize()
                 os.remove(dataset_file)
-                raise ValueError("All requests failed")
+                raise ValueError(f"All requests failed. {error_sample_msg}")
+            else:
+                logger.info("Finalizing writer")
+                writer.finalize()
 
             if failed_responses_count > 0:
                 logger.warning(f"{failed_responses_count} requests failed.")
                 if self.config.require_all_responses:
                     os.remove(dataset_file)
-                    raise ValueError(f"Some requests failed and require_all_responses is True")
+                    raise ValueError(
+                        f"Some requests failed and require_all_responses is True. {error_sample_msg}"
+                    )
 
             # number of responses matches number of requests
             request_files = glob.glob(f"{self.working_dir}/requests_*.jsonl")

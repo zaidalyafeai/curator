@@ -26,6 +26,7 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
     def __init__(self, config: BatchRequestProcessorConfig) -> None:
         super().__init__(config)
         self.client = AsyncOpenAI(max_retries=self.config.max_retries)
+        self.web_dashboard = "https://platform.openai.com/batches"
 
     @property
     def max_requests_per_batch(self) -> int:
@@ -94,7 +95,7 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
     ) -> GenericResponse:
         if raw_response["response"]["status_code"] != 200:
             response_message = None
-            response_errors = [raw_response["response"]["status_code"]]
+            response_errors = [str(raw_response["response"]["status_code"])]
             token_usage = None
             cost = None
         else:
