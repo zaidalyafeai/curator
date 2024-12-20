@@ -172,7 +172,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             )
 
         # Join requests with newlines and encode to bytes for upload
-        file_content = "\n".join(api_specific_requests).encode()
+        file_content = "\n".join(json.dumps(r) for r in api_specific_requests).encode()
         file_content_size = len(file_content)
         logger.debug(
             f"Batch file content size: {file_content_size / (1024*1024):.2f} MB ({file_content_size:,} bytes)"
@@ -222,7 +222,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             for line in file:
                 request = GenericRequest.model_validate_json(line.strip())
                 api_specific_request = self.create_api_specific_request_batch(request)
-                api_specific_requests.append(json.dumps(api_specific_request))
+                api_specific_requests.append(api_specific_request)
 
         return api_specific_requests
 
