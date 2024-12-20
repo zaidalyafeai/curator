@@ -322,24 +322,22 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         """
         async with self.semaphore:
             batch = await self.retrieve_batch(batch)
-            if batch is None:
-                return None
-            self.tracker.update_submitted(batch)
+            if batch is not None:
+                self.tracker.update_submitted(batch)
 
-            n_succeeded_requests = batch.request_counts.succeeded
-            n_failed_requests = batch.request_counts.failed
-            n_total_requests = batch.request_counts.total
+                n_succeeded_requests = batch.request_counts.succeeded
+                n_failed_requests = batch.request_counts.failed
+                n_total_requests = batch.request_counts.total
 
-            logger.debug(
-                f"Batch {batch.id} status: {batch.raw_status} requests: "
-                f"{n_succeeded_requests}/{n_failed_requests}/{n_total_requests} "
-                "succeeded/failed/total"
-            )
+                logger.debug(
+                    f"Batch {batch.id} status: {batch.raw_status} requests: "
+                    f"{n_succeeded_requests}/{n_failed_requests}/{n_total_requests} "
+                    "succeeded/failed/total"
+                )
 
-            if batch.status == "finished":
-                logger.debug(f"Batch {batch.id} finished with status: {batch.raw_status}")
-                self.tracker.mark_as_finished(batch)
-                return batch
+                if batch.status == "finished":
+                    logger.debug(f"Batch {batch.id} finished with status: {batch.raw_status}")
+                    self.tracker.mark_as_finished(batch)
 
     async def poll_and_process_batches(self) -> None:
         """Monitors and processes batches until all are completed.
@@ -374,19 +372,16 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             status_tasks = [
                 self.check_batch_status(batch) for batch in self.tracker.submitted_batches.values()
             ]
-            batches_to_download = await asyncio.gather(*status_tasks)
-            batches_to_download = list(filter(None, batches_to_download))
+            await asyncio.gather(*status_tasks)
             await self.update_batch_objects_file()
-
-            # in case script crashed between checking and downloading batches
-            batches_to_download += list(self.tracker.finished_batches.values())
 
             # update progress bari
             self.request_pbar.n = self.tracker.n_finished_or_downloaded_requests
             self.request_pbar.refresh()
 
             download_tasks = [
-                self.download_batch_to_response_file(batch) for batch in batches_to_download
+                self.download_batch_to_response_file(batch)
+                for batch in self.tracker.finished_batches.values()
             ]
             # Failed downloads return None and print any errors that occurred
             all_response_files.extend(await asyncio.gather(*download_tasks))
