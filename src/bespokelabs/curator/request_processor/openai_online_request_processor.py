@@ -203,6 +203,10 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
             base_date = datetime.datetime.strptime(model_name.split("gpt-4o-")[1], "%Y-%m-%d")
             if base_date >= datetime.datetime(2024, 8, 6):
                 return True
+        if "o1-" in model_name:
+            base_date = datetime.datetime.strptime(model_name.split("o1-")[1], "%Y-%m-%d")
+            if base_date >= datetime.datetime(2024, 12, 17):  # Support o1 dated versions from 2024-12-17
+                return True
 
         return False
 
