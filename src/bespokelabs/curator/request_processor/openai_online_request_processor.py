@@ -196,8 +196,8 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
             if mini_date >= datetime(2024, 7, 18):
                 return True
 
-        # Check gpt-4o support
-        if model_name == "gpt-4o":  # Latest version
+        # Check gpt-4o and o1 support
+        if model_name in ["gpt-4o", "o1"]:  # Latest version
             return True
         if "gpt-4o-" in model_name:
             base_date = datetime.datetime.strptime(model_name.split("gpt-4o-")[1], "%Y-%m-%d")
