@@ -37,7 +37,10 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
 
     def __init__(self, config: OnlineRequestProcessorConfig):
         super().__init__(config)
-        self.url = "https://api.openai.com/v1/chat/completions"
+        if self.config.base_url is None:
+            self.url = "https://api.openai.com/v1/chat/completions"
+        else:
+            self.url = self.config.base_url + "/chat/completions"
         self.api_key = os.getenv("OPENAI_API_KEY")
         self.token_encoding = self.get_token_encoding()
         self.header_based_max_requests_per_minute, self.header_based_max_tokens_per_minute = (
@@ -211,8 +214,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
                 total_tokens=usage["total_tokens"],
             )
 
-            # Calculate cost using litellm
-            cost = litellm.completion_cost(completion_response=response)
+            cost = self.completion_cost(response)
 
             # Create and return response
             return GenericResponse(

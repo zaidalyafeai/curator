@@ -9,6 +9,7 @@ class RequestProcessorConfig(BaseModel):
     """Configuration for request processors."""
 
     model: str
+    base_url: str | None = None
     max_retries: int = Field(default=10, ge=0)
     request_timeout: int = Field(default=10 * 60, gt=0)
     require_all_responses: bool = Field(default=True)

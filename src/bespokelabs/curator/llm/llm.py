@@ -40,6 +40,7 @@ class LLM:
         model_name: str,
         prompt_func: Callable[[_DictOrBaseModel], _DictOrBaseModel],
         parse_func: Callable[[_DictOrBaseModel, _DictOrBaseModel], _DictOrBaseModel] | None = None,
+        base_url: str | None = None,
         response_format: Type[BaseModel] | None = None,
         batch: bool = False,
         backend: str | None = None,
@@ -91,6 +92,7 @@ class LLM:
         if batch:
             config_params = {
                 "model": model_name,
+                "base_url": base_url,
                 "batch_size": batch_size,
                 "batch_check_interval": batch_check_interval,
                 "delete_successful_batch_files": delete_successful_batch_files,
@@ -105,6 +107,7 @@ class LLM:
         else:
             config_params = {
                 "model": model_name,
+                "base_url": base_url,
                 "max_requests_per_minute": max_requests_per_minute,
                 "max_tokens_per_minute": max_tokens_per_minute,
                 "max_retries": max_retries,

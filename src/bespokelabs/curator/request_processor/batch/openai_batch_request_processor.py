@@ -29,7 +29,12 @@ logger = logging.getLogger(__name__)
 class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin):
     def __init__(self, config: BatchRequestProcessorConfig) -> None:
         super().__init__(config)
-        self.client = AsyncOpenAI(max_retries=self.config.max_retries)
+        if self.config.base_url is None:
+            self.client = AsyncOpenAI(max_retries=self.config.max_retries)
+        else:
+            self.client = AsyncOpenAI(
+                max_retries=self.config.max_retries, base_url=self.config.base_url
+            )
         self.web_dashboard = "https://platform.openai.com/batches"
 
     @property

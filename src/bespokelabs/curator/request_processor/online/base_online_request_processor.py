@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 import datetime
 import time
-from typing import Optional
 from tqdm import tqdm
 import logging
 import asyncio
@@ -11,6 +10,7 @@ import os
 import json
 import resource
 import aiofiles
+import litellm
 
 from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.request_processor.base_request_processor import BaseRequestProcessor
@@ -104,6 +104,14 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
     def check_structured_output_support(self) -> bool:
         """Check if the model supports structured output"""
         return True
+
+    def completion_cost(self, response):
+        # Calculate cost using litellm
+        try:
+            cost = litellm.completion_cost(completion_response=response)
+        except Exception as e:
+            # We should ideally not catch a catch-all exception here. But litellm is not throwing any specific error.
+            cost = 0
 
     def requests_to_responses(
         self,

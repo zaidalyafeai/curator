@@ -30,7 +30,12 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
 
     def __init__(self, config: BatchRequestProcessorConfig) -> None:
         super().__init__(config)
-        self.client = AsyncAnthropic(max_retries=self.config.max_retries)
+        if self.config.base_url is None:
+            self.client = AsyncAnthropic(max_retries=self.config.max_retries)
+        else:
+            self.client = AsyncAnthropic(
+                max_retries=self.config.max_retries, base_url=self.config.base_url
+            )
         self.web_dashboard = "https://console.anthropic.com/settings/workspaces/default/batches"
 
     @property
