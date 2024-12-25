@@ -1,6 +1,5 @@
 import logging
 import litellm
-from litellm import get_max_tokens
 
 from anthropic import AsyncAnthropic
 from anthropic.types.messages import MessageBatch
@@ -12,7 +11,11 @@ from bespokelabs.curator.request_processor import BaseBatchRequestProcessor
 from bespokelabs.curator.types.token_usage import TokenUsage
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
-from bespokelabs.curator.types.generic_batch import GenericBatch, GenericBatchRequestCounts
+from bespokelabs.curator.types.generic_batch import (
+    GenericBatch,
+    GenericBatchRequestCounts,
+    GenericBatchStatus,
+)
 from bespokelabs.curator.request_processor.config import BatchRequestProcessorConfig
 
 logger = logging.getLogger(__name__)
@@ -70,9 +73,9 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
         Timing (Anthropic): "created_at", "cancel_initiated_at", "archived_at", "ended_at", "expires_at"
         """
         if batch.processing_status in ["cancelling", "in_progress"]:
-            status = "submitted"
+            status = GenericBatchStatus.SUBMITTED
         elif batch.processing_status in ["ended"]:
-            status = "finished"
+            status = GenericBatchStatus.FINISHED
         else:
             raise ValueError(f"Unknown batch status: {batch.processing_status}")
 
@@ -93,7 +96,10 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
             # TODO(Ryan) how can we support this the way litellm does?
             raise NotImplementedError("response_format is not yet supported for Anthropic")
 
-        params = {"model": generic_request.model, "max_tokens": get_max_tokens(self.config.model)}
+        params = {
+            "model": generic_request.model,
+            "max_tokens": litellm.get_max_tokens(self.config.model),
+        }
         if generic_request.messages[0]["role"] == "system":
             params["system"] = generic_request.messages[0]["content"]
             params["messages"] = generic_request.messages[1:]

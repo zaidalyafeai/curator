@@ -32,6 +32,7 @@ def main():
     # 4. If you are a free user, update rate limits:
     #       max_requests_per_minute=15
     #       max_tokens_per_minute=1_000_000
+    #       (Up to 1,000 requests per day)
     #############################################
 
     recipe_prompter = curator.LLM(

@@ -15,7 +15,11 @@ from bespokelabs.curator.request_processor import BaseBatchRequestProcessor
 from bespokelabs.curator.types.token_usage import TokenUsage
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
-from bespokelabs.curator.types.generic_batch import GenericBatch, GenericBatchRequestCounts
+from bespokelabs.curator.types.generic_batch import (
+    GenericBatch,
+    GenericBatchRequestCounts,
+    GenericBatchStatus,
+)
 from bespokelabs.curator.request_processor.openai_request_mixin import OpenAIRequestMixin
 from bespokelabs.curator.request_processor.config import BatchRequestProcessorConfig
 
@@ -65,9 +69,9 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
         Timing (OpenAI): "created_at", "in_progress_at", "expires_at", "finalizing_at", "completed_at", "failed_at", "expired_at", "cancelling_at", "cancelled_at"
         """
         if batch.status in ["validating", "finalizing", "cancelling", "in_progress"]:
-            status = "submitted"
+            status = GenericBatchStatus.SUBMITTED
         elif batch.status in ["completed", "failed", "expired", "cancelled"]:
-            status = "finished"
+            status = GenericBatchStatus.FINISHED
         else:
             raise ValueError(f"Unknown batch status: {batch.status}")
 

@@ -1,6 +1,13 @@
 import datetime
-from typing import Literal, Optional
+from enum import Enum
+from typing import Optional
 from pydantic import BaseModel
+
+
+class GenericBatchStatus(Enum):
+    SUBMITTED = "submitted"
+    FINISHED = "finished"
+    DOWNLOADED = "downloaded"
 
 
 class GenericBatchRequestCounts(BaseModel):
@@ -15,7 +22,7 @@ class GenericBatch(BaseModel):
     id: str
     created_at: datetime.datetime
     finished_at: Optional[datetime.datetime]
-    status: Literal["submitted", "finished", "downloaded"]
+    status: GenericBatchStatus
     api_key_suffix: str
     request_counts: GenericBatchRequestCounts
     raw_status: str
