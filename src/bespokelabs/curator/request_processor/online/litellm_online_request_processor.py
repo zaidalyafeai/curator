@@ -126,14 +126,12 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
                 {"role": "user", "content": "hi"}
             ],  # Some models (e.g. Claude) require an non-empty message to get rate limits.
         )
-
         # Try the method of caculating cost
         try:
             litellm.completion_cost(completion_response=completion.model_dump())
-        except litellm.NotFoundError as e:
-            logger.warning(
-                f"LiteLLM does not support cost estimation for model {self.config.model}: {e}"
-            )
+        except Exception as e:
+            # We should ideally not catch a catch-all exception here. But litellm is not throwing any specific error.
+            logger.warning(f"LiteLLM does not support cost estimation for model {self.model}: {e}")
 
         headers = completion._hidden_params.get("additional_headers", {})
         logger.info(f"Test call headers: {headers}")
@@ -262,7 +260,8 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         # Calculate cost using litellm
         try:
             cost = litellm.completion_cost(completion_response=completion_obj.model_dump())
-        except litellm.NotFoundError as e:
+        except Exception as e:
+            # We should ideally not catch a catch-all exception here. But litellm is not throwing any specific error.
             cost = 0
 
         finish_reason = completion_obj.choices[0].finish_reason
