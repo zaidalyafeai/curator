@@ -39,12 +39,9 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
 
     def __init__(self, config: OnlineRequestProcessorConfig):
         super().__init__(config)
-        if self.config.base_url is None:
-            self.client = instructor.from_litellm(litellm.acompletion)
-        else:
-            self.client = instructor.from_litellm(
-                litellm.acompletion, base_url=self.config.base_url
-            )
+        if self.config.base_url is not None:
+            litellm.api_base = self.config.base_url
+        self.client = instructor.from_litellm(litellm.acompletion)
         self.header_based_max_requests_per_minute, self.header_based_max_tokens_per_minute = (
             self.get_header_based_rate_limits()
         )
@@ -69,8 +66,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             age: int
 
         try:
-            client = instructor.from_litellm(litellm.completion)
-            response = client.chat.completions.create(
+            response = self.client.chat.completions.create(
                 model=self.config.model,
                 messages=[{"role": "user", "content": "Jason is 25 years old."}],
                 response_model=User,
