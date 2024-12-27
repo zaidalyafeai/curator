@@ -152,7 +152,7 @@ class BaseRequestProcessor(ABC):
             list[str]: Paths to the request files that were created.
         """
         os.makedirs(working_dir, exist_ok=True)
-        request_files = glob.glob(f"{working_dir}/requests_*.jsonl")
+        request_files = glob.glob(os.path.join(working_dir, "requests_*.jsonl"))
 
         # By default use existing requests in working_dir
         incomplete_files = self._verify_existing_request_files(working_dir, dataset)
@@ -178,10 +178,10 @@ class BaseRequestProcessor(ABC):
 
         # Create new requests file
         logger.info(f"Preparing request file(s) in {working_dir}")
-        request_file = f"{working_dir}/requests_0.jsonl"
+        request_file = os.path.join(working_dir, "requests_0.jsonl")
         request_files = [request_file]
 
-        metadata_file = f"{working_dir}/metadata_0.json"
+        metadata_file = os.path.join(working_dir, "metadata_0.json")
         metadata_files = [metadata_file]
 
         if dataset is None:
@@ -196,8 +196,12 @@ class BaseRequestProcessor(ABC):
 
         if self.batch_size:
             num_batches = ceil(len(dataset) / self.batch_size)
-            request_files = [f"{working_dir}/requests_{i}.jsonl" for i in range(num_batches)]
-            metadata_files = [f"{working_dir}/metadata_{i}.json" for i in range(num_batches)]
+            request_files = [
+                os.path.join(working_dir, f"requests_{i}.jsonl") for i in range(num_batches)
+            ]
+            metadata_files = [
+                os.path.join(working_dir, f"metadata_{i}.json") for i in range(num_batches)
+            ]
 
             async def create_all_request_files():
                 tasks = [

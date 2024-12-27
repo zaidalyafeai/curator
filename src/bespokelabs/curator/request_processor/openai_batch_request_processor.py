@@ -439,7 +439,7 @@ def request_file_to_response_file(request_file: str, working_dir: str) -> str:
         str: Path to the corresponding response file (e.g., "responses_0.jsonl")
     """
     request_file_idx = request_file.split("/")[-1].split("_", 1)[1]
-    return f"{working_dir}/responses_{request_file_idx}"
+    return os.path.join(working_dir, f"responses_{request_file_idx}")
 
 
 def response_file_to_request_file(response_file: str, working_dir: str) -> str:
@@ -454,7 +454,7 @@ def response_file_to_request_file(response_file: str, working_dir: str) -> str:
         str: Path to the corresponding request file (e.g., "requests_0.jsonl")
     """
     response_file_idx = response_file.split("/")[-1].split("_", 1)[1]
-    return f"{working_dir}/requests_{response_file_idx}"
+    return os.path.join(working_dir, f"requests_{response_file_idx}")
 
 
 def requests_from_api_specific_request_file(self, request_file: str) -> list[dict]:
@@ -500,11 +500,11 @@ class BatchManager:
         self.delete_failed_batch_files = delete_failed_batch_files
         self._submitted_batch_objects_file_lock = asyncio.Lock()
         self._downloaded_batch_objects_file_lock = asyncio.Lock()
-        self.submitted_batch_objects_file = (
-            f"{working_dir}/batch_objects_submitted_{self.client.api_key[-4:]}.jsonl"
+        self.submitted_batch_objects_file = os.path.join(
+            working_dir, f"batch_objects_submitted_{self.client.api_key[-4:]}.jsonl"
         )
-        self.downloaded_batch_objects_file = (
-            f"{working_dir}/batch_objects_downloaded_{self.client.api_key[-4:]}.jsonl"
+        self.downloaded_batch_objects_file = os.path.join(
+            working_dir, f"batch_objects_downloaded_{self.client.api_key[-4:]}.jsonl"
         )
         self.batch_submit_pbar: tqdm | None = None
         self.request_pbar: tqdm | None = None
@@ -700,7 +700,7 @@ class BatchManager:
             - Updates tracker with previously submitted batch statuses
         """
         all_submitted_batches_files = set(
-            glob.glob(f"{self.working_dir}/batch_objects_submitted_*.jsonl")
+            glob.glob(os.path.join(self.working_dir, "batch_objects_submitted_*.jsonl"))
         )
 
         existing_submitted_batches = {}
@@ -796,7 +796,7 @@ class BatchManager:
             - Updates tracker with previously downloaded batch statuses
         """
         downloaded_batch_object_files = set(
-            glob.glob(f"{self.working_dir}/batch_objects_downloaded_*.jsonl")
+            glob.glob(os.path.join(self.working_dir, "batch_objects_downloaded_*.jsonl"))
         )
         for downloaded_batch_object_file in downloaded_batch_object_files:
             logger.info(
