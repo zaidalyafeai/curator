@@ -365,7 +365,8 @@ class BaseRequestProcessor(ABC):
                                 raise ValueError(
                                     f"Got empty row {row} from `parse_func`. {error_help}"
                                 )
-
+                            # Add the original row index to the row so that we can sort by it later.
+                            row["__original_row_idx"] = response.generic_request.original_row_idx
                             writer.write(row)
 
             logger.info(f"Read {total_responses_count} responses.")
@@ -406,4 +407,23 @@ class BaseRequestProcessor(ABC):
                         f"Some requests do not have responses and require_all_responses is True."
                     )
 
-        return Dataset.from_file(dataset_file)
+        d = Dataset.from_file(dataset_file)
+        d = d.sort("__original_row_idx")
+        d = d.remove_columns(["__original_row_idx"])
+        return d
+
+
+def parse_response_message(
+    response_message: str, response_format: Optional[BaseModel]
+) -> tuple[Optional[dict | str], Optional[list[str]]]:
+    response_errors = None
+    if response_format:
+        try:
+            response_message = json.loads(response_message)
+        except json.JSONDecodeError:
+            logger.warning(
+                f"Failed to parse response as JSON: {response_message}, skipping this response."
+            )
+            response_message = None
+            response_errors = [f"Failed to parse response as JSON: {response_message}"]
+    return response_message, response_errors
