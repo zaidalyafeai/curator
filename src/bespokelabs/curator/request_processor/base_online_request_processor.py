@@ -221,7 +221,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 )
         generic_request_files = self.create_request_files(dataset, working_dir, prompt_formatter)
         generic_responses_files = [
-            f"{working_dir}/responses_{i}.jsonl" for i in range(len(generic_request_files))
+            os.path.join(working_dir, f"responses_{i}.jsonl") for i in range(len(generic_request_files))
         ]
 
         for request_file, response_file in zip(generic_request_files, generic_responses_files):
@@ -266,7 +266,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 logger.debug(
                     f"Removing all failed requests from {save_filepath} so they can be retried"
                 )
-                temp_filepath = f"{save_filepath}.temp"
+                temp_filepath = save_filepath + ".temp"  # This is a file extension, not a path join
                 num_previously_failed_requests = 0
 
                 with open(save_filepath, "r") as input_file, open(
