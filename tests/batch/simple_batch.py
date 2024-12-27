@@ -21,6 +21,7 @@ def main(args):
         batch=True,
         batch_size=args.batch_size,
         batch_check_interval=args.batch_check_interval,
+        base_url=args.base_url,
     )
 
     dataset = prompter(dataset, batch_cancel=args.cancel)
@@ -40,5 +41,6 @@ if __name__ == "__main__":
         default=None,
         help="Set the logging level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
+    parser.add_argument("--base-url", type=str, help="Base URL", default=None)
     args = parser.parse_args()
     main(args)
