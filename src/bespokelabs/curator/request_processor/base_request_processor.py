@@ -196,8 +196,12 @@ class BaseRequestProcessor(ABC):
 
         if self.batch_size:
             num_batches = ceil(len(dataset) / self.batch_size)
-            request_files = [os.path.join(working_dir, f"requests_{i}.jsonl") for i in range(num_batches)]
-            metadata_files = [os.path.join(working_dir, f"metadata_{i}.json") for i in range(num_batches)]
+            request_files = [
+                os.path.join(working_dir, f"requests_{i}.jsonl") for i in range(num_batches)
+            ]
+            metadata_files = [
+                os.path.join(working_dir, f"metadata_{i}.json") for i in range(num_batches)
+            ]
 
             async def create_all_request_files():
                 tasks = [

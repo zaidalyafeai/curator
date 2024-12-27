@@ -221,7 +221,8 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 )
         generic_request_files = self.create_request_files(dataset, working_dir, prompt_formatter)
         generic_responses_files = [
-            os.path.join(working_dir, f"responses_{i}.jsonl") for i in range(len(generic_request_files))
+            os.path.join(working_dir, f"responses_{i}.jsonl")
+            for i in range(len(generic_request_files))
         ]
 
         for request_file, response_file in zip(generic_request_files, generic_responses_files):
