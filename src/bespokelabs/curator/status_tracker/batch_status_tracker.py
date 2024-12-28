@@ -1,7 +1,7 @@
 import logging
 
 from pydantic import BaseModel, Field
-from bespokelabs.curator.types.generic_batch import GenericBatch
+from bespokelabs.curator.types.generic_batch import GenericBatch, GenericBatchStatus
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ class BatchStatusTracker(BaseModel):
 
     def mark_as_submitted(self, batch: GenericBatch, n_requests: int):
         assert n_requests > 0
-        batch.status = "submitted"
+        batch.status = GenericBatchStatus.SUBMITTED
         if batch.request_file in self.unsubmitted_request_files:
             self.unsubmitted_request_files.remove(batch.request_file)
             self.n_total_requests += n_requests
@@ -73,14 +73,14 @@ class BatchStatusTracker(BaseModel):
 
     def mark_as_finished(self, batch: GenericBatch):
         assert batch.id in self.submitted_batches
-        batch.status = "finished"
+        batch.status = GenericBatchStatus.FINISHED
         self.submitted_batches.pop(batch.id)
         self.finished_batches[batch.id] = batch
         logger.debug(f"Marked batch {batch.id} as finished")
 
     def mark_as_downloaded(self, batch: GenericBatch):
         assert batch.id in self.finished_batches
-        batch.status = "downloaded"
+        batch.status = GenericBatchStatus.DOWNLOADED
         self.finished_batches.pop(batch.id)
         self.downloaded_batches[batch.id] = batch
         logger.debug(f"Marked batch {batch.id} as downloaded")
