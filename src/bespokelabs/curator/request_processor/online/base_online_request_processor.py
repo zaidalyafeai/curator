@@ -166,7 +166,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 logger.debug(
                     f"Removing all failed requests from {save_filepath} so they can be retried"
                 )
-                temp_filepath = f"{save_filepath}.temp"
+                temp_filepath = save_filepath + ".temp"  # This is a file extension, not a path join
                 num_previously_failed_requests = 0
 
                 with open(save_filepath, "r") as input_file, open(

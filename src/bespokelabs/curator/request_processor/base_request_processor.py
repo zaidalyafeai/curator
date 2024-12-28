@@ -83,9 +83,6 @@ class BaseRequestProcessor(ABC):
                     f"response_format: {self.prompt_formatter.response_format}"
                 )
         generic_request_files = self.create_request_files(dataset)
-        generic_responses_files = [
-            f"{self.working_dir}/responses_{i}.jsonl" for i in range(len(generic_request_files))
-        ]
 
         self.requests_to_responses(generic_request_files)
 
@@ -158,7 +155,7 @@ class BaseRequestProcessor(ABC):
             list[str]: Paths to the request files that were created.
         """
         os.makedirs(self.working_dir, exist_ok=True)
-        request_files = glob.glob(f"{self.working_dir}/requests_*.jsonl")
+        request_files = glob.glob(os.path.join(self.working_dir, "requests_*.jsonl"))
 
         # By default use existing requests in working_dir
         incomplete_files = self._verify_existing_request_files(dataset)
@@ -184,10 +181,10 @@ class BaseRequestProcessor(ABC):
 
         # Create new requests file
         logger.info(f"Preparing request file(s) in {self.working_dir}")
-        request_file = f"{self.working_dir}/requests_0.jsonl"
+        request_file = os.path.join(self.working_dir, "requests_0.jsonl")
         request_files = [request_file]
 
-        metadata_file = f"{self.working_dir}/metadata_0.json"
+        metadata_file = os.path.join(self.working_dir, "metadata_0.json")
         metadata_files = [metadata_file]
 
         if dataset is None:
@@ -203,8 +200,8 @@ class BaseRequestProcessor(ABC):
 
         if isinstance(self.config, BatchRequestProcessorConfig):
             num_batches = ceil(len(dataset) / self.config.batch_size)
-            request_files = [f"{self.working_dir}/requests_{i}.jsonl" for i in range(num_batches)]
-            metadata_files = [f"{self.working_dir}/metadata_{i}.json" for i in range(num_batches)]
+            request_files = [os.path.join(self.working_dir, f"requests_{i}.jsonl") for i in range(num_batches)]
+            metadata_files = [os.path.join(self.working_dir, f"metadata_{i}.json") for i in range(num_batches)]
 
             async def create_all_request_files():
                 tasks = [
