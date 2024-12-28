@@ -98,27 +98,22 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
         )
 
     def create_api_specific_request_batch(self, generic_request: GenericRequest) -> dict:
-        params = {
-            "model": generic_request.model,
-            "max_tokens": litellm.get_max_tokens(self.config.model),
-        }
-
         # Combines and constructs a system message with schema and instructions
-        instructor.handle_response_model(
+        _, kwargs = instructor.handle_response_model(
             generic_request.response_format,
             instructor.Mode.ANTHROPIC_JSON,
             {"messages": generic_request.messages},
         )
 
-        for key, value in generic_request.generation_params.items():
-            params[key] = value
-
-        request = {
+        return {
             "custom_id": str(generic_request.original_row_idx),
-            "params": params,
+            "params": {
+                "model": generic_request.model,
+                "max_tokens": litellm.get_max_tokens(self.config.model),
+                **kwargs,  # contains 'system' and 'messages'
+                **generic_request.generation_params,  # contains 'temperature', 'top_p', etc.
+            },
         }
-
-        return request
 
     def parse_api_specific_response(
         self,
