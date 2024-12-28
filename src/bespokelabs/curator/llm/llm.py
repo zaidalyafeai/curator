@@ -78,6 +78,8 @@ class LLM:
         """
         if generation_params is None:
             generation_params = {}
+        else:
+            generation_params = _remove_none_values(generation_params)
 
         self.prompt_formatter = PromptFormatter(
             model_name, prompt_func, parse_func, response_format, generation_params
@@ -101,9 +103,7 @@ class LLM:
                 "require_all_responses": require_all_responses,
                 "generation_params": generation_params,
             }
-            config = BatchRequestProcessorConfig(
-                **{k: v for k, v in config_params.items() if v is not None}
-            )
+            config = BatchRequestProcessorConfig(**_remove_none_values(config_params))
         else:
             config_params = {
                 "model": model_name,
@@ -115,9 +115,7 @@ class LLM:
                 "generation_params": generation_params,
                 "seconds_to_pause_on_rate_limit": seconds_to_pause_on_rate_limit,
             }
-            config = OnlineRequestProcessorConfig(
-                **{k: v for k, v in config_params.items() if v is not None}
-            )
+            config = OnlineRequestProcessorConfig(**_remove_none_values(config_params))
 
         if self.backend == "openai" and not batch:
             self._request_processor = OpenAIOnlineRequestProcessor(config)
@@ -304,3 +302,8 @@ def _get_function_source(func) -> str:
         return inspect.getsource(func)
     except OSError:
         return ""
+
+
+def _remove_none_values(d: dict) -> dict:
+    """Remove all None values from a dictionary."""
+    return {k: v for k, v in d.items() if v is not None}
