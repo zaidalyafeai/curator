@@ -11,7 +11,7 @@ from abc import abstractmethod
 from bespokelabs.curator.dataset import Dataset
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import BaseRequestProcessor
-from bespokelabs.curator.types.generic_batch import GenericBatch
+from bespokelabs.curator.types.generic_batch import GenericBatch, GenericBatchStatus
 from bespokelabs.curator.types.generic_batch import GenericBatchRequestCounts
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
@@ -335,7 +335,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
                     "succeeded/failed/total"
                 )
 
-                if batch.status == "finished":
+                if batch.status == GenericBatchStatus.FINISHED:
                     logger.debug(f"Batch {batch.id} finished with status: {batch.raw_status}")
                     self.tracker.mark_as_finished(batch)
 
