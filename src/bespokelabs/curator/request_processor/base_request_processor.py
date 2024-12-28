@@ -200,8 +200,12 @@ class BaseRequestProcessor(ABC):
 
         if isinstance(self.config, BatchRequestProcessorConfig):
             num_batches = ceil(len(dataset) / self.config.batch_size)
-            request_files = [os.path.join(self.working_dir, f"requests_{i}.jsonl") for i in range(num_batches)]
-            metadata_files = [os.path.join(self.working_dir, f"metadata_{i}.json") for i in range(num_batches)]
+            request_files = [
+                os.path.join(self.working_dir, f"requests_{i}.jsonl") for i in range(num_batches)
+            ]
+            metadata_files = [
+                os.path.join(self.working_dir, f"metadata_{i}.json") for i in range(num_batches)
+            ]
 
             async def create_all_request_files():
                 tasks = [
@@ -251,7 +255,7 @@ class BaseRequestProcessor(ABC):
         logger.info(f"Wrote {num_requests} requests to {request_file}.")
 
     def attempt_loading_cached_dataset(self, parse_func_hash: str) -> Optional[Dataset]:
-        dataset_file = f"{self.working_dir}/{parse_func_hash}.arrow"
+        dataset_file = os.path.join(self.working_dir, f"{parse_func_hash}.arrow")
         if os.path.exists(dataset_file):
             logger.debug(f"Loading dataset from {dataset_file}")
             try:
@@ -284,7 +288,7 @@ class BaseRequestProcessor(ABC):
         Returns:
             Dataset: Completed dataset
         """
-        responses_files = glob.glob(f"{self.working_dir}/responses_*.jsonl")
+        responses_files = glob.glob(os.path.join(self.working_dir, "responses_*.jsonl"))
         if len(responses_files) == 0:
             raise ValueError(f"No responses files found in {self.working_dir}")
 
@@ -298,7 +302,7 @@ class BaseRequestProcessor(ABC):
         total_responses_count = 0
         failed_responses_count = 0
         error_sample = []
-        dataset_file = f"{self.working_dir}/{parse_func_hash}.arrow"
+        dataset_file = os.path.join(self.working_dir, f"{parse_func_hash}.arrow")
         with ArrowWriter(path=dataset_file) as writer:
             for responses_file in responses_files:
                 with open(responses_file, "r") as f_in:
@@ -389,7 +393,7 @@ class BaseRequestProcessor(ABC):
                     )
 
             # number of responses matches number of requests
-            request_files = glob.glob(f"{self.working_dir}/requests_*.jsonl")
+            request_files = glob.glob(os.path.join(self.working_dir, "requests_*.jsonl"))
             n_requests = 0
             for request_file in request_files:
                 n_requests += count_lines(request_file)

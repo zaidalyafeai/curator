@@ -58,7 +58,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
 
         self.semaphore = asyncio.Semaphore(self.max_concurrent_batch_operations)
         self._batch_objects_file_lock = asyncio.Lock()
-        self.batch_objects_file = f"{self.working_dir}/batch_objects.jsonl"
+        self.batch_objects_file = os.path.join(self.working_dir, "batch_objects.jsonl")
         self.batch_submit_pbar: tqdm | None = None
         self.request_pbar: tqdm | None = None
 
