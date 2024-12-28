@@ -1,5 +1,6 @@
 import logging
 import litellm
+import instructor
 
 from anthropic import AsyncAnthropic
 from anthropic.types.messages import MessageBatch
@@ -97,19 +98,17 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
         )
 
     def create_api_specific_request_batch(self, generic_request: GenericRequest) -> dict:
-        if generic_request.response_format:
-            # TODO(Ryan) how can we support this the way litellm does?
-            raise NotImplementedError("response_format is not yet supported for Anthropic")
-
         params = {
             "model": generic_request.model,
             "max_tokens": litellm.get_max_tokens(self.config.model),
         }
-        if generic_request.messages[0]["role"] == "system":
-            params["system"] = generic_request.messages[0]["content"]
-            params["messages"] = generic_request.messages[1:]
-        else:
-            params["messages"] = generic_request.messages
+
+        # Combines and constructs a system message with schema and instructions
+        instructor.handle_response_model(
+            generic_request.response_format,
+            instructor.Mode.ANTHROPIC_JSON,
+            {"messages": generic_request.messages},
+        )
 
         for key, value in generic_request.generation_params.items():
             params[key] = value
