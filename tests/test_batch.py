@@ -3,6 +3,7 @@ import pytest
 from datasets import Dataset
 from bespokelabs import curator
 from pydantic import BaseModel, Field
+import pandas as pd
 
 
 class Answer(BaseModel):
@@ -102,4 +103,10 @@ def test_anthropic_batch_structured_output() -> None:
         assert isinstance(item["cook_time"], int), "Cook time should be an integer"
         assert item["cook_time"] > 0, "Cook time should be positive"
 
+    # Enhanced output display
+    pd.set_option("display.max_columns", None)
+    pd.set_option("display.max_rows", None)
+    pd.set_option("display.width", None)
+    pd.set_option("display.max_colwidth", 30)
+    print("\nTest Results:")
     print(result.to_pandas())

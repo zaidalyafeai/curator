@@ -414,7 +414,7 @@ class BaseRequestProcessor(ABC):
 
         d = Dataset.from_file(dataset_file)
         d = d.sort("__original_row_idx")
-        d = d.remove_columns(["__original_row_idx"])
+        d = d.remove_columns("__original_row_idx")
         return d
 
 
