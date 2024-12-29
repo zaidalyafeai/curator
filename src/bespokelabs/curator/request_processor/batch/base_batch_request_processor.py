@@ -63,6 +63,9 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         self.request_pbar: tqdm | None = None
 
         run_in_event_loop(self.submit_batches_from_request_files(generic_request_files))
+        logger.info(
+            f"Submitted batches. These can be viewed in the web dashboard: {self.web_dashboard}"
+        )
         run_in_event_loop(self.poll_and_process_batches())
 
     def cancel_batches(self) -> Dataset:
