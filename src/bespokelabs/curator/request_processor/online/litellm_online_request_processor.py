@@ -1,8 +1,7 @@
 import logging
-from typing import Optional
 import aiohttp
 import litellm
-from litellm import get_supported_openai_params
+from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 import datetime
 import instructor
 from bespokelabs.curator.request_processor import APIRequest
@@ -66,10 +65,12 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             age: int
 
         try:
-            response = self.client.chat.completions.create(
-                model=self.config.model,
-                messages=[{"role": "user", "content": "Jason is 25 years old."}],
-                response_model=User,
+            response = run_in_event_loop(
+                self.client.chat.completions.create(
+                    model=self.config.model,
+                    messages=[{"role": "user", "content": "Jason is 25 years old."}],
+                    response_model=User,
+                )
             )
             logger.info(f"Check instructor structure output response: {response}")
             assert isinstance(response, User)
