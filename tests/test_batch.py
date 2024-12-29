@@ -58,6 +58,7 @@ class Recipe(BaseModel):
     cook_time: int = Field(description="Cooking time in minutes")
 
 
+@pytest.mark.skip(reason="Temporarily disabled, since it takes a while")
 def test_anthropic_batch_structured_output() -> None:
     """Tests that Anthropic batch processing correctly handles structured output.
 

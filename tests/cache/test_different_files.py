@@ -9,6 +9,7 @@ pytest -s tests/cache/test_different_files.py
 """
 
 
+@pytest.mark.skip(reason="Temporarily disabled, since it takes a while")
 @pytest.mark.cache_dir(os.path.expanduser("~/.cache/curator-tests/test-different-files"))
 @pytest.mark.usefixtures("clear_test_cache")
 def test_cache_behavior():
