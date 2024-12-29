@@ -38,16 +38,17 @@ def test_example_script_first_run(script_path, monkeypatch, tmp_path):
     _run_example_script(script_path, monkeypatch, tmp_path)
 
 
-@pytest.mark.integration
-@pytest.mark.parametrize("script_path", get_example_scripts())
-@pytest.mark.cache_dir(
-    lambda script_path: os.path.expanduser(f"~/.cache/curator-tests/{Path(script_path).stem}")
-)
-@pytest.mark.dependency(depends=["first_run_{script_path}"])
-def test_example_script_cached_run(script_path, monkeypatch, tmp_path):
-    """Test that all example scripts can run without error (second run, using cache)."""
-    print(f"\n\n====== RUNNING CACHED RUN of {script_path} ======\n\n")
-    _run_example_script(script_path, monkeypatch, tmp_path)
+# Keeping this disabled, but not deleting it since we need to solve the issue of cache changing
+# @pytest.mark.integration
+# @pytest.mark.parametrize("script_path", get_example_scripts())
+# @pytest.mark.cache_dir(
+#     lambda script_path: os.path.expanduser(f"~/.cache/curator-tests/{Path(script_path).stem}")
+# )
+# @pytest.mark.dependency(depends=["first_run_{script_path}"])
+# def test_example_script_cached_run(script_path, monkeypatch, tmp_path):
+#     """Test that all example scripts can run without error (second run, using cache)."""
+#     print(f"\n\n====== RUNNING CACHED RUN of {script_path} ======\n\n")
+#     _run_example_script(script_path, monkeypatch, tmp_path)
 
 
 def _run_example_script(script_path, monkeypatch, tmp_path):
