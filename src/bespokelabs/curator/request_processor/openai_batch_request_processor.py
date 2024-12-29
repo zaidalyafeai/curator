@@ -11,6 +11,7 @@ import litellm
 from openai import AsyncOpenAI, NotFoundError
 from openai.types import Batch
 from tqdm import tqdm
+from bespokelabs.curator.request_processor.batch.retry_client import RetryableClient
 
 from bespokelabs.curator.file_utilities import count_lines
 from bespokelabs.curator.dataset import Dataset
@@ -490,7 +491,7 @@ class BatchManager:
             delete_failed_batch_files (bool): Whether to delete input/error files from OpenAI
                 after batch failure.
         """
-        self.client = AsyncOpenAI(max_retries=max_retries)
+        self.client = RetryableClient(AsyncOpenAI(max_retries=max_retries), max_retries)
         self.check_interval = check_interval
         self.working_dir = working_dir
         self.tracker = BatchStatusTracker()
