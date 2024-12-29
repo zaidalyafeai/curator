@@ -20,7 +20,7 @@ def get_example_scripts():
     example_scripts = [
         script
         for script in example_scripts
-        if not script.endswith(("prompt_templates.py", "reannotate.py"))
+        if not script.endswith(("prompt_templates.py", "wildchat.py", "openhermes.py"))
     ]
     return example_scripts
 
