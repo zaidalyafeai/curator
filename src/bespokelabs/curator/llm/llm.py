@@ -251,7 +251,7 @@ class LLM:
             "parse_func": parse_func_source,
             "model_name": self.prompt_formatter.model_name,
             "response_format": (
-                self.prompt_formatter.response_format.schema_json()
+                str(self.prompt_formatter.response_format.model_json_schema())
                 if self.prompt_formatter.response_format
                 else "text"
             ),

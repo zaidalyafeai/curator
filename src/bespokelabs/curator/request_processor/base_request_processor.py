@@ -45,6 +45,10 @@ class BaseRequestProcessor(ABC):
     def requests_to_responses(self, generic_request_files: list[str]) -> None:
         pass
 
+    def check_structured_output_support(self) -> bool:
+        """Check if the model supports structured output"""
+        return True
+
     def run(
         self,
         dataset: Dataset,

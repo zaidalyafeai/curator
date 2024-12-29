@@ -128,7 +128,7 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
             cost = litellm.completion_cost(
                 model=self.config.model,
                 prompt=str(generic_request.messages),
-                completion=response_message,
+                completion=response_message_raw,
             )
             cost *= 0.5  # 50% off for batch
 

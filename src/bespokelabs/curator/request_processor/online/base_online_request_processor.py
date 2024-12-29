@@ -101,10 +101,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         """Create an API-specific request body from a generic request body."""
         pass
 
-    def check_structured_output_support(self) -> bool:
-        """Check if the model supports structured output"""
-        return True
-
     def completion_cost(self, response):
         # Calculate cost using litellm
         try:

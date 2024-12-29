@@ -100,9 +100,9 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
     def create_api_specific_request_batch(self, generic_request: GenericRequest) -> dict:
         # Combines and constructs a system message with schema and instructions
         _, kwargs = instructor.handle_response_model(
-            generic_request.response_format,
-            instructor.Mode.ANTHROPIC_JSON,
-            {"messages": generic_request.messages},
+            self.prompt_formatter.response_format,  # Use the object instead of the dict
+            mode=instructor.Mode.ANTHROPIC_JSON,
+            messages=generic_request.messages,
         )
 
         return {
@@ -153,7 +153,7 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
             cost = litellm.completion_cost(
                 model=self.config.model,
                 prompt=str(generic_request.messages),
-                completion=response_message,
+                completion=response_message_raw,
             )
             cost *= 0.5  # 50% off for batch
 
