@@ -1,0 +1,47 @@
+{
+    "n_total_requests": 1551,
+    "unsubmitted_request_files": [],
+    "submitted_batches": {
+        "msgbatch_01AAs5rns9HhDrWvFxCoivqg": {
+            "request_file": "tests/batch/test_working_dir/requests_0.jsonl",
+            "id": "msgbatch_01AAs5rns9HhDrWvFxCoivqg",
+            "created_at": "2024-12-29T15:19:35.497436Z",
+            "finished_at": null,
+            "status": "submitted",
+            "api_key_suffix": "fwAA",
+            "request_counts": {
+                "total": 1551,
+                "failed": 0,
+                "succeeded": 0,
+                "raw_request_counts_object": {
+                    "canceled": 0,
+                    "errored": 0,
+                    "expired": 0,
+                    "processing": 1551,
+                    "succeeded": 0
+                }
+            },
+            "raw_status": "in_progress",
+            "raw_batch": {
+                "id": "msgbatch_01AAs5rns9HhDrWvFxCoivqg",
+                "archived_at": null,
+                "cancel_initiated_at": null,
+                "created_at": "2024-12-29T15:19:35.497436Z",
+                "ended_at": null,
+                "expires_at": "2024-12-30T15:19:35.497436Z",
+                "processing_status": "in_progress",
+                "request_counts": {
+                    "canceled": 0,
+                    "errored": 0,
+                    "expired": 0,
+                    "processing": 1551,
+                    "succeeded": 0
+                },
+                "results_url": null,
+                "type": "message_batch"
+            }
+        },
+    },
+    "finished_batches": {},
+    "downloaded_batches": {}
+}
