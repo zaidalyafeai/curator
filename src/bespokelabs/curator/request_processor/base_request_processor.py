@@ -432,3 +432,39 @@ def parse_response_message(
             response_message = None
             response_errors = [f"Failed to parse response as JSON: {response_message}"]
     return response_message, response_errors
+
+
+def resume_from_existing_response_file(response_file: str) -> set[int]:
+    completed_request_ids = set()
+    if not os.path.exists(response_file):
+        logger.info(f"Resuming progress by reading existing file: {response_file}")
+        logger.debug(f"Removing all failed requests from {response_file} so they can be retried")
+        temp_filepath = response_file + ".temp"
+        num_previously_failed_requests = 0
+
+        with open(response_file, "r") as input_file, open(temp_filepath, "w") as output_file:
+            for line in input_file:
+                response = GenericResponse.model_validate_json(line)
+                if response.response_errors:
+                    logger.debug(
+                        f"Request {response.generic_request.original_row_idx} previously failed due to errors: "
+                        f"{response.response_errors}, removing from output and will retry"
+                    )
+                    num_previously_failed_requests += 1
+                elif response.response_message is None:
+                    logger.debug(
+                        f"Request {response.generic_request.original_row_idx} previously failed due to no response. "
+                        "Removing from output and will retry."
+                    )
+                    num_previously_failed_requests += 1
+                else:
+                    completed_request_ids.add(response.generic_request.original_row_idx)
+                    output_file.write(line)
+
+        logger.info(
+            f"Found {len(completed_request_ids)} successful requests and "
+            f"{num_previously_failed_requests} previously failed requests"
+        )
+        logger.info("Remaining requests (including failed requests) will now be processed.")
+        os.replace(temp_filepath, response_file)
+    return completed_request_ids

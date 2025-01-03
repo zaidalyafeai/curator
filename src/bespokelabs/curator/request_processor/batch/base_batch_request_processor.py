@@ -9,7 +9,6 @@ from tqdm import tqdm
 from abc import abstractmethod
 
 from bespokelabs.curator.dataset import Dataset
-from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import BaseRequestProcessor
 from bespokelabs.curator.types.generic_batch import GenericBatch, GenericBatchStatus
 from bespokelabs.curator.types.generic_batch import GenericBatchRequestCounts
@@ -29,25 +28,23 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
 
     def requests_to_responses(self, generic_request_files: list[str]) -> None:
         """
-        Processes a dataset using OpenAI's batch API.
+        Processes a list of request files using a batch API.
 
         This function orchestrates the complete batch processing workflow:
-        1. Attempts to load cached results if available
-        2. Creates request files from the dataset
-        3. Submits and processes batches
-        4. Creates output dataset files
+        1. Validates batch size configuration
+        2. Initializes processing resources (semaphore, file locks, progress bars)
+        3. Submits requests as batches
+        4. Polls and processes batch results
 
         Args:
-            dataset (Dataset | None): Input dataset to process.
-            working_dir (str): Directory for storing intermediate files and results.
-            parse_func_hash (str): Hash of the parsing function for cache identification.
-            prompt_formatter (PromptFormatter): Formatter for processing prompts and responses.
+            generic_request_files (list[str]): List of paths to files containing generic requests in JSONL format.
 
         Returns:
-            Dataset: Processed dataset
+            None
 
         Raises:
-            RuntimeError: If batch processing fails or no successful responses are received.
+            ValueError: If batch_size exceeds the maximum allowed requests per batch
+            RuntimeError: If batch processing fails or no successful responses are received
         """
         if self.config.batch_size > self.max_requests_per_batch:
             raise ValueError(
@@ -191,6 +188,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
     async def submit_batch_from_request_file(
         self,
         request_file: str,
+        completed_request_ids: set[int],
     ):
         """
         Submits a batch from a request file.
@@ -203,19 +201,21 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             - Updates tracker with submitted batch status
         """
         metadata = {"request_file": request_file}
-        requests = self.requests_from_generic_request_file(request_file)
+        requests = self.requests_from_generic_request_file(request_file, completed_request_ids)
         batch = await self.submit_batch(requests, metadata)
         self.tracker.mark_as_submitted(batch, len(requests))
         await self.update_batch_objects_file()
         self.batch_submit_pbar.update(1)
 
-    def requests_from_generic_request_file(self, request_file: str) -> list[dict]:
+    def requests_from_generic_request_file(
+        self, request_file: str, completed_request_ids: set[int]
+    ) -> list[dict]:
         """
         Reads and converts generic requests from a file into API-specific request format.
 
         Args:
             request_file (str): Path to the file containing generic requests in JSONL format.
-
+            completed_request_ids (set[int]): Set of request IDs that already have responses, these will be skipped
         Returns:
             list[dict]: List of API-specific request bodies ready for batch submission.
         """
@@ -224,6 +224,8 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         with open(request_file, "r") as file:
             for line in file:
                 request = GenericRequest.model_validate_json(line.strip())
+                if request.original_row_idx in completed_request_ids:
+                    continue
                 api_specific_request = self.create_api_specific_request_batch(request)
                 api_specific_requests.append(api_specific_request)
 
@@ -235,26 +237,23 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         """Processes API-specific responses and creates a generic response file.
 
         Takes raw API responses from a batch request and converts them into GenericResponse objects,
-        writing them to a response file. Handles both successful and failed responses, including
-        token usage tracking and cost calculation.
+        writing them to a response file. Handles both successful and failed responses.
 
         Args:
-            responses (str): Raw response text from the API containing JSONL formatted responses.
-            batch (Batch): The OpenAI batch object containing metadata about the request batch.
-            response_file (str): Path where the generic response file should be written.
+            responses (list[dict]): List of API-specific response dictionaries.
+            batch (GenericBatch): The batch object containing metadata about the request batch.
 
         Returns:
             str | None: Path to the created response file, or None if creation failed.
 
         Note:
             The response file will contain one GenericResponse per line in JSONL format.
-            Failed requests will have response_message=None and include error details.
-            Costs are calculated using litellm with 50% discount applied for batch requests.
+            The response file path is derived from the batch's request file path by replacing
+            'requests_' with 'responses_' in the filename.
         """
         request_file = batch.request_file
         response_file = request_file.replace("requests_", "responses_")
         generic_request_map = {}
-        batch_created_at = batch.created_at
         with open(request_file, "r") as f:
             for line in f:
                 generic_request = GenericRequest.model_validate_json(line)
@@ -285,14 +284,27 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             - Creates and updates batch submission progress bar
         """
         self._attempt_loading_batch_status_tracker(request_files)
+
         if self.tracker.n_submitted_batches > 0:
             n_remaining = self.tracker.n_total_batches - self.tracker.n_downloaded_batches
             n_submitted = self.tracker.n_submitted_batches + self.tracker.n_finished_batches
             logger.info(
                 f"{n_submitted:,} out of {n_remaining:,} remaining batches previously submitted."
             )
+
+        tasks = []
+
+        # check existing response files for resuming
+        for batch in self.tracker.downloaded_batches.values():
+            response_file = batch.request_file.replace("requests_", "responses_")
+            completed_request_ids = self.resume_from_existing_response_file(response_file)
+            tasks.append(
+                self.submit_batch_from_request_file(batch.request_file, completed_request_ids)
+            )
+        logger.info(f"{len(tasks)} additional batches will need to be partially resubmitted.")
+
         # exit early
-        if self.tracker.n_unsubmitted_request_files == 0:
+        if self.tracker.n_unsubmitted_request_files == 0 and len(tasks) == 0:
             return
 
         # submit remaining batches
@@ -302,9 +314,10 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             unit="batch",
             initial=self.tracker.n_submitted_finished_or_downloaded_batches,
         )
-        tasks = [
-            self.submit_batch_from_request_file(f) for f in self.tracker.unsubmitted_request_files
-        ]
+
+        for f in self.tracker.unsubmitted_request_files:
+            tasks.append(self.submit_batch_from_request_file(f, set()))
+
         await asyncio.gather(*tasks)
         self.batch_submit_pbar.close()
         assert self.tracker.unsubmitted_request_files == set()

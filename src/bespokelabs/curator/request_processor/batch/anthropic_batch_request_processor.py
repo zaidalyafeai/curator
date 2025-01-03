@@ -100,7 +100,7 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
     def create_api_specific_request_batch(self, generic_request: GenericRequest) -> dict:
         # Combines and constructs a system message with schema and instructions
         _, kwargs = instructor.handle_response_model(
-            self.prompt_formatter.response_format,  # Use the object instead of the dict
+            self.prompt_formatter.response_format,
             mode=instructor.Mode.ANTHROPIC_JSON,
             messages=generic_request.messages,
         )
