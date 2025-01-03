@@ -39,18 +39,28 @@ class BatchStatusTracker(BaseModel):
         return len(self.downloaded_batches)
 
     @property
-    def n_finished_requests(self) -> int:
+    def n_finished_succeeded_requests(self) -> int:
         batches = list(self.submitted_batches.values()) + list(self.finished_batches.values())
-        return sum(b.request_counts.succeeded + b.request_counts.failed for b in batches)
+        return sum(b.request_counts.succeeded for b in batches)
 
     @property
-    def n_downloaded_requests(self) -> int:
+    def n_finished_failed_requests(self) -> int:
+        batches = list(self.finished_batches.values())
+        return sum(b.request_counts.failed for b in batches)
+
+    @property
+    def n_downloaded_succeeded_requests(self) -> int:
         batches = list(self.downloaded_batches.values())
-        return sum(b.request_counts.succeeded + b.request_counts.failed for b in batches)
+        return sum(b.request_counts.succeeded for b in batches)
 
     @property
-    def n_finished_or_downloaded_requests(self) -> int:
-        return self.n_finished_requests + self.n_downloaded_requests
+    def n_downloaded_failed_requests(self) -> int:
+        batches = list(self.downloaded_batches.values())
+        return sum(b.request_counts.failed for b in batches)
+
+    @property
+    def n_finished_or_downloaded_succeeded_requests(self) -> int:
+        return self.n_finished_succeeded_requests + self.n_downloaded_succeeded_requests
 
     @property
     def n_submitted_finished_or_downloaded_batches(self) -> int:
@@ -100,7 +110,9 @@ class BatchStatusTracker(BaseModel):
             f"Downloaded batches: {self.n_downloaded_batches}",
             "",
             f"Total requests: {self.n_total_requests}",
-            f"Finished requests: {self.n_finished_requests}",
-            f"Downloaded requests: {self.n_downloaded_requests}",
+            f"Finished failed requests: {self.n_finished_failed_requests}",
+            f"Finished succeeded requests: {self.n_finished_succeeded_requests}",
+            f"Downloaded failed requests: {self.n_downloaded_failed_requests}",
+            f"Downloaded succeeded requests: {self.n_downloaded_succeeded_requests}",
         ]
         return "\n".join(status_lines)

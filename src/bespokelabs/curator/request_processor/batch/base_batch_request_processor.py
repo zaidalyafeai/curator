@@ -259,7 +259,8 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
                 generic_request = GenericRequest.model_validate_json(line)
                 generic_request_map[generic_request.original_row_idx] = generic_request
 
-        with open(response_file, "w") as f:
+        # appending allows for the resubmitted resumed batch
+        with open(response_file, "a") as f:
             for raw_response in responses:
                 request_idx = int(raw_response["custom_id"])
                 generic_request = generic_request_map[request_idx]
@@ -301,18 +302,21 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             tasks.append(
                 self.submit_batch_from_request_file(batch.request_file, completed_request_ids)
             )
-        logger.info(f"{len(tasks)} additional batches will need to be partially resubmitted.")
+        n_resubmit_batches = len(tasks)
+        logger.info(
+            f"{n_resubmit_batches} additional batches will need to be partially resubmitted."
+        )
 
         # exit early
-        if self.tracker.n_unsubmitted_request_files == 0 and len(tasks) == 0:
+        if self.tracker.n_unsubmitted_request_files == 0 and n_resubmit_batches == 0:
             return
 
-        # submit remaining batches
+        # submit batches
         self.batch_submit_pbar = tqdm(
             total=self.tracker.n_total_batches,
             desc="Submitting batches",
             unit="batch",
-            initial=self.tracker.n_submitted_finished_or_downloaded_batches,
+            initial=self.tracker.n_submitted_finished_or_downloaded_batches - n_resubmit_batches,
         )
 
         for f in self.tracker.unsubmitted_request_files:
@@ -378,7 +382,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             total=self.tracker.n_total_requests,
             desc="Finished requests in batches",
             unit="request",
-            initial=self.tracker.n_finished_or_downloaded_requests,
+            initial=self.tracker.n_finished_or_downloaded_succeeded_requests,
         )
 
         # loop until all batches have been returned
@@ -392,7 +396,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             await self.update_batch_objects_file()
 
             # update progress bari
-            self.request_pbar.n = self.tracker.n_finished_or_downloaded_requests
+            self.request_pbar.n = self.tracker.n_finished_or_downloaded_succeeded_requests
             self.request_pbar.refresh()
 
             download_tasks = [
@@ -401,11 +405,13 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             ]
             # Failed downloads return None and print any errors that occurred
             all_response_files.extend(await asyncio.gather(*download_tasks))
-            if self.tracker.n_finished_or_downloaded_requests < self.tracker.n_total_requests:
-                logger.debug(
-                    f"Batches returned: {self.tracker.n_finished_or_downloaded_batches:,}/{self.tracker.n_total_batches:,} "
-                    f"Requests completed: {self.tracker.n_finished_or_downloaded_requests:,}/{self.tracker.n_total_requests:,}"
-                )
+
+            logger.debug(
+                f"Batches returned: {self.tracker.n_finished_or_downloaded_batches:,}/{self.tracker.n_total_batches:,} "
+                f"Requests completed: {self.tracker.n_finished_or_downloaded_succeeded_requests:,}/{self.tracker.n_total_requests:,}"
+            )
+
+            if self.tracker.n_submitted_batches + self.tracker.n_finished_batches > 0:
                 logger.debug(f"Sleeping for {self.config.batch_check_interval} seconds...")
                 await asyncio.sleep(self.config.batch_check_interval)
 
