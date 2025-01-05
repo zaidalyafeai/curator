@@ -24,6 +24,10 @@ from bespokelabs.curator.request_processor.openai_online_request_processor impor
     OpenAIOnlineRequestProcessor,
 )
 
+from bespokelabs.curator.request_processor.vllm_offline_request_processor import (
+    VLLMOfflineRequestProcessor,
+)
+
 _CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")
 _DictOrBaseModel = Union[Dict[str, Any], BaseModel]
@@ -56,6 +60,13 @@ class LLM:
         frequency_penalty: Optional[float] = None,
         max_retries: Optional[int] = None,
         require_all_responses: Optional[bool] = True,
+        tensor_parallel_size: Optional[int] = 1,
+        enforce_eager: Optional[bool] = False,
+        max_model_length: Optional[int] = 4096,
+        max_tokens: Optional[int] = 4096,
+        min_tokens: Optional[int] = 0,
+        max_num_seqs: Optional[int] = 256,
+        gpu_memory_utilization: Optional[float] = 0.95,
     ):
         """Initialize a LLM.
 
@@ -79,6 +90,13 @@ class LLM:
             frequency_penalty: The frequency_penalty to use for the LLM, only used if batch is False
             max_retries: The maximum number of retries to use for the LLM
             require_all_responses: Whether to require all responses
+            tensor_parallel_size: The tensor parallel size to use for the VLLM backend
+            enforce_eager: Whether to enforce eager execution for the VLLM backend
+            max_model_length: The maximum model length to use for the VLLM backend
+            max_tokens: The maximum tokens to use for the VLLM backend
+            min_tokens: The minimum tokens to use for the VLLM backend
+            max_num_seqs: The maximum number of sequences to use for the VLLM backend
+            gpu_memory_utilization: The GPU memory utilization to use for the VLLM backend
         """
         self.prompt_formatter = PromptFormatter(
             model_name, prompt_func, parse_func, response_format
@@ -148,6 +166,22 @@ class LLM:
                 max_tokens_per_minute=max_tokens_per_minute,
                 max_retries=max_retries,
                 require_all_responses=require_all_responses,
+            )
+        elif self.backend == "vllm":
+            self._request_processor = VLLMOfflineRequestProcessor(
+                model=model_name,
+                temperature=temperature,
+                top_p=top_p,
+                presence_penalty=presence_penalty,
+                frequency_penalty=frequency_penalty,
+                tensor_parallel_size=tensor_parallel_size,
+                max_model_length=max_model_length,
+                max_tokens=max_tokens,
+                min_tokens=min_tokens,
+                enforce_eager=enforce_eager,
+                max_num_seqs=max_num_seqs,
+                gpu_memory_utilization=gpu_memory_utilization,
+                response_format=response_format,
             )
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
