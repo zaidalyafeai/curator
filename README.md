@@ -200,5 +200,94 @@ node -v # should print `v22.11.0`
 npm -v # should print `10.9.0`
 ```
 
+## Offline Inference with Local Models (vLLM)
+
+We use [vLLM](https://docs.vllm.ai/) offline LLM running engine to generate synthetic data with local models.
+
+[Here](https://docs.vllm.ai/en/latest/models/supported_models.html#generative-models) is the full list of models that are supported by vLLM.
+
+### Setup instructions
+
+Install vLLM in the Python or Conda environment:
+
+```bash
+pip install vllm
+```
+
+You may also need to install Ray for multi-node inference based on Ray clusters:
+
+```bash
+pip install ray
+```
+
+Please refer to the vLLM isntallation [instructions](https://docs.vllm.ai/en/latest/getting_started/installation.html).
+
+### Basic usage
+
+To use curator with a local model, povide your model local path in the model argument and set the backend to `vllm`:
+
+```python
+model_path = "/local/path/to/weights/meta-llama/Meta-Llama-3.1-8B-Instruct"
+curator.LLM(
+        model_name=model_path,
+        backend="vllm"
+    )
+```
+
+See full example [here](examples/vllm-recipe-generation/vllm_recipe.py).
+
+### Inference for models that don't fit in one GPU's memory (tensor parallel)
+
+To use local model that are too big to fit on one GPU, use tensor parallelism. That way you can split the model across multiple GPUs. To do that, specify `tensor_parallel_size` argument that should be equal to number of GPUs you have:
+
+```python
+model_path = "/local/path/to/weights/meta-llama/Meta-Llama-3.1-70B-Instruct"
+curator.LLM(
+        model_name=model_path,
+        backend="vllm",
+        tensor_parallel_size=4 # split across 4 GPUs
+    )
+```
+
+### Structured output
+
+We use [vLLM's Guided Decoding](https://docs.vllm.ai/en/latest/usage/structured_outputs.html#offline-inference) to obtain structured output from local models during offline inference: 
+
+```python
+  from pydantic import BaseModel, Field
+
+  class Cuisines(BaseModel):
+      cuisines_list: List[str] = Field(description="A list of cuisines.")
+
+  model_path = "/local/path/to/weights/meta-llama/Meta-Llama-3.1-70B-Instruct"
+  cuisines_generator = curator.LLM(
+      prompt_func=lambda: f"Generate 10 diverse cuisines.",
+      model_name=model_path,
+      response_format=Cuisines,
+      backend="vllm",
+  )
+```
+
+See full example [here](examples/vllm-recipe-generation/vllm_recipe_structured.py)/
+
+### Details on vLLM specific arguments
+
+  - `max_model_length` (int, optional): The maximum model context length. Defaults to 4096.
+
+  - `enforce_eager` (bool, optional): Whether to enforce eager execution. Defaults to False.
+
+  - `tensor_parallel_size` (int, optional): The tensor parallel size. Defaults to 1.
+
+  - `max_num_seqs` (int, optional): The maximum number of sequences (aka batch size). Defaults to 256.
+
+  - `gpu_memory_utilization` (float, optional): The GPU memory utilization. Defaults to 0.95.
+
+   - `max_tokens` (int, optional): The maximum number of tokens for models to generate. Defaults to 1024.
+
+### Full list of vLLM examples
+
+- [Generate recipes with Meta LLama 3.1 8B offline](examples/vllm-recipe-generation/vllm_recipe.py)
+- [Recipes with structured output](examples/vllm-recipe-generation/vllm_recipe_structured.py)
+
 ## Contributing
 Contributions are welcome! 
