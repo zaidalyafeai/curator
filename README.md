@@ -268,7 +268,7 @@ We use [vLLM's Guided Decoding](https://docs.vllm.ai/en/latest/usage/structured_
   )
 ```
 
-See full example [here](examples/vllm-recipe-generation/vllm_recipe_structured.py)/
+See full example [here](examples/vllm-recipe-generation/vllm_recipe_structured.py).
 
 ### Details on vLLM specific arguments
 
