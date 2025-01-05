@@ -74,7 +74,6 @@ class BaseRequestProcessor(ABC):
         if output_dataset is not None:
             return output_dataset
 
-        """Run completions using the online API with async processing."""
         logger.info(
             f"Running {self.__class__.__name__} completions with model: {self.config.model}"
         )
