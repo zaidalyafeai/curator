@@ -8,7 +8,6 @@ import asyncio
 import aiohttp
 import os
 import json
-import resource
 import aiofiles
 import litellm
 
@@ -147,12 +146,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         # Get rate limits
         status_tracker.max_requests_per_minute = self.max_requests_per_minute
         status_tracker.max_tokens_per_minute = self.max_tokens_per_minute
-
-        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-        resource.setrlimit(
-            resource.RLIMIT_NOFILE,
-            (min(hard, int(10 * status_tracker.max_requests_per_minute)), hard),
-        )
 
         # Track completed requests for resume functionality
         completed_request_ids = set()
