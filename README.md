@@ -201,7 +201,16 @@ npm -v # should print `10.9.0`
 ```
 
 # Local Models Support
+## Table of Contents
 
+- [Online Inference with Local Models](#online-inference-with-local-models-vllm)
+- [Offline Inference with Local Models](#offline-inference-with-local-models-vllm)
+  - [Setup instructions](#setup-instructions)
+  - [Basic usage](#basic-usage)
+  - [Inference with models that do not fit in memory of one GPU (tensor parallelism)](#inference-for-models-that-dont-fit-in-one-gpus-memory-tensor-parallel)
+  - [Structured output with local models](#structured-output)
+  - [Deatils on vLLM specific arguments](#details-on-vllm-specific-arguments)
+- [Full list of local models examples](#full-list-of-vllm-examples)
 
 ## Online Inference with Local Models (vLLM)
 
@@ -325,10 +334,11 @@ See full example [here](examples/vllm-recipe-generation/vllm_recipe_structured.p
 
    - `max_tokens` (int, optional): The maximum number of tokens for models to generate. Defaults to 1024.
 
-### Full list of vLLM examples
+## Full list of vLLM examples
 
 - [Generate recipes with Meta LLama 3.1 8B offline](examples/vllm-recipe-generation/vllm_recipe.py)
 - [Recipes with structured output](examples/vllm-recipe-generation/vllm_recipe_structured.py)
+- [Use vLLM OpneAI compatible server](examples/vllm-online/vllm_online.py)
 
 ## Contributing
 Contributions are welcome! 
