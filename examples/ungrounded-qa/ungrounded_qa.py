@@ -6,9 +6,8 @@ See section F (appendix) of https://arxiv.org/pdf/2303.17760.
 
 from typing import List
 
-from pydantic import BaseModel, Field
-
 from bespokelabs import curator
+from pydantic import BaseModel, Field
 
 
 class Subject(BaseModel):
@@ -38,8 +37,7 @@ subject_dataset = subject_prompter()
 subsubject_prompter = curator.LLM(
     prompt_func=lambda subject: f"For the given subject {subject}. Generate 3 diverse subsubjects. No explanation.",
     parse_func=lambda subject, subsubjects: [
-        {"subject": subject["subject"], "subsubject": subsubject.subject}
-        for subsubject in subsubjects.subjects
+        {"subject": subject["subject"], "subsubject": subsubject.subject} for subsubject in subsubjects.subjects
     ],
     model_name="gpt-4o-mini",
     response_format=Subjects,

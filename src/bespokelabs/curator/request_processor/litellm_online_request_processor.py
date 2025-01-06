@@ -1,19 +1,20 @@
-import logging
-from typing import Optional
-import aiohttp
-import litellm
-from litellm import get_supported_openai_params
 import datetime
+import logging
+import time
+from typing import Optional
+
+import aiohttp
 import instructor
+import litellm
 from bespokelabs.curator.request_processor.base_online_request_processor import (
-    BaseOnlineRequestProcessor,
     APIRequest,
+    BaseOnlineRequestProcessor,
     StatusTracker,
 )
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
-from bespokelabs.curator.request_processor.generic_response import TokenUsage, GenericResponse
+from bespokelabs.curator.request_processor.generic_response import GenericResponse, TokenUsage
+from litellm import get_supported_openai_params
 from pydantic import BaseModel
-import time
 
 logger = logging.getLogger(__name__)
 
@@ -97,9 +98,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             )
             logger.info(f"Check instructor structure output response: {response}")
             assert isinstance(response, User)
-            logger.info(
-                f"Model {self.model} supports structured output via instructor, response: {response}"
-            )
+            logger.info(f"Model {self.model} supports structured output via instructor, response: {response}")
             return True
         except instructor.exceptions.InstructorRetryException as e:
             if "litellm.AuthenticationError" in str(e):
@@ -264,20 +263,14 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         # Get response directly without extra logging
         try:
             if request.generic_request.response_format:
-                response, completion_obj = (
-                    await self.client.chat.completions.create_with_completion(
-                        **request.api_specific_request,
-                        response_model=request.prompt_formatter.response_format,
-                        timeout=self.timeout,
-                    )
+                response, completion_obj = await self.client.chat.completions.create_with_completion(
+                    **request.api_specific_request,
+                    response_model=request.prompt_formatter.response_format,
+                    timeout=self.timeout,
                 )
-                response_message = (
-                    response.model_dump() if hasattr(response, "model_dump") else response
-                )
+                response_message = response.model_dump() if hasattr(response, "model_dump") else response
             else:
-                completion_obj = await litellm.acompletion(
-                    **request.api_specific_request, timeout=self.timeout
-                )
+                completion_obj = await litellm.acompletion(**request.api_specific_request, timeout=self.timeout)
                 response_message = completion_obj["choices"][0]["message"]["content"]
         except litellm.RateLimitError as e:
             status_tracker.time_of_last_rate_limit_error = time.time()
@@ -297,7 +290,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         # Calculate cost using litellm
         try:
             cost = litellm.completion_cost(completion_response=completion_obj.model_dump())
-        except Exception as e:
+        except Exception:
             # We should ideally not catch a catch-all exception here. But litellm is not throwing any specific error.
             cost = 0
 
@@ -310,9 +303,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             raise ValueError(f"finish_reason was {finish_reason}")
 
         if response_message is None:
-            raise ValueError(
-                f"response_message was None with raw response {completion_obj.model_dump()}"
-            )
+            raise ValueError(f"response_message was None with raw response {completion_obj.model_dump()}")
 
         # Create and return response
         return GenericResponse(

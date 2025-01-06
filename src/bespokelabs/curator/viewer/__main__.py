@@ -1,15 +1,8 @@
 import logging
 import os
-import platform
-import shutil
-import socket
 import subprocess
 import sys
-import tempfile
-import time
-import webbrowser
 from argparse import ArgumentParser
-from contextlib import closing
 from pathlib import Path
 
 

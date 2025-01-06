@@ -4,9 +4,8 @@ import json
 import logging
 from typing import Any, Callable, Dict, Optional, Type, TypeVar, Union
 
-from pydantic import BaseModel, ValidationError
-
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
+from pydantic import BaseModel, ValidationError
 
 T = TypeVar("T")
 _DictOrBaseModel = Union[Dict[str, Any], BaseModel]
@@ -29,10 +28,7 @@ def _validate_messages(messages: list[dict]) -> None:
 
     for msg in messages:
         if not isinstance(msg, dict):
-            raise ValueError(
-                "In the return value (a list) of the prompt_func, each "
-                "message must be a dictionary"
-            )
+            raise ValueError("In the return value (a list) of the prompt_func, each " "message must be a dictionary")
 
         if "role" not in msg or "content" not in msg:
             raise ValueError(
@@ -81,14 +77,11 @@ class PromptFormatter:
             messages=messages,
             original_row=row,
             original_row_idx=idx,
-            response_format=(
-                self.response_format.model_json_schema() if self.response_format else None
-            ),
+            response_format=(self.response_format.model_json_schema() if self.response_format else None),
         )
 
     def response_to_response_format(self, response_message: str | dict) -> Optional[dict | str]:
-        """
-        Converts a response message to a specified Pydantic model format.
+        """Converts a response message to a specified Pydantic model format.
 
         This method takes a response message (either as a string or dict) and validates/converts it
         according to the provided Pydantic model format. If the response message is a string,

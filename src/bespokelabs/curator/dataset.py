@@ -56,8 +56,7 @@ class Dataset:
         return list(self)
 
     def to_huggingface(self, in_memory: bool = False) -> None:
-        """
-        Returns a HuggingFace Dataset
+        """Returns a HuggingFace Dataset
 
         Args:
             in_memory (bool): Whether to load the dataset into memory
@@ -65,7 +64,6 @@ class Dataset:
         Returns:
             Dataset: Completed dataset
         """
-
         total_responses_count = 0
         failed_responses_count = 0
 
@@ -74,9 +72,7 @@ class Dataset:
         dataset_file = f"{self.working_dir}/dataset.arrow"
         responses_files = glob.glob(f"{self.working_dir}/responses_*.jsonl")
         if len(responses_files) == 0:
-            raise ValueError(
-                f"No responses files found in {self.working_dir}, can't construct dataset"
-            )
+            raise ValueError(f"No responses files found in {self.working_dir}, can't construct dataset")
 
         # Process all response files
         with ArrowWriter(path=dataset_file) as writer:
@@ -86,18 +82,14 @@ class Dataset:
                         total_responses_count += 1
                         response = GenericResponse.model_validate_json(line)
                         if self.prompt_formatter.response_format:
-                            response.response = self.prompt_formatter.response_format(
-                                **response.response
-                            )
+                            response.response = self.prompt_formatter.response_format(**response.response)
 
                         if response is None:
                             failed_responses_count += 1
                             continue
 
                         if self.prompt_formatter.parse_func:
-                            dataset_rows = self.prompt_formatter.parse_func(
-                                response.row, response.response
-                            )
+                            dataset_rows = self.prompt_formatter.parse_func(response.row, response.response)
                         else:
                             dataset_rows = [response.response]
 

@@ -1,8 +1,7 @@
 import logging
 
-from datasets import load_dataset
-
 from bespokelabs import curator
+from datasets import load_dataset
 
 dataset = load_dataset("allenai/WildChat", split="train")
 dataset = dataset.select(range(3_000))

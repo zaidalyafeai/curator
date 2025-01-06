@@ -6,20 +6,18 @@ import os
 import resource
 from abc import ABC, abstractmethod
 from math import ceil
-from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
 import aiofiles
 import pyarrow
-from datasets import Dataset
-from datasets.arrow_writer import ArrowWriter
-from pydantic import BaseModel, ValidationError
-
 from bespokelabs.curator.file_utilities import count_lines
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.request_processor.generic_request import GenericRequest
 from bespokelabs.curator.request_processor.generic_response import GenericResponse
+from datasets import Dataset
+from datasets.arrow_writer import ArrowWriter
+from pydantic import BaseModel, ValidationError
 
 logger = logger = logging.getLogger(__name__)
 
@@ -27,9 +25,7 @@ CACHE_MSG = "If you want to regenerate the dataset, disable or delete the cache.
 
 
 class BaseRequestProcessor(ABC):
-    """
-    Base class for all request processors.
-    """
+    """Base class for all request processors."""
 
     def __init__(self, batch_size: Optional[int] = None, require_all_responses: bool = True):
         self.batch_size = batch_size
@@ -37,15 +33,12 @@ class BaseRequestProcessor(ABC):
         # Increase the number of open file descriptors to avoid "Too many open files" errors
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         desired_limit = min(10_000_000, hard)
-        logger.debug(
-            f"Adjusting file descriptor limit from {soft} to {desired_limit} (hard limit: {hard})"
-        )
+        logger.debug(f"Adjusting file descriptor limit from {soft} to {desired_limit} (hard limit: {hard})")
         resource.setrlimit(resource.RLIMIT_NOFILE, (desired_limit, hard))
 
     @abstractmethod
     def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
-        """
-        Creates a API-specific request body from a GenericRequest.
+        """Creates a API-specific request body from a GenericRequest.
 
         Must use request_body.metadata.dataset_row or request_body.metadata.dataset_row_idx
 
@@ -65,8 +58,7 @@ class BaseRequestProcessor(ABC):
         parse_func_hash: str,
         prompt_formatter: PromptFormatter,
     ) -> Dataset:
-        """
-        Uses the API to completing the specific map by calling the LLM.
+        """Uses the API to completing the specific map by calling the LLM.
 
         Args:
             dataset (Dataset): Dataset that is being mapped over
@@ -77,11 +69,8 @@ class BaseRequestProcessor(ABC):
         """
         pass
 
-    def _verify_existing_request_files(
-        self, working_dir: str, dataset: Optional[Dataset]
-    ) -> List[int]:
-        """
-        Verify integrity of the cache (each request file has associated metadata, and the number of rows is correct),
+    def _verify_existing_request_files(self, working_dir: str, dataset: Optional[Dataset]) -> List[int]:
+        """Verify integrity of the cache (each request file has associated metadata, and the number of rows is correct),
         and return the indices of request files that need to be regenerated (so that no work is repeated).
 
         Args:
@@ -91,7 +80,6 @@ class BaseRequestProcessor(ABC):
         Returns:
             List[int]: Indices of missing files
         """
-
         if self.batch_size is not None and dataset is not None:
             expected_num_files = ceil(len(dataset) / self.batch_size)
         else:
@@ -129,9 +117,7 @@ class BaseRequestProcessor(ABC):
             return incomplete_files
 
         except Exception as e:
-            logger.warning(
-                f"Cache verification failed due to {e} - regenerating all request files."
-            )
+            logger.warning(f"Cache verification failed due to {e} - regenerating all request files.")
             incomplete_files = list(range(expected_num_files))
             return incomplete_files
 
@@ -141,8 +127,7 @@ class BaseRequestProcessor(ABC):
         working_dir: str,
         prompt_formatter: PromptFormatter,
     ) -> list[str]:
-        """
-        Creates a request file if they don't already exist or use existing.
+        """Creates a request file if they don't already exist or use existing.
 
         Args:
             dataset (Dataset): The dataset to be processed.
@@ -215,9 +200,7 @@ class BaseRequestProcessor(ABC):
 
             run_in_event_loop(create_all_request_files())
         else:
-            run_in_event_loop(
-                self.acreate_request_file(dataset, prompt_formatter, request_file, metadata_file)
-            )
+            run_in_event_loop(self.acreate_request_file(dataset, prompt_formatter, request_file, metadata_file))
 
         return request_files
 
@@ -251,9 +234,7 @@ class BaseRequestProcessor(ABC):
 
         logger.info(f"Wrote {num_requests} requests to {request_file}.")
 
-    def attempt_loading_cached_dataset(
-        self, working_dir: str, parse_func_hash: str
-    ) -> Optional[Dataset]:
+    def attempt_loading_cached_dataset(self, working_dir: str, parse_func_hash: str) -> Optional[Dataset]:
         dataset_file = f"{working_dir}/{parse_func_hash}.arrow"
         if os.path.exists(dataset_file):
             logger.debug(f"Loading dataset from {dataset_file}")
@@ -261,7 +242,7 @@ class BaseRequestProcessor(ABC):
                 output_dataset = Dataset.from_file(dataset_file)
                 logger.info(f"Using cached output dataset. {CACHE_MSG}")
                 return output_dataset
-            except pyarrow.lib.ArrowInvalid as e:
+            except pyarrow.lib.ArrowInvalid:
                 os.remove(dataset_file)
                 logger.warning(
                     f"Failed to load dataset from {dataset_file}, "
@@ -275,8 +256,7 @@ class BaseRequestProcessor(ABC):
         parse_func_hash: str,
         prompt_formatter: PromptFormatter,
     ) -> Dataset:
-        """
-        Creates the request files if they don't already exist or use existing.
+        """Creates the request files if they don't already exist or use existing.
         A single request file (requests_0.jsonl) or multiple request files
         (requests_0.jsonl, requests_1.jsonl, etc.) are created depending on
         batch_size.
@@ -316,12 +296,10 @@ class BaseRequestProcessor(ABC):
                             continue
 
                         try:
-                            response.response_message = (
-                                self.prompt_formatter.response_to_response_format(
-                                    response.response_message
-                                )
+                            response.response_message = self.prompt_formatter.response_to_response_format(
+                                response.response_message
                             )
-                        except (json.JSONDecodeError, ValidationError) as e:
+                        except (json.JSONDecodeError, ValidationError):
                             logger.warning(
                                 "Skipping response due to error parsing response message into response format"
                             )
@@ -362,9 +340,7 @@ class BaseRequestProcessor(ABC):
                                 )
                             if not row:
                                 os.remove(dataset_file)
-                                raise ValueError(
-                                    f"Got empty row {row} from `parse_func`. {error_help}"
-                                )
+                                raise ValueError(f"Got empty row {row} from `parse_func`. {error_help}")
 
                             writer.write(row)
 
@@ -380,7 +356,7 @@ class BaseRequestProcessor(ABC):
                 logger.warning(f"{failed_responses_count} requests failed.")
                 if self.require_all_responses:
                     os.remove(dataset_file)
-                    raise ValueError(f"Some requests failed and require_all_responses is True")
+                    raise ValueError("Some requests failed and require_all_responses is True")
 
             # number of responses matches number of requests
             request_files = glob.glob(f"{working_dir}/requests_*.jsonl")
@@ -394,9 +370,7 @@ class BaseRequestProcessor(ABC):
                 )
                 if self.require_all_responses:
                     os.remove(dataset_file)
-                    raise ValueError(
-                        f"Some requests do not have responses and require_all_responses is True."
-                    )
+                    raise ValueError("Some requests do not have responses and require_all_responses is True.")
 
         return Dataset.from_file(dataset_file)
 
@@ -409,9 +383,7 @@ def parse_response_message(
         try:
             response_message = json.loads(response_message)
         except json.JSONDecodeError:
-            logger.warning(
-                f"Failed to parse response as JSON: {response_message}, skipping this response."
-            )
+            logger.warning(f"Failed to parse response as JSON: {response_message}, skipping this response.")
             response_message = None
             response_errors = [f"Failed to parse response as JSON: {response_message}"]
     return response_message, response_errors

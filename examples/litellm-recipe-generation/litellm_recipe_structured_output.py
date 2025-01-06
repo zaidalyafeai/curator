@@ -1,12 +1,13 @@
-"""Generate synthetic recipes for different cuisines. 
+"""Generate synthetic recipes for different cuisines.
 
 Demonstrates how to use a structured output format with Litellm.
 """
 
-from typing import List
-from pydantic import BaseModel, Field
-from bespokelabs import curator
 import logging
+from typing import List
+
+from bespokelabs import curator
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ def main():
     # 3. Set environment variable: ANTHROPIC_API_KEY
     #############################################
     cuisines_generator = curator.LLM(
-        prompt_func=lambda: f"Generate 10 diverse cuisines.",
+        prompt_func=lambda: "Generate 10 diverse cuisines.",
         model_name="claude-3-5-haiku-20241022",
         response_format=Cuisines,
         parse_func=lambda _, cuisines: [{"cuisine": t} for t in cuisines.cuisines_list],

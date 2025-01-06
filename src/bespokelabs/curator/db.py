@@ -52,7 +52,7 @@ class MetadataDB:
                 # Update last_edited_time for existing entry
                 cursor.execute(
                     """
-                    UPDATE runs 
+                    UPDATE runs
                     SET last_edited_time = ?
                     WHERE run_hash = ?
                     """,
@@ -63,7 +63,7 @@ class MetadataDB:
                 cursor.execute(
                     """
                     INSERT INTO runs (
-                        run_hash, dataset_hash, prompt_func, model_name, 
+                        run_hash, dataset_hash, prompt_func, model_name,
                         response_format, batch_mode, created_time, last_edited_time
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,

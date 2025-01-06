@@ -53,7 +53,7 @@ pip install bespokelabs-curator
 ```
 
 ## Usage
-To run the examples below, make sure to set your OpenAI API key in 
+To run the examples below, make sure to set your OpenAI API key in
 the environment variable `OPENAI_API_KEY` by running `export OPENAI_API_KEY=sk-...` in your terminal.
 
 ### Hello World with `SimpleLLM`: A simple interface for calling LLMs
@@ -145,7 +145,7 @@ and we can scale this up to create tens of thousands of diverse poems.
 You can see a more detailed example in the [examples/poem.py](https://github.com/bespokelabsai/curator/blob/mahesh/update_doc/examples/poem.py) file,
 and other examples in the [examples](https://github.com/bespokelabsai/curator/blob/mahesh/update_doc/examples) directory.
 
-See the [docs](https://docs.bespokelabs.ai/) for more details as well as 
+See the [docs](https://docs.bespokelabs.ai/) for more details as well as
 for troubleshooting information.
 
 ## Bespoke Curator Viewer
@@ -201,4 +201,4 @@ npm -v # should print `10.9.0`
 ```
 
 ## Contributing
-Contributions are welcome! 
+Contributions are welcome!

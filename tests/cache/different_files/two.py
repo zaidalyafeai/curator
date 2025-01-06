@@ -1,6 +1,7 @@
+import logging
+
 from bespokelabs.curator import LLM
 from datasets import Dataset
-import logging
 
 logger = logging.getLogger("bespokelabs.curator")
 logger.setLevel(logging.INFO)

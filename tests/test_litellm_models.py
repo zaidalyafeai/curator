@@ -1,9 +1,9 @@
-import pytest
-import os
 import logging
-from datasets import Dataset
+import os
+
+import pytest
 from bespokelabs.curator import LLM
-from tests.helpers import prepare_test_cache
+from datasets import Dataset
 
 """
 USAGE:
@@ -41,9 +41,7 @@ class TestLiteLLMModels:
             pytest.param("gemini/gemini-1.5-flash", id="gemini-flash"),
             pytest.param("gemini/gemini-1.5-pro", id="gemini-pro"),
             pytest.param("together_ai/meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", id="llama-8b"),
-            pytest.param(
-                "together_ai/meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo", id="llama-70b"
-            ),
+            pytest.param("together_ai/meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo", id="llama-70b"),
         ],
     )
     def test_model(self, model):

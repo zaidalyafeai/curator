@@ -1,4 +1,4 @@
-""" Reimplementation of persona-hub openai_synthesize.py using curator.
+"""Reimplementation of persona-hub openai_synthesize.py using curator.
 Source: https://github.com/tencent-ailab/persona-hub/blob/main/code/openai_synthesize.py
 How to run:
 `python synthesize.py --template "math" --output_path "math.jsonl"`
@@ -6,9 +6,10 @@ Use `curator-viewer` to view the output.
 """
 
 import argparse
+
+import prompt_templates
 from bespokelabs import curator
 from datasets import load_dataset
-import prompt_templates
 
 
 def get_template(template_name):
@@ -22,9 +23,7 @@ def get_template(template_name):
     elif template_name == "math":
         return prompt_templates.math_template
     else:
-        raise ValueError(
-            "Invalid template type. Choose from 'instruction', 'knowledge', 'npc', or 'math'."
-        )
+        raise ValueError("Invalid template type. Choose from 'instruction', 'knowledge', 'npc', or 'math'.")
 
 
 def get_generator(template):
@@ -43,9 +42,7 @@ def main(args):
     template = get_template(args.template)
     generator = get_generator(template)
     # Load the persona dataset
-    persona_dataset = load_dataset(
-        "proj-persona/PersonaHub", data_files="persona.jsonl", split="train"
-    )
+    persona_dataset = load_dataset("proj-persona/PersonaHub", data_files="persona.jsonl", split="train")
     if args.sample_size > 0:
         persona_dataset = persona_dataset.take(args.sample_size)
     print(f"Total number of input personas: {len(persona_dataset['persona'])}")
@@ -56,9 +53,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Synthesize text using a specified model and template."
-    )
+    parser = argparse.ArgumentParser(description="Synthesize text using a specified model and template.")
     parser.add_argument(
         "--sample_size",
         type=int,

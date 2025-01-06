@@ -7,11 +7,6 @@ from datetime import datetime
 from io import BytesIO
 from typing import Any, Callable, Dict, Iterable, Optional, Type, TypeVar, Union
 
-from datasets import Dataset
-from datasets.utils._dill import Pickler
-from pydantic import BaseModel
-from xxhash import xxh64
-
 from bespokelabs.curator.db import MetadataDB
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.litellm_online_request_processor import (
@@ -23,6 +18,10 @@ from bespokelabs.curator.request_processor.openai_batch_request_processor import
 from bespokelabs.curator.request_processor.openai_online_request_processor import (
     OpenAIOnlineRequestProcessor,
 )
+from datasets import Dataset
+from datasets.utils._dill import Pickler
+from pydantic import BaseModel
+from xxhash import xxh64
 
 _CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")
@@ -38,9 +37,7 @@ class LLM:
         self,
         model_name: str,
         prompt_func: Callable[[_DictOrBaseModel], _DictOrBaseModel],
-        parse_func: Optional[
-            Callable[[_DictOrBaseModel, _DictOrBaseModel], _DictOrBaseModel]
-        ] = None,
+        parse_func: Optional[Callable[[_DictOrBaseModel, _DictOrBaseModel], _DictOrBaseModel]] = None,
         response_format: Optional[Type[BaseModel]] = None,
         backend: Optional[str] = None,
         max_requests_per_minute: Optional[int] = None,
@@ -80,9 +77,7 @@ class LLM:
             max_retries: The maximum number of retries to use for the LLM
             require_all_responses: Whether to require all responses
         """
-        self.prompt_formatter = PromptFormatter(
-            model_name, prompt_func, parse_func, response_format
-        )
+        self.prompt_formatter = PromptFormatter(model_name, prompt_func, parse_func, response_format)
         self.batch_mode = batch
 
         # Auto-determine backend if not specified
@@ -97,13 +92,9 @@ class LLM:
             if batch:
                 if batch_size is None:
                     batch_size = 1_000
-                    logger.info(
-                        f"batch=True but no batch_size provided, using default batch_size of {batch_size:,}"
-                    )
+                    logger.info(f"batch=True but no batch_size provided, using default batch_size of {batch_size:,}")
                 if max_requests_per_minute is not None or max_tokens_per_minute is not None:
-                    logger.warning(
-                        "max_requests_per_minute and max_tokens_per_minute not supported with batch mode"
-                    )
+                    logger.warning("max_requests_per_minute and max_tokens_per_minute not supported with batch mode")
                 self._request_processor = OpenAIBatchRequestProcessor(
                     model=model_name,
                     batch_size=batch_size,
@@ -119,9 +110,7 @@ class LLM:
                 )
             else:
                 if batch_size is not None:
-                    logger.warning(
-                        f"LLM argument `batch_size` {batch_size} is ignored because `batch` is False"
-                    )
+                    logger.warning(f"LLM argument `batch_size` {batch_size} is ignored because `batch` is False")
                 self._request_processor = OpenAIOnlineRequestProcessor(
                     model=model_name,
                     temperature=temperature,
@@ -135,9 +124,7 @@ class LLM:
                 )
         elif self.backend == "litellm":
             if batch:
-                logger.warning(
-                    "Batch mode is not supported with LiteLLM backend, ignoring batch=True"
-                )
+                logger.warning("Batch mode is not supported with LiteLLM backend, ignoring batch=True")
             self._request_processor = LiteLLMOnlineRequestProcessor(
                 model=model_name,
                 temperature=temperature,
@@ -153,9 +140,7 @@ class LLM:
             raise ValueError(f"Unknown backend: {self.backend}")
 
     @staticmethod
-    def _determine_backend(
-        model_name: str, response_format: Optional[Type[BaseModel]] = None
-    ) -> str:
+    def _determine_backend(model_name: str, response_format: Optional[Type[BaseModel]] = None) -> str:
         """Determine which backend to use based on model name and response format.
 
         Args:
@@ -168,10 +153,7 @@ class LLM:
         model_name = model_name.lower()
 
         # GPT-4o models with response format should use OpenAI
-        if (
-            response_format
-            and OpenAIOnlineRequestProcessor(model_name).check_structured_output_support()
-        ):
+        if response_format and OpenAIOnlineRequestProcessor(model_name).check_structured_output_support():
             logger.info(f"Requesting structured output from {model_name}, using OpenAI backend")
             return "openai"
 
@@ -192,8 +174,7 @@ class LLM:
         working_dir: str = None,
         batch_cancel: bool = False,
     ) -> Dataset:
-        """
-        Apply structured completions in parallel to a dataset using specified model and
+        """Apply structured completions in parallel to a dataset using specified model and
         prompts.
 
         Args:
@@ -260,9 +241,7 @@ class LLM:
             "parse_func": parse_func_source,
             "model_name": self.prompt_formatter.model_name,
             "response_format": (
-                self.prompt_formatter.response_format.schema_json()
-                if self.prompt_formatter.response_format
-                else "text"
+                self.prompt_formatter.response_format.schema_json() if self.prompt_formatter.response_format else "text"
             ),
             "run_hash": fingerprint,
             "batch_mode": self.batch_mode,

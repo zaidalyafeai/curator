@@ -1,13 +1,13 @@
 """Example of using the curator library to generate diverse poems.
 
-We generate 10 diverse topics and then generate 2 poems for each topic."""
+We generate 10 diverse topics and then generate 2 poems for each topic.
+"""
 
 from typing import List
 
+from bespokelabs import curator
 from datasets import Dataset
 from pydantic import BaseModel, Field
-
-from bespokelabs import curator
 
 
 # We use Pydantic and structured outputs to define the format of the response.

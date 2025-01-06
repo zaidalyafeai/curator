@@ -1,7 +1,8 @@
+import argparse
+import logging
+
 from bespokelabs.curator import LLM
 from datasets import Dataset
-import logging
-import argparse
 
 # python tests/batch_tests/simple_batch.py --log-level DEBUG --n-requests 3 --batch-size 1 --batch-check-interval 10
 

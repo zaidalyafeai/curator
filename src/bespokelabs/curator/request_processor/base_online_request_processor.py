@@ -1,23 +1,23 @@
+import asyncio
+import datetime
+import json
+import logging
+import os
+import resource
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-import datetime
-import time
 from typing import Optional
-from tqdm import tqdm
-import logging
-import asyncio
-import aiohttp
-import os
-import json
-import resource
 
-from bespokelabs.curator.dataset import Dataset
-from bespokelabs.curator.request_processor.base_request_processor import BaseRequestProcessor
-from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
-from bespokelabs.curator.request_processor.generic_request import GenericRequest
-from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
-from bespokelabs.curator.request_processor.generic_response import GenericResponse
 import aiofiles
+import aiohttp
+from bespokelabs.curator.dataset import Dataset
+from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
+from bespokelabs.curator.request_processor.base_request_processor import BaseRequestProcessor
+from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
+from bespokelabs.curator.request_processor.generic_request import GenericRequest
+from bespokelabs.curator.request_processor.generic_response import GenericResponse
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -48,9 +48,7 @@ class StatusTracker:
     max_tokens_per_minute: int = 0
     pbar: tqdm = field(default=None)
     response_cost: float = 0
-    time_of_last_rate_limit_error: float = field(
-        default=time.time() - SECONDS_TO_PAUSE_ON_RATE_LIMIT
-    )
+    time_of_last_rate_limit_error: float = field(default=time.time() - SECONDS_TO_PAUSE_ON_RATE_LIMIT)
 
     def __str__(self):
         return (
@@ -71,14 +69,12 @@ class StatusTracker:
         seconds_since_update = current_time - self.last_update_time
 
         self.available_request_capacity = min(
-            self.available_request_capacity
-            + self.max_requests_per_minute * seconds_since_update / 60.0,
+            self.available_request_capacity + self.max_requests_per_minute * seconds_since_update / 60.0,
             self.max_requests_per_minute,
         )
 
         self.available_token_capacity = min(
-            self.available_token_capacity
-            + self.max_tokens_per_minute * seconds_since_update / 60.0,
+            self.available_token_capacity + self.max_tokens_per_minute * seconds_since_update / 60.0,
             self.max_tokens_per_minute,
         )
 
@@ -87,9 +83,7 @@ class StatusTracker:
     def has_capacity(self, token_estimate: int) -> bool:
         """Check if there's enough capacity for a request"""
         self.update_capacity()
-        has_capacity = (
-            self.available_request_capacity >= 1 and self.available_token_capacity >= token_estimate
-        )
+        has_capacity = self.available_request_capacity >= 1 and self.available_token_capacity >= token_estimate
         if not has_capacity:
             logger.debug(
                 f"No capacity for request with {token_estimate} tokens. "
@@ -150,14 +144,10 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
     @property
     def max_requests_per_minute(self) -> int:
         if self.manual_max_requests_per_minute:
-            logger.info(
-                f"Manually set max_requests_per_minute to {self.manual_max_requests_per_minute}"
-            )
+            logger.info(f"Manually set max_requests_per_minute to {self.manual_max_requests_per_minute}")
             return self.manual_max_requests_per_minute
         elif self.header_based_max_requests_per_minute:
-            logger.info(
-                f"Automatically set max_requests_per_minute to {self.header_based_max_requests_per_minute}"
-            )
+            logger.info(f"Automatically set max_requests_per_minute to {self.header_based_max_requests_per_minute}")
             return self.header_based_max_requests_per_minute
         else:
             logger.warning(
@@ -168,14 +158,10 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
     @property
     def max_tokens_per_minute(self) -> int:
         if self.manual_max_tokens_per_minute:
-            logger.info(
-                f"Manually set max_tokens_per_minute to {self.manual_max_tokens_per_minute}"
-            )
+            logger.info(f"Manually set max_tokens_per_minute to {self.manual_max_tokens_per_minute}")
             return self.manual_max_tokens_per_minute
         elif self.header_based_max_tokens_per_minute:
-            logger.info(
-                f"Automatically set max_tokens_per_minute to {self.header_based_max_tokens_per_minute}"
-            )
+            logger.info(f"Automatically set max_tokens_per_minute to {self.header_based_max_tokens_per_minute}")
             return self.header_based_max_tokens_per_minute
         else:
             logger.warning(
@@ -220,9 +206,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     f"response_format: {self.prompt_formatter.response_format}"
                 )
         generic_request_files = self.create_request_files(dataset, working_dir, prompt_formatter)
-        generic_responses_files = [
-            f"{working_dir}/responses_{i}.jsonl" for i in range(len(generic_request_files))
-        ]
+        generic_responses_files = [f"{working_dir}/responses_{i}.jsonl" for i in range(len(generic_request_files))]
 
         for request_file, response_file in zip(generic_request_files, generic_responses_files):
             run_in_event_loop(
@@ -243,7 +227,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         resume_no_retry: bool = False,
     ) -> None:
         """Processes API requests in parallel, throttling to stay under rate limits."""
-
         # Initialize trackers
         queue_of_requests_to_retry: asyncio.Queue[APIRequest] = asyncio.Queue()
         status_tracker = StatusTracker()
@@ -263,15 +246,11 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         if os.path.exists(save_filepath):
             if resume:
                 logger.info(f"Resuming progress by reading existing file: {save_filepath}")
-                logger.debug(
-                    f"Removing all failed requests from {save_filepath} so they can be retried"
-                )
+                logger.debug(f"Removing all failed requests from {save_filepath} so they can be retried")
                 temp_filepath = f"{save_filepath}.temp"
                 num_previously_failed_requests = 0
 
-                with open(save_filepath, "r") as input_file, open(
-                    temp_filepath, "w"
-                ) as output_file:
+                with open(save_filepath, "r") as input_file, open(temp_filepath, "w") as output_file:
                     for line in input_file:
                         response = GenericResponse.model_validate_json(line)
                         if response.response_errors:
@@ -341,9 +320,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
 
         # Use higher connector limit for better throughput
         connector = aiohttp.TCPConnector(limit=10 * status_tracker.max_requests_per_minute)
-        async with aiohttp.ClientSession(
-            connector=connector
-        ) as session:  # Initialize ClientSession here
+        async with aiohttp.ClientSession(connector=connector) as session:  # Initialize ClientSession here
             async with aiofiles.open(generic_request_filepath) as file:
                 pending_requests = []
 
@@ -369,17 +346,11 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                         await asyncio.sleep(0.1)
 
                     # Wait for rate limits cool down if needed
-                    seconds_since_rate_limit_error = (
-                        time.time() - status_tracker.time_of_last_rate_limit_error
-                    )
+                    seconds_since_rate_limit_error = time.time() - status_tracker.time_of_last_rate_limit_error
                     if seconds_since_rate_limit_error < SECONDS_TO_PAUSE_ON_RATE_LIMIT:
-                        remaining_seconds_to_pause = (
-                            SECONDS_TO_PAUSE_ON_RATE_LIMIT - seconds_since_rate_limit_error
-                        )
+                        remaining_seconds_to_pause = SECONDS_TO_PAUSE_ON_RATE_LIMIT - seconds_since_rate_limit_error
                         await asyncio.sleep(remaining_seconds_to_pause)
-                        logger.warn(
-                            f"Pausing to cool down for {int(remaining_seconds_to_pause)} seconds"
-                        )
+                        logger.warn(f"Pausing to cool down for {int(remaining_seconds_to_pause)} seconds")
 
                     # Consume capacity before making request
                     status_tracker.consume_capacity(token_estimate)
@@ -408,9 +379,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 # Process new items from the queue if we have capacity
                 if not queue_of_requests_to_retry.empty():
                     retry_request = await queue_of_requests_to_retry.get()
-                    token_estimate = self.estimate_total_tokens(
-                        retry_request.generic_request.messages
-                    )
+                    token_estimate = self.estimate_total_tokens(retry_request.generic_request.messages)
                     attempt_number = self.max_retries - retry_request.attempts_left
                     logger.debug(
                         f"Retrying request {retry_request.task_id} "

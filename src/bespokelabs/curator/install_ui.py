@@ -12,8 +12,6 @@ from typing import Optional, Tuple
 
 from rich.console import Console
 from rich.live import Live
-from rich.panel import Panel
-from rich.progress import ProgressBar
 from rich.spinner import Spinner
 from rich.text import Text
 
@@ -52,7 +50,7 @@ class InstallationUI:
         bar.append("█" * filled, style="green")
         bar.append("▒" * (width - filled), style="dim white")
         bar.append(" │", style="dim white")
-        bar.append(f"\n╰", style="dim white")
+        bar.append("\n╰", style="dim white")
         bar.append("─" * (width + 2), style="dim white")
         bar.append("╯", style="dim white")
         return bar
@@ -74,9 +72,7 @@ class InstallationUI:
         """Create the success message with links."""
         text = Text()
         text.append("✨ Curator installed successfully!\n\n", style="bold green")
-        text.append(
-            "Start building production-ready synthetic data pipelines:\n\n", style="dim white"
-        )
+        text.append("Start building production-ready synthetic data pipelines:\n\n", style="dim white")
         text.append("   📚 ", style="")
         text.append("docs.bespokelabs.ai", style="dim cyan link https://docs.bespokelabs.ai")
         text.append("\n   📦 ", style="")
@@ -85,9 +81,7 @@ class InstallationUI:
             style="dim cyan link https://github.com/bespokelabsai/curator",
         )
         text.append("\n   💬 ", style="")
-        text.append(
-            "discord.gg/KqpXvpzVBS", style="dim cyan link https://discord.com/invite/KqpXvpzVBS"
-        )
+        text.append("discord.gg/KqpXvpzVBS", style="dim cyan link https://discord.com/invite/KqpXvpzVBS")
         return text
 
 
@@ -133,9 +127,7 @@ class PackageInstaller:
 
     def install(self) -> None:
         """Execute the installation with progress tracking and UI updates."""
-        spinner = Spinner(
-            "dots2", text=self.ui.create_loading_text(InstallationStage.PREPARING, 0), style="green"
-        )
+        spinner = Spinner("dots2", text=self.ui.create_loading_text(InstallationStage.PREPARING, 0), style="green")
 
         with Live(spinner, console=self.ui.console, refresh_per_second=30) as live:
             try:
@@ -169,8 +161,7 @@ class PackageInstaller:
 
 
 def enhanced_install(package_name: str, version: Optional[str] = None) -> None:
-    """
-    Enhance pip installation with a professional progress UI.
+    """Enhance pip installation with a professional progress UI.
 
     Args:
         package_name: Name of the package to install
