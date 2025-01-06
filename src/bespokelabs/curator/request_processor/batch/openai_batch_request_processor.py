@@ -52,9 +52,18 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
     def parse_api_specific_request_counts(
         self, request_counts: BatchRequestCounts
     ) -> GenericBatchRequestCounts:
-        """
-        https://github.com/openai/openai-python/blob/6e1161bc3ed20eef070063ddd5ac52fd9a531e88/src/openai/types/batch_request_counts.py#L9
-        Request Counts (OpenAI): "completed", "failed", "total"
+        """Convert OpenAI-specific request counts to generic format.
+
+        Handles the following OpenAI request count statuses:
+        - completed: Successfully completed requests
+        - failed: Requests that failed
+        - total: Total number of requests in batch
+
+        Args:
+            request_counts: OpenAI's BatchRequestCounts object.
+
+        Returns:
+            GenericBatchRequestCounts: Standardized request count format.
         """
         return GenericBatchRequestCounts(
             failed=request_counts.failed,
@@ -66,12 +75,28 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
     def parse_api_specific_batch_object(
         self, batch: Batch, request_file: str | None = None
     ) -> GenericBatch:
-        """
-        https://github.com/openai/openai-python/blob/995cce048f9427bba4f7ac1e5fc60abbf1f8f0b7/src/openai/types/batch.py#L40C1-L41C1
-        Batch Status (OpenAI): "validating", "finalizing", "cancelling", "in_progress", "completed", "failed", "expired", "cancelled"
+        """Convert an OpenAI batch object to generic format.
 
-        https://github.com/openai/openai-python/blob/bb9c2de913279acc89e79f6154173a422f31de45/src/openai/types/batch.py#L27-L71
-        Timing (OpenAI): "created_at", "in_progress_at", "expires_at", "finalizing_at", "completed_at", "failed_at", "expired_at", "cancelling_at", "cancelled_at"
+        Maps OpenAI-specific batch statuses and timing information to our
+        standardized GenericBatch format.
+
+        Batch statuses:
+        - validating/finalizing/cancelling/in_progress: Mapped to SUBMITTED
+        - completed/failed/expired/cancelled: Mapped to FINISHED
+
+        Timing fields:
+        - created_at: When the batch was created
+        - completed_at/failed_at/expired_at/cancelled_at: When processing ended
+
+        Args:
+            batch: OpenAI's Batch object.
+            request_file: Optional path to the request file.
+
+        Returns:
+            GenericBatch: Standardized batch object.
+
+        Raises:
+            ValueError: If the batch status is unknown.
         """
         if batch.status in ["validating", "finalizing", "cancelling", "in_progress"]:
             status = GenericBatchStatus.SUBMITTED
@@ -102,6 +127,26 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
         generic_request: GenericRequest,
         batch: GenericBatch,
     ) -> GenericResponse:
+        """Parse OpenAI API response into generic format.
+
+        Processes raw responses from OpenAI's batch API, handling both successful
+        and failed responses. For successful responses, calculates token usage
+        and applies batch pricing discount.
+
+        Args:
+            raw_response: Raw response dictionary from OpenAI's API.
+            generic_request: Original generic request object.
+            batch: The batch object containing timing information.
+
+        Returns:
+            GenericResponse: Standardized response object with parsed message,
+                errors, token usage, and cost information.
+
+        Side Effects:
+            - Calculates costs with 50% batch discount
+            - Parses response messages using prompt formatter
+            - Handles failed requests with error details
+        """
         if raw_response["response"]["status_code"] != 200:
             response_message = None
             response_errors = [str(raw_response["response"]["status_code"])]
@@ -249,6 +294,19 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
             return self.parse_api_specific_batch_object(batch)
 
     async def retrieve_batch(self, batch: GenericBatch) -> GenericBatch:
+        """Retrieve current status of a batch from OpenAI's API.
+
+        Args:
+            batch: The batch object to retrieve status for.
+
+        Returns:
+            GenericBatch: Updated batch object with current status.
+            None: If the batch is not found or inaccessible.
+
+        Side Effects:
+            - Logs warnings if batch is not found or inaccessible
+            - Uses API key suffix to help identify access issues
+        """
         try:
             batch = await self.client.batches.retrieve(batch.id)
         except NotFoundError:
@@ -279,6 +337,25 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
                 logger.warning(f"Trying to delete file {file_id} but it was not found.")
 
     async def download_batch(self, batch: GenericBatch) -> list[dict] | None:
+        """Download and process batch results from OpenAI.
+
+        Downloads output and error files for completed batches. Handles different
+        batch statuses (completed, failed, cancelled, expired) and manages file
+        cleanup based on configuration.
+
+        Args:
+            batch: The batch object to download results for.
+
+        Returns:
+            list[dict] | None: List of response dictionaries if successful,
+                None if download fails or batch has no output.
+
+        Side Effects:
+            - Downloads files from OpenAI's API
+            - Optionally deletes batch files based on configuration
+            - Logs batch status and any errors
+            - Handles file cleanup for failed/cancelled/expired batches
+        """
         output_file_content = None
         error_file_content = None  # TODO how should we use this?
         openai_batch = Batch.model_validate(batch.raw_batch)
@@ -328,6 +405,23 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
         return responses
 
     async def cancel_batch(self, batch: GenericBatch) -> int:
+        """Cancel a running batch job.
+
+        Attempts to cancel a batch that hasn't completed yet. Handles cases
+        where the batch is already completed or cancellation fails.
+
+        Args:
+            batch: The batch object to cancel.
+
+        Returns:
+            int: 0 if cancellation succeeds or batch is already complete,
+                -1 if cancellation fails.
+
+        Side Effects:
+            - Attempts to cancel batch with OpenAI's API
+            - Logs success or failure of cancellation
+            - Retrieves current batch status before attempting cancellation
+        """
         async with self.semaphore:
             batch_object = await self.retrieve_batch(batch)
             if batch_object.status == "completed":
