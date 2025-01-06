@@ -16,6 +16,7 @@ jobs:
       run: |
         pip install poetry
         poetry install
-    - name: Run black
+    - name: Run ruff
       run: |
-        poetry run black --check .
+        poetry run ruff check . --output-format=github
+        poetry run ruff format . --check
