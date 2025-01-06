@@ -231,21 +231,20 @@ Then, to use this server, provide the API endpint URL and the dummy API key. Set
 ```python
 model_path = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 
+# Define the vLLM server params
 
-    # Define the vLLM server params
-    model_path = "NousResearch/Meta-Llama-3-8B-Instruct"
-    PORT = 8787
-    HOST = "localhost"
-    URL = f"http://{HOST}:{PORT}/v1/chat/completions"
-    API_KEY = "token-abc123"
+PORT = 8787
+HOST = "localhost"
+URL = f"http://{HOST}:{PORT}/v1/chat/completions"
+API_KEY = "token-abc123"
 
-    recipe_prompter = curator.LLM(
-        model_name=model_path,
-        prompt_func=lambda row: "Generate a poem",
-        backend="openai",
-        api_key=API_KEY,
-        url=URL,
-    )
+recipe_prompter = curator.LLM(
+    model_name=model_path,
+    prompt_func=lambda row: "Generate a poem",
+    backend="openai",
+    api_key=API_KEY,
+    url=URL,
+)
 ```
 
 See [here](examples/vllm-online/vllm_online.py) a full example.
