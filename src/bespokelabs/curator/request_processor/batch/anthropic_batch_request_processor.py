@@ -29,10 +29,9 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
     file uploads, batch submissions, and result retrieval. Supports message batches
     with limitations defined in Anthropic's documentation.
 
-    Note:
-        For batch limitations and details, see:
-        - Anthropic Message Batches API documentation
-        - Anthropic Message Batches Limitations documentation
+    Information about limits:
+    https://docs.anthropic.com/en/api/creating-message-batches
+    https://docs.anthropic.com/en/docs/build-with-claude/message-batches#batch-limitations
 
     Attributes:
         client: AsyncAnthropic client instance for making API calls.
@@ -71,6 +70,8 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
     def max_concurrent_batch_operations(self) -> int:
         """Maximum number of concurrent batch operations allowed.
 
+        Set to 100 to avoid hitting undocumented rate limits in the batch operation APIs.
+
         Returns:
             int: The maximum number of concurrent operations (100).
         """
@@ -80,6 +81,9 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
         self, request_counts: MessageBatchRequestCounts
     ) -> GenericBatchRequestCounts:
         """Converts Anthropic-specific request counts to generic format.
+
+        Reference implementation:
+        https://github.com/anthropics/anthropic-sdk-python/blob/e7c5fd1cf9226d73122870d07906664696da3ab8/src/anthropic/types/beta/messages/beta_message_batch_request_counts.py#L9
 
         Handles the following Anthropic request count statuses:
         - processing: Requests still being processed
@@ -108,6 +112,10 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
         self, batch: MessageBatch, request_file: str | None = None
     ) -> GenericBatch:
         """Converts an Anthropic batch object to generic format.
+
+        Reference implementations:
+        - Batch Status: https://github.com/anthropics/anthropic-sdk-python/blob/e7c5fd1cf9226d73122870d07906664696da3ab8/src/anthropic/types/beta/messages/beta_message_batch.py#L53
+        - Timing: https://github.com/anthropics/anthropic-sdk-python/blob/e7c5fd1cf9226d73122870d07906664696da3ab8/src/anthropic/types/beta/messages/beta_message_batch.py#L20-L51
 
         Maps Anthropic-specific batch statuses and timing information to our
         standardized GenericBatch format.
@@ -204,9 +212,6 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
         Returns:
             GenericResponse: Standardized response object with parsed message,
                 errors, token usage, and cost information.
-
-        Note:
-            TODO items are tracked for handling max_tokens and resubmission cases.
         """
         result_type = raw_response["result"]["type"]
         if result_type != "succeeded":
@@ -288,9 +293,6 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
 
         Side Effects:
             - Logs warnings if batch is not found or inaccessible.
-
-        Note:
-            Uses API key suffix to help identify access issues.
         """
         async with self.semaphore:
             try:
