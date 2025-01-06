@@ -200,6 +200,47 @@ node -v # should print `v22.11.0`
 npm -v # should print `10.9.0`
 ```
 
+# Local Models Support
+
+
+## Online Inference with Local Models (vLLM)
+
+You can use local models served with [vLLM OpenAI compatibale server](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html) for online data generation.
+In order to do that, first start a vLLM ssrver:
+```bash
+vllm serve \
+NousResearch/Meta-Llama-3-8B-Instruct \
+--host localhost \
+--port 8787 \
+--api-key token-abc123
+```
+
+Note that you still need to provide a dummy API key since OpenAI client expects it.
+See [here](examples/vllm-online/start_vllm_server.sh) a full example on starting a vLLM server.
+
+Then, to use this server, provide the API endpint URL and the dummy API key. Set backend to `openai`, e.g:
+```python
+model_path = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+
+
+    # Define the vLLM server params
+    model_path = "NousResearch/Meta-Llama-3-8B-Instruct"
+    PORT = 8787
+    HOST = "localhost"
+    URL = f"http://{HOST}:{PORT}/v1/chat/completions"
+    API_KEY = "token-abc123"
+
+    recipe_prompter = curator.LLM(
+        model_name=model_path,
+        prompt_func=lambda row: "Generate a poem",
+        backend="openai",
+        api_key=API_KEY,
+        url=URL,
+    )
+```
+
+See [here](examples/vllm-online/vllm_online.py) a full example.
+
 ## Offline Inference with Local Models (vLLM)
 
 We use [vLLM](https://docs.vllm.ai/) offline LLM running engine to generate synthetic data with local models.

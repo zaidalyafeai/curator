@@ -67,6 +67,8 @@ class LLM:
         min_tokens: Optional[int] = 0,
         max_num_seqs: Optional[int] = 256,
         gpu_memory_utilization: Optional[float] = 0.95,
+        url: Optional[str] = "https://api.openai.com/v1/chat/completions",
+        api_key: Optional[str] = None,
     ):
         """Initialize a LLM.
 
@@ -150,6 +152,8 @@ class LLM:
                     max_tokens_per_minute=max_tokens_per_minute,
                     max_retries=max_retries,
                     require_all_responses=require_all_responses,
+                    url=url,
+                    api_key=os.environ.get("OPENAI_API_KEY", api_key),
                 )
         elif self.backend == "litellm":
             if batch:

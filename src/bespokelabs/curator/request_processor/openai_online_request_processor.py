@@ -305,7 +305,11 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor):
             )
 
             # Calculate cost using litellm
-            cost = litellm.completion_cost(completion_response=response)
+            try:
+                cost = litellm.completion_cost(completion_response=response)
+            except Exception as e:
+                logger.warning(f"Failed to calculate cost: {e}")
+                cost = None
 
             # Create and return response
             return GenericResponse(
