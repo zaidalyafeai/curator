@@ -21,7 +21,7 @@ def parse_func(row, response):
     return {"instruction": instruction, "new_response": response}
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def helper_fixture():
     dataset = Dataset.from_parquet("tests/integrations/openai/fixtures/dataset.parquet")
     temp_directory = tempfile.mkdtemp()
