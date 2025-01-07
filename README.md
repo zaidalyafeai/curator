@@ -224,30 +224,27 @@ NousResearch/Meta-Llama-3-8B-Instruct \
 --api-key token-abc123
 ```
 
-Note that you still need to provide a dummy API key since OpenAI client expects it.
+Note that you still need to provide a dummy API key since OpenAI client expects it (LiteLLM [uses](https://docs.litellm.ai/docs/providers/vllm#usage---litellmcompletion-calling-openai-compatible-endpoint) OpenAI client in the background).
 See [here](examples/vllm-online/start_vllm_server.sh) a full example on starting a vLLM server.
 
-Then, to use this server, provide the API endpint URL and the dummy API key. Set backend to `openai`, e.g:
+Then, to use this server, provide the API endpoint URL and the dummy API key. We use LiteLLM to generate data with vLLM hosted local models so you need to set the backend to `litellm`. In order for LiteLLM to recognize proper backend, add `hosted_vllm/` prefix to your model name. Set `HOSTED_VLLM_API_KEY` environment varibale to your dummy API key. Example:
 ```python
-model_path = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-
-# Define the vLLM server params
-
+model_path = "hosted_vllm/NousResearch/Meta-Llama-3-8B-Instruct" # Make sure to add hosted_vllm/ prefix
 PORT = 8787
 HOST = "localhost"
-URL = f"http://{HOST}:{PORT}/v1/chat/completions"
-API_KEY = "token-abc123"
+URL = f"http://{HOST}:{PORT}/v1"
+os.environ["HOSTED_VLLM_API_KEY"] = API_KEY
 
 recipe_prompter = curator.LLM(
     model_name=model_path,
     prompt_func=lambda row: "Generate a poem",
-    backend="openai",
-    api_key=API_KEY,
-    url=URL,
+    backend="litellm",
+    base_url=URL,
 )
 ```
 
 See [here](examples/vllm-online/vllm_online.py) a full example.
+LiteLLM supports structured output, see [here](examples/vllm-online/vllm_online_structured.py) an example with a vLLM hosted model.
 
 ## Offline Inference with Local Models (vLLM)
 
@@ -319,6 +316,19 @@ We use [vLLM's Guided Decoding](https://docs.vllm.ai/en/latest/usage/structured_
 
 See full example [here](examples/vllm-recipe-generation/vllm_recipe_structured.py).
 
+### Batched inference
+
+Offline vLLM inference support batch inference by default, the default batch size (number of sequences to process at a time) is equal to 256. Set the `batch_size` argument to change the default value:
+
+```python
+  curator.LLM(
+        model_name=model_path,
+        prompt_func=lambda row: f"write a poem",
+        backend="vllm",
+        batch_size=32
+    )
+```
+
 ### Details on vLLM specific arguments
 
   - `max_model_length` (int, optional): The maximum model context length. Defaults to 4096.
@@ -327,17 +337,16 @@ See full example [here](examples/vllm-recipe-generation/vllm_recipe_structured.p
 
   - `tensor_parallel_size` (int, optional): The tensor parallel size. Defaults to 1.
 
-  - `max_num_seqs` (int, optional): The maximum number of sequences (aka batch size). Defaults to 256.
-
   - `gpu_memory_utilization` (float, optional): The GPU memory utilization. Defaults to 0.95.
 
-   - `max_tokens` (int, optional): The maximum number of tokens for models to generate. Defaults to 1024.
+  - `max_tokens` (int, optional): The maximum number of tokens for models to generate. Defaults to 1024.
 
 ## Full list of vLLM examples
 
 - [Generate recipes with Meta LLama 3.1 8B offline](examples/vllm-recipe-generation/vllm_recipe.py)
 - [Recipes with structured output](examples/vllm-recipe-generation/vllm_recipe_structured.py)
 - [Use vLLM OpneAI compatible server](examples/vllm-online/vllm_online.py)
+- [Use vLLM OpneAI compatible server with structured output](examples/vllm-online/vllm_online_structured.py)
 
 ## Contributing
 Contributions are welcome! 

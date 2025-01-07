@@ -39,14 +39,15 @@ def test_online_vllm(model_name):
 
     time.sleep(60)
 
-    url = f"http://{host}:{port}/v1/chat/completions"
+    os.environ["HOSTED_VLLM_API_KEY"] = "token-abc123"
+
+    url = f"http://{host}:{port}/v1"
 
     prompter = LLM(
         prompt_func=lambda row: "write me a poem",
-        model_name=model_path,
-        url=url,
-        backend="openai",
-        api_key="token-abc123",
+        model_name=f"hosted_vllm/{model_path}",
+        base_url=url,
+        backend="litellm",
     )
 
     dataset = prompter()

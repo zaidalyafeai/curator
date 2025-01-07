@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "bespokelabs-curator"
-version = "0.1.13"
+version = "0.1.14"
 description = "Bespoke Labs Curator"
 authors = ["Bespoke Labs <company@bespokelabs.ai>"]
 readme = "README.md"
@@ -36,10 +36,13 @@ isort = "^5.13.2"
 tiktoken = ">=0.7.0,<0.8.0"
 aiofiles = ">=22.0,<24.0"
 vllm = "v0.6.6.post1"
+anthropic = "^0.42.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.2.0"
 twine = "^5.0.0"
+pytest-dependency = "^0.6.0"
+pytest-timeout = "^2.3.1"
 
 [build-system]
 requires = ["poetry-core"]
