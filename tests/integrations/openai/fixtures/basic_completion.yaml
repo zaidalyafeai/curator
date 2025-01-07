@@ -1,0 +1,1390 @@
+interactions:
+- request:
+    body: ''
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - raw.githubusercontent.com
+      user-agent:
+      - python-httpx/0.27.2
+    method: GET
+    uri: https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA+19W4/jOLLm+/wKoWaBAQYlWxffsoDB6e7Zc+nd7j2zizNnsU8JWqbT6pQltyRn
+        ZdXB/PclJactyxLJkCiJslkP1dlZtCx+X0QwGAxG/NcfDPLnU4L2hwA/Jwfsffpi/Ff2y+wf9uj9
+        OY1ecZiQ339KcGqkkUF/GR3TwzE9/Zvhb41DHL35Gxwb9CH+1sfkt+nE+PlfjDBKjcInTx+5Hf/p
+        s3H9xX54+Qr69eR3RvY7I//dZ/q96Q7XfTf5V/rdG7xFx6D0/Z8+X3/X1Xw+viz/pZRvK0wtn5YX
+        JenzAcf5CPKN1sQifwqvdXql6oGFcYGf4iDYP3+8F337KMRGtDV2aXpIvkynm8hLJqdxE+Rn/z/9
+        GH+NRbTBhQd4O5R+NvB+jTcbP3z5bHgRlZTUj0KCxx694OcXHOIY5b9Bx40fPacxChMv9g/FXxKw
+        sLcrflVyPByiOE2et8fQo0OfPRQE5FvI96fxEVcNPaCYjMEB5DNvfkIGMgbkL5jR8jHKqB2Ws8J6
+        xZhARGhD3o79XjFODlGYELXzdniPGCOTb0mK9897nCQE8eQ0Mhv4j89nDV6jMHpD019xisxfArRH
+        pjuxzdVP5s9hQsZ7KUO17cW1TFWoX9WQstbkY0Rl3bJsUXEnfxyOyJ8RaChjH5JPRf6TGLZLSwxc
+        Z8VHt2rMDbz5IHF8F+L42griO7PmCkvvXBhcm2eue8fWMW2FkbVmALuwUg9bVwjbGRfaihFlZGcw
+        YFcAg7BQANj//RWHzmRu/pWMjU3XEQKWb20FbC3M0trixsByFcJ1qSyijjigs8EAfTmk5oyp4k8L
+        zq5mZT85XB2/fgoTOFcYN55+RwccIr9qc5AB0daTF3WTBZzfjIaIuYy5qxlbgMUcsNJzOCLc0EOo
+        eurzGqVkm5AUHTbu428/NL+aIgUfk30I2hTRyB5S9z0DCEqDLZ/41oq7OZQvp2a2kTQPMX7z8Ve1
+        pbY09LS/L35AfAtns4IbFU/mbUjUE7uKQELzOEJDeTIdy5mZNnHwl2MXLcA2ACpb3F2DFi6GcFmm
+        ZY9duLTdGly09n7oj8d4Xe/xBKwXJLjJCtRVPVvLGEDGFBclrmzA9waWtWywObBc8Oag9EXjEEW1
+        dweZVczsoLU07ZUWXi28IxDeiOkQZmCzJdWpGnMjqeVBTFEFCOoCKjsjlJyu5UFcWkuSw1ukF/O5
+        u5Bg58rPYds58UDq1dGpWEytA+lpRm8VFafV54k44poVJVjhxwpdZ7lYSWCj/BxpBha8OndhYaWy
+        IaYmmpj+iBGLHqjvjChByWN6IxSO00YsQClO2AkcTzIWwNJjpCUdaZkQ2W7nRnxu2u59MC22x25y
+        dqyNDECgVqa1UC50o2RCAthL1/kIXUisTd0nLbFaYscgsQTwIPX3GHYuPfQqDjuUFhKtK8nKP+GR
+        j2Qk558qfMv1Z8UTLFkj9fm3PCketeheJevAZVeqBOrsnpaGlBNC0dKopbGzhCDFraLFGMrLAhI7
+        lXZvPiG6pEOOR4ieA8VYr+ttxFhdy6olWks0U6LN9BivRS4sDCC94kmWvGt36pEtfeNsWq7Nva7G
+        5E/0tpoge4NeVusA3kXLU4R7gndQQXed11ZEVJ3at2FCuBADtwyDEoJO4G1vSzTGfIzbGhSNMd+x
+        0Q7N/R7HnlzX/EyWJmtpsu+YbNu2Fnqb0jfRHfjRtjPXPI6fx9wEaCZvEBzKNmpCVCHEncxFvM8l
+        h4SFu5pL5AB0t2/g6GlXhJCNLS+LhMNKxYgxk9Ih0tzt7WMhrYT404WCQUqVyencKgmXRSa0cEsj
+        373jVVAw4kgrxiUgr32MVxg61MsFK6Q9BJWAo1leiUalliWCNG9p0nC3gXubfgH4wLyNyIA48x5a
+        kXLeIOO8g/1OA5J4i8l4mBoQQ45zpTEUkcO2h2IVIx4CQp2gcAWcgFcXHWMve8i/k8f/+LMRYrxJ
+        aGsXtNkYh9j3yMeMbRQb6c5PjG1q0C8NPhtf/SAw1tg4HjYoxRvj6w6H9DPkx/U3I3/YxPjveasY
+        +gzyyDVKcP75jye3pVvpu4guv8jTeXCDC672qkkRqeV1feRxbDkkXtWCC5ea1wavhasy5TSXgNJF
+        PQGhqRbKh5OUDrYDY6h9B1jqrzJgBCvf2XNupKviUwt4UXctvTKld4Pe/NDzTctiVQISEdmKIa1c
+        U0AXDbi4ck/s2B+pkroUv6fmpcecyZDC86BPZTrWaL0mbClIB6ixEc8sVVgCLt2cz3RDSfaEcw9B
+        0zUDFL9gBjVkl2GzmSmNOM31DXtpFD8n/nf6dNda8mS6aBABpr1JTdNFk5qmVgt39Aw4h4xkTyxv
+        52TYtMifeJ8qiOFqwgb/RGkQNtAGcazWIGxAKpn3g5D5JhWkbuYvKoyNnL6uoKZj8nauZpKidcCy
+        0wK1DUUS0IVr6Im3x22DzgWBhI2PZbGucj44ONzqeQ+GjzNfmO8m+Xu6Ieutic2yATs9oNxU+VP9
+        /A7+Ow6KntxsZrMczMJ4sfldTWBuO2QC5O/uJmAtVqwLJu3e36ZhhXeT/qfDGdhPnU1gt5l+zGH5
+        dGahHM+XwcLc7XYW5PVLTIxxFrfy1MEslgunu1mQBT7coLgvuZq58z7m0ot09TSXXmTMXdmzRXez
+        +brzE/IUs5xUe3rzU2GGGIWJF/sHzssn2IvCTWndL7/vZVBeVM2AvLRx8mfShP3GZE7Y231ibKO8
+        HYqRl2ZfAjszuPas6JuYu43sl3GbkIm+H2M8HQac7LtrX2cIhGrfqCuZN6QJfe2r634ctWhVxTyH
+        vl25RUHSsGL+Fd+66cdDUq87izwq5bp9yeOxn6dZMOgeurInIOVGUultddkGJS/Ukq1yDqADSbfi
+        pQ4oR2TX+SocytXMzNOUV1DOU9776U4zChblqWMQrVFgnsN5I7DIDfttjILXIQwyQwIUNdBaAoTs
+        czWx99Zu/tFYVZpFfgphkUZwS+sxbo2H87GVv6qgxUUdcXmYMpTKMS5k8R+i4OCg1NQi/wglO9VE
+        /n7vgkvDuxa7O6/NzQaQhYoGpACI1q5m2nXXVdlP8Bnt8ZO6GuQO6mPUh21AgYgb6QLqh6ld6IdX
+        PqxrE+BKLZck9QYv4CpYu0VlGEPgPkRpVrWRV638cNMiAuNDXkaBO7n1AmQWS1Uae3Z103teLjnI
+        tEJFuilQUh7rEDxXDPTDhIzzUtN64vUsg9nWnpesZ3rJFlJ5o0LRPrDQMDyySOx9Mn0U5JVYRO5q
+        3+7lboI3Frf4wWVuK2EYnCE3I9cwOTNmaY5HBYlI2h6FGzM2D8Ex4a1XBhMg+YlqgLsjQy5YaIMY
+        yClS0AQESk2RkdONvc7r3owMgQ6KYnVU8KpDCKSXouqoylQ7COjfRRgAt71b3+QuTKpxkPTmqnkF
+        tUL1EVrWPuhrLoAqCS2rBvQ/I26thJHMSKg2SsuKIX3OpTUvisyFZdsc0RkNP49n5E9/Q/s1Etw+
+        c8Iyy9J60mtcxlqKIPXMqP1bjc/VXqnVIl61kSrDA1roxauuimUCsMBptQ0o4tjeGZKOI8BpFjqD
+        LeEIiDtD5ZHu3VnF+oa4QgVwPoVyMiShWXzEuf/FLk0PyZfpNPuiPYpfcXoIkIcne9+LoyTaphMv
+        2k9xOC384xQdDsmUvD7Z21mTDz6QX6DEjLZbHP9TitZ/+fc3HGdZB3V0hqcHuGvFiISVdRY7LlCe
+        zAsbhEjbYhBJ/y6R+UuA9sh0J45p2z+Z/5lnnfzMX1odayajGEHpMRx23SWAXbfJ6trkwK0uQb1T
+        +vc4Jb5SiPwJ/ckMchpNSuP6I3noHFkXVu0PaXDNpfWTsmKwhISMlkJXlxVV8gvLHwRTZtYtmHXM
+        J0t1PXcgVtzp2oorqudPVgs9/5U+6yQS8lRdIFEWJAc2RM8bmXsB57UI1cQ2V+qaRUgUedHEKvIE
+        XVzOzWMiLOoE80qD97cAhcmP4eZvse9Vlc+rIE/hRc1ZiJ8xWu68ic0bir6aBasBfzNrriyBcxdw
+        vtlkFzkUfQT0xvz9bednyT/ZFV0pAbsO9oyg47d5J2Gp+rpi1T5EJaWnXpXTDeHPD8j/U/CnHGZK
+        LoTmpp6b2pakHVHza/TP6vIifKOLOhtSV6uBdSa3ZbNXOdTIboCslMIMQQyRdUnU3Lk165mc7AzF
+        lMWN5CuZ0Lo890eM2mrzsOTs8cY/7hVebSAB+asd7r1Qo7biPCI9XrTDMTZjHKPw1XwjTB2D1Kex
+        3SNineJ3oT50yO9HHH9rEFSoH5Q98cSc4NF1C2pzIEXBxuFL4Cc7jbNcnP+a45xlsIrBPLfLHlIJ
+        5esBpzmVmpNeX2eQk8jdAqJLAq/8+FcuyROvGmhg3KtMl6AJ0pz1z9kdtijvpnf4Br35oecrCJTE
+        W/FtYKJ/51BV33lVascr8/pje9nq6pKwGGrDXBpthtoVbF6Ajhuc4YXC9KbFGSxH1c7emoMWLEl1
+        AYh3zefcI+kw3cXRwffETvBPWY7n7NPUD7+1Akh6Ei+kwndpcBU+p4mCtmcoSfxMeMiT8NbP0pxv
+        EqLLSN53PnQFjDLSwdojzr8croGXDXwe5VELcgcQ1VnxjGpvRuMUL1NRhkcNqOMyu8ZpOAXhFKy/
+        URmlbRLJvRnU2xWVJpAC0mRboO/MbJYPq7HvFPuWVR9UviuoNOys23BDiTxg4/Y0IuwP/rs29n2g
+        XzW2vnJvNT16NVCSHNuh9wyZjVOGogaWKcKtMjUqemj40PxYW5asi7k60sVdJ05g5gK/elcOTkhe
+        B+9elErrcwl3x2kH/GIme2s7ettfCbtHvvjDKVUvPNNtiFGu4bggSZZIVglrjaOIIcihDPGeVXy5
+        d2+j0Y1LmZDepM6dPjxB/jTF3i6Mgujl27QDGpTbrz4YFxf7sqdFsBhMOPMFl4nKMTe3IMuDlHX1
+        eqOixAJ/1dRkdEfGh3nK0r/YKy4nu640ApA6BwSrphbrBuNDgvHr9OMHM0NVtaRyXnrhc960dudf
+        tai9+phgW9uKz3jkQ5kLXP05iLTz8t0/WJDiohsAMa96bhpFwbO3i/xMqZq3wj2bLsWdfgiTHB7P
+        E21mtzaRl0wKxstDB7T2yRf5OMlALBSsbGHOqohRbw/xcLSUs/QeUH9qIeDkKkqkD0zJXWuOaoS8
+        k+EvcfRqrnHK2pLYrm0tOT5Y5ZibzWF5EKc0izD03COBdzn1ZquG1of4K/zCKH+fu3MMtdNWJQBE
+        uX6fBoXajGvzDccJ0cWAU9+Zp20iUgDbFokWoc/+LHnJA3TmYuneFRglB+xtsCdzT9gzPk9d4ONk
+        4FDdbmVBpF8mX0KWyBVvkWQi09JUxzg5RGGCnxNiz/aIrbIurV9HZUQtOQQVqrd4ZlcZtPNSxmuB
+        xtlDYC61OrVamLuqYg6pVMU9tVULc1rrOdsMKIm8DahoeT14HMifSudp7DvAHrZBKpFDSyOrqxYg
+        /085Yni4q6wU40a+qUrkeyH1HNAeN4o9a8K5YjUKOVFh7fTLw1xeVESLOgD2rDx0jFEShfmjNe4d
+        4l7MSTZdZ7lYMRDP/p0NedWQMublMbyUE1A8dwyb3Be8J8JOAPdVM+eQPHBuIrgyUBNPUj2sHVBu
+        yYiik/Tns4to0iML85hgNT34FcSgr8Zg0IskrEbBgQ3hwFacAw/HeB2j5MRD5roz4B7uYhsEcw7k
+        H3OWATsHTGJWVEQT1LxgKDS3sY/DTeDTjpuFjiyTq35IipkGiVJ6mX5X5uGAiCcd4ADymeRbkuL9
+        8x4nCXrBSTvjU89wsWWSWhTLVJ0HoLhcoW/SrsaG/Bp9sCJ98qv0nQBSDRbx4xPuDrYhIJN21Ryd
+        +4PENXfIfz2aDvkCy23ZRFwIH1j+CuSujX01WOhqQ/bHvfkU9xIFt/87l4yWRriugVaWHXek5jO3
+        uKc8uAtFV32jGiXgVabWtTPlrjkvyKFtOe2OVUT1VHyJBjhhjWSwSnR5Qth+0Wgmg2MVsehwTHI7
+        5zisQisD2DlAiZVlE/myVxUf48gXN21bWRvnPs2VFMAkCkOcKiqCgLve45UM++rwSh3JmF/JxsKx
+        FFv+GsqG8PLnws3TeF2wUQihgj6YFkLFhHCzzaHpSVCz7MO1n2TTbd6lXCB6x25zRWiLkZdmBAtt
+        U6s+wFtC33BM5vuM/DzpkopMUB0OF7yK6AXRcTN5iaKXAGftf/JvMOk1w9MdxDdM/4/eWZwGGMXh
+        NP/WP26jY7jJtef0HjW8/EBUj8FNqYtSM27YrZg0NwxumC2GNDfDceM6r8NScxO/BpW4uR6tWRdn
+        fXil1Mz3y/wx9L0oZnkwvZMuHtvkXhQfKRvD+y2akXw7xPXvh2hjP1qTmCHKoJxbD6gPsjnKpwm/
+        Q8JZTo8m/N4IN9n7G34sUbBuFCSpTjPeNeMcNdes3wvr5Hdct43vQi/sGa9/9aPsZDNEee66Eoy3
+        3jhp1mGsD79JK3LfLnaluR8t920D1pr60VIv4Npp/u+T/xfsvUacJX/BYb7ifL7M/KIn3u+OF5ZO
+        al4G4kVzoh4n/OLympreqSkEiPk9hLWHARQBxQNIQmd/mvW7ZV0Hkh6Yeb2XfEjm9bHgQ1Ovzwcf
+        iP4XvPdD3yQv35Ly5aId5f4eveATxCz+KMZR9lOCvSjcfHxEXJjmxU43AtJBxckQlj7mjeGqx1/f
+        bmJLU4DClyPBCSJMgLtLzeXuEPveTYfPk2zZE+tDvgwtYFrA2gjYH/OhLFN2EjfztHHRIqdFrt+1
+        lArgMUhjVnNAKbXM2LchtfApJHw/Jka0Nf7HMfxs0EvcE+M/djjGhp8YYWSgN+QHaB1gg4icEYVG
+        /n4G8o2T2TPKokWt28T4e1L6NzLJj49MjH+NUuMidIYfbiODfusXo39VMNlhJK0OWh0eRB1y18TR
+        rolWhyFck3n7rZhjPS3tebtCq0Xxs1znugpWaSw6bvwKESSfYwZ6aiSX921l+YLGktgvlc37Ga2j
+        N/xsO6vXC17Z5xfzJUtdylNq/KAypPUPshYO60HZYManLeanz/ixnpC9gbA9AJoDgcAi491Y10GF
+        5gbIF2hji+pq0YAqxohXCgZUyanoGV3VhrqmR5ihgjE124bLtT3V9lTb07uypw9kK0ueJdtQtozI
+        5pXP5W18tKXUllJbSm0pVfQqT92wTGtuz7TVFA83WcuVLab6ZdNZ/5GHs52WPWc/Qdx+iofyyvLR
+        uRHlGXiVDKm2kzw76dhzbSe1ndR2UttJbScZdnJmsRpcaDOpzaQ2k/XPvxMz2c74jcn2bQOU7Po3
+        eNlzqJ4nGfd5uwUyzL19UqbQpWF25aDnAIcvKZ1NuR9irsv5Pz/vCNLZK03K968uKn/5ptIQehSY
+        +N/x836dva6gEWdlhNSZYtZnaq0+JPXEYln6KsOd9+NqYens1kauzcphMS7TiS8brKcA1oyrx3Bt
+        NTCL55rZBpa6rZ3m99pS2J/lRmVrrLkaxtzE7wfTWjmslqjaqt+xVbdmi9UK6JJryz6QZc/YYlrr
+        erraWHjLenLFvpb9mL7yRbWhvzX0bTOrbGu2mi/LRcu1jR+Bjdee+0jsu/bcH9ig38RZePa83SUw
+        7bOf/lnbc23PtT3X9nxoB72cpKYtu7bs2rIratl1JCZXQLUM/SC1vmgIHcf+HocpCvo33HUmRUSY
+        BY2NqJT3IlEVcrJFQdIk16iluOyPQeqT90XB9CQNV5JQJS7nMxctMFpgRASG2pezuasTlIo67WVB
+        WbgrXv3YqqdUOIR2OQRc6Q6yvUGASwRLUxJf1HJQO073UWih+iiXooVJC5NkYeKEIrVAaYGqFag9
+        3gR7k/ztH/etXCFaxYnXrITtCPFqE4vkvHbq0PROS4DiLGDSvGy9QKU5dtn6CpBhnHQc0Ozf9jrE
+        9p63ES13D/pEv0rmznFCWIQQFhuEbciYm61G4b/mcb9m4b62gb62IT7g7lZ02wqI4DUP2t1hpE78
+        SOZjZE5zjlzHPkvZ0lbZ4ak2x9oca3OszfGNOc4NwwPZ3vRAt26zm1h0nP3+ysT0aKbPqyL5CvL+
+        2HTNJApDzOq4OLOeyva3ZKQdkYB76THsGAIrR+R6KGArg8J0F0cH33seKIRwlpwk8ZOUvA55Ubz1
+        g+A0VoyqH2hBa8txWJesNWeqcDbnK5hIAU95J1qaLD5ZuYotHEuzNiLWzLe2ZXI1Xz3zlSmaTRYz
+        TdwIiNsh//XI8zqM9lSB3A52b8XSYEj/9PugK1/KXIt1l1nzphRvc66iDWESWQVhS0PV46olFaou
+        Uw/JSXQ4JmptfZktgq6HAjKMR2/HKFGKBis0Y0XG9jhF0yBAe+SaM2u+Nv0wIcO91NwjxNK1qj7c
+        NykofObKY+qpE2NNmLBszhCy2reXPaA4Jb83q5IZqhlZWpoQpQhZaT4U4sN0J475RHTklB4oSo3t
+        rLjcVI6BdQVViBv4wRogGTIKk4gyXE/34bgO/GSH4yRnL3tz8wXFGxyKUFknCWSli1GQ5+X9EKAU
+        J5xge/nUvQnppcew3XRHjHn6ZyFM/2neEl0NIYDJPsjml1nQEDeH2KQQa3g7lGBmMEzD2xTeEO8j
+        vgGWtu7eDOLEGwF7PlBYvzecf0P7NcpqI9AUjx84F0zmCy7MlWNu3JvyIF5YF4DyTBhk5Ds2D2Eu
+        bLn+q4kbALZVr6gpiJXKMpaluWnIwGqpIGaqqeTVOsvxYoZaZcUPzq+GKrLCeuRx2Vcp7MZAFFlB
+        Z/ECMZFg1uKiAW4GcJbf/hFai0Li7iyuUS7PqVAByhGPPmWfYlypydPsL+8hN0pYZyKzbw1Nd2KZ
+        p8/h22AFAwDxlU/5+W9RkjYDwRklCGRkauL9Gm825N/IhFn14vjX70sjTnC9YS+N4uyODhlzfbla
+        pDIZq5/UzRZUxA4JU3VBpp6u85iubvNyGGPuNTRjijCWFeyh69CR+KJF+ljZMZo+Rei7vNYL9l4j
+        BmWuteSVl7geoSnro+JBBYlXKqkZvTdGORFLzepYWNVE3g+RriZyjEQW3lSwX3EPZJa5Kfd5rayY
+        sEapt3uO8e9HnKTJ1aeFDjqV5rZ+h1+z+7gmU2Eux8kHWNcOKNhPaUTTXPsJs7QmP/tboF4a7OaR
+        QBfm2tFV3NDJqlYYrUQAJ2VLk9AdCZnZ4mlBD1UDByMg2h8CLDH825YGji5oKnqkIkFbnH4zo+1W
+        M6IUIzH2/DT7lCZnOHKuy+rpvqWSyuoV7rp7yNthso1CmyJGmTQVvfhSj5r8Ux75WEZd/SfFc4DZ
+        fY7yZws3KePpBDdNR7ij2oMUe8tl65nyXvmd7HJvpetbtxYE+R/mY4Pfqne/9aagbctLbQryf9em
+        QJuCMZsCbQakmAGtmyPRTUMBnTNFLpxq1SsM0ap3B6o3pmXRXK21enaqno2UUkQXm+mg1j2Y7s06
+        1T3aAsK0npy27bu1Eub/rpVQK6GQElK9s21b653Wu3vUO16DjUbqVMQFp2iDUnSlPtm/hFGawfDp
+        /5C9nxH4ez9NDPJLYxN5R9q2GG+MbRQbJT2cGD8myZH86sVI0B4bKDEKyyUhafLp/D3/4Om1U77V
+        B9Rrx3pa2nPesZzW69ohWq+1Xud6KEuvL05z5jGvHE6VIr1yF4ZoDb8XDe82EiRLt8rvrnVL65b6
+        uiV/k0lQbKVJtEM5UI84hwTuvFmzydPHl4De9bbF73TP+jLHLn5ckmDyxS0+bE5mx7qRHNupFBx3
+        AZGbk2ygwynjLc9sO/2aZ6nbSlSjnQ2nqFErkQJIVEuB6kSehjF0aRQFz94u8jM5Kx/3SjsZbrid
+        4Itw6wxNLcZajKuGtosydynv7dIQtbxreR+TvOf7SCWFvo3MQ0S+lcTfr8DL37Z1LcUtoyFSpVgH
+        DrSc3srpUFmWijgY2sMY/8aQivF5ds3L5NECFdw616IdiXTATI50dhBR6+tOKfnPHpmO6SzXpg+0
+        sDIDtTDJUYf64Zl70sSpThx52B6FGzNm0MQvwSJU7RxYhAVyJYJ3qcGLdjjGz2XSpNQ3PyNItism
+        7SmrkWyLJDH4tjN+LC2X26FXMpxMI0JtwyT/wtyGOLm5KMBebRsC/2XHMuN8JipGtOMB0MxDikjX
+        aPwhaNnwW76IAgqQ8EJd/VhNiqGipnNkWIZUT4NvPBCNXlVVqJrnbVejegw55XCKyJyh0ZCchSUm
+        3mL4ar65zP5pXZh0OuT3I46/NQgH1A/KnngCTLA/TmNMc+wq8cThC20hTHG1NK7ycL0qqqrB7Uho
+        HY1rd0KrwZUDblY5+Cyz2aaEZxGy4n3sxR1Y30/oQG9SjtzDJn8pkVwxf4hBvMPpQ0wWyKsbzcxP
+        gs+e/x0yDzGqtA46e/agSunDT17QveyW9tLYQl8+0J5GAkJVO+W8o1/2jp/qY+7nZ7DHC1zF+1PV
+        N//J8BMDGRt8iLGHsmt5Pg42E+PvCTb+xH4L8tkwSTHa1N7Ki/Eh8Oljp/T9pkGAsmMW22WVkRkg
+        OgcQBosXIT3PWSw2Vw+RmQ3WODFxWlqKidICEHB3uOF2aSApKExKIqWYNIn1n/nottwXRgoKk3pA
+        uRzbxE+zk55toJ7GZSCZ1I2Ij167pMSHQItdf89a8TrP3I64weh6yAjVbiUmUI8Llk/AQQHyP36i
+        Fv3NmrRranS3Fr0KrQ/5orCx7iZq2Chs7xlsq/cScIrJGyBDg3d2DkQtOuAwJl+J4+kG40OC8ev5
+        B56rxV8XFwtLdk7RDCJiKw5Yl9lXRkl4l9aawhrlX69xbYPr3vfiKIm26fSr/x3Fm2BP9gerd8dZ
+        fwn9lFl9YDGfu51kIPCUsxoXoenm+azFWwg2Mymho+o30nKAmEXAi9FSZ8HNPBaAtUoMm2Yf10vk
+        7bpDxFHEI4RJJGh7cD1YslTm8eepcJLfTdoZ52aW8DTtDidJY9vr2Pdek+lmHb+L8Enr4QDOTBYQ
+        OrubKArTXRwdfG/qBei4wWRDs0P+65ExUadsQzgzhVgIm9U9+epAZTYSC1EB8Fw2xIDlSoLOAFCD
+        Sl2W5Gq5FutWM99Xv0Gvva/UXIYVEM3CgOwO5pFersyvgJ7csgt0ixlckDPWbMtpWzZHtmuirFp0
+        RchkbiZRGOJ2Ozj5RPS7pg+kOvb8qepxKEmIj0i4Ih/AWz8IwKbxzOqXNS6duGtq+6IWYBW5Kghc
+        3RtCzHCeZqvPxji8p9twaIDibB71bjgE25UwtldZQdK3VC+hT6+o0ksJx7x3M9l4RMFh54dmMaLJ
+        2X88CU8cFLftcKN1G+PgVlqYzVfcbmLFMBeo5bQrHKOYj0WHtn6Mv0Yx2crSn4IAvSFYShTPN4aE
+        EbuTJHooZ2aHclVHc1+2MWaZDeFFT2yyg00Tv6c43GDWjS574a4AKY4ORH8cGXsfwNSLx/ncGDDs
+        PP4JINZPg01a2nTnkPkuO5ww/ZGs9xHrvM6u8mOb+Lo3D2KiBLjdXrSfQt2puRkd3a8mB0TcjAAH
+        Uqs+8Q5+GhSlqq4QxZUnM6tVIh6Qb3qFGhbYB3j3EhbPISVki4JEkKUsomRaT6bNiilpwpQg7BDj
+        Nx9/5WxNOMXRhIgCHbFAjLUEf208RIkpl+ZseM5eDqk5Y3m0QxT9ANT8uAOXRoihk0bNybZak6U4
+        Waf4ksCqZZerQrJNlzDSbv0jCwEmezYbSxJMAV56WJEe4zXHaImH7yAFxToMLlVN0bQXr5wwC4Pq
+        xl6l1WEguqgokiIL4hPrM8uFhk/IL803cJSh4rTMFpfmBYDn+bzD3MIbRFi+oHQgbBsQNXadRbPk
+        06YJUNGhZdU66QkoACuoQByp6TGr+zSvY+l0THRAWcovfUlz7SfsgtzzlQUIc6t1HvYxUfIRsckS
+        4gEpeYpM9ia23eQi+khPp5pck5bnKnWZO1uYKpXf06nFrIszCzXEOIyOSYwTjGJvl/2PucPxHic5
+        CMD6EyMRZxR65D9fMXpj32sB7KCs+QJy1FgaLdsOx98OOzzdf0t3EZmRGfBohGUmXmcw8JR1JWNR
+        r5vpb1G4IdsZP5wiP47WURwldLbUOjmQS3NsB8aFzLg8WvKMj+HGf5pPY7zfm0mA4wOf3QXZjo+S
+        3cO3lz0KiDtGU6iIMGc/y7RIKk2WeXlW2qpjQ4prXw3uc7p3k/Dy+1ccZn8RczTPL1KartgVK9dd
+        crtYVwy5OcIojeHJh3hSYWmwDOR+c8xjQIRBnPrui1sAPFOuY4p8x4bUc/4N7dco60ZGD5Z/YDc7
+        deYVt2zLm/uqMWV0bgZJdOt48b9ahG5l5YxNllWrKDgAbHjK1AAaBQEZXFo4iTQPiwsvN/2xNMgh
+        csLKQ+1/GRJfhWQvQg63SUz/FacAbizPiYXicbrawICjnKRcdVpeMeQmvxOW6ywzoBQGh+esLxkE
+        GKpGGpwbWxIcyZJDA2trlDANbHa1SXBG4vLvcuU/wIfdMyK8IQjbV9MiW5swjaNA2vQA+/IZ/84y
+        b4r1nAlcSQBNbAaY11PbafGY+5icbPZAsdCFQFilOX/J8RDjvSy1s8XFkixmXdN3mptk9hxIUMyZ
+        WfxINpg9uiJPcheMneSQHduzS6JXDak8/RcVbsiVPL5lWuNNHHmvMFyyGImCyKzEg0fXYyUhk+1l
+        LmXz7C/terMsLf5mBnYABvFCli3xKfyec03lGsk9+h6Fk9RPUWimZIUw6ZezhY12M+c15HBEsLx+
+        jLwihNwNM0zYbiDC78QSJwlHJeWgVH4M54QDUqqxrchxUKKrlY9jnmLml+DbA3XzHHnKyQ30Nkcq
+        bwmS4cUz8A7fwDsVLbPfsJdG8XPif6fvY4MKuQlGIUTRMW7hqemUUouRw5QlaSiBGqvIaaAlB6Us
+        K5uTKurwGuqURkiAiHGr5qpSmmipuQZYdtRchtnP5qZvM92FoSQ17Qnx4pMowBP0NZmceKSNnE9v
+        Pt1Fe/xPMX4h24G/nD/0x+nHJJN/yhrA/+VKAnLuT03kI2p4rwySkm1wTqfBk+oK0l84Zbrsz0w5
+        LtdXaZ0TDesZzstpAq0aF6Cqa0Z/4W4PeoYKEPpo7/0yZSo76jDJ3tXh+SID4CSxqk+TLYJIMcRa
+        PJft8RS6RgYCFOAB8ypD9AVosidjVRVQQGVCXui5Kzw/Fk2yUH7FZKF0ptpaClvLAni5l6HBg4OH
+        j7nkueMDD1RM54l32txU9G70VruDjbVWQ9dYZ0cBHeheBe+mqmSp0752IzunYZPjAdbrtMoI25Z4
+        exuXW6mpK4xPsaYwekNm1t1G6MiNHWnMylbIPXSzXMjKYgtKLHlC+IbjpL5vFQDWqqGVtedq8T8d
+        0rWFX34RF1izEFF70Tn6/NKAmy03ZAyj8KCqAgGuhLiCtuhu+PsowDApVVDPm4E4zpMESuW3BJFY
+        +F7i4sLlkQf9/Ar8hWNp8AcCnzZUETqbbY/9UB0f+sS+akBdbw5phuy6qZGSqiS5tZFa6nTdnkhg
+        kzLmHkVNoIdogFzH+5YuWnYJtub3qyoyizANpibHZCLJ4dJLviTwm7lcGv4u4NdO12BOlwBVDdwp
+        7U1JVRXtUHXvUAkQoV2lHnQAH7WrpBj42lVSB37tKqnhKlVTpV2loVVFu0oSzserwdXuzxAB1baX
+        peWX01cg9+iUsqXBAiRqabC4YKGDGRL93GnxaoiYbe4jAprpRfu9n+5xmCoJYoK9KNzk0MzmrGWj
+        fmRXEC7GB6Ezd5aCGJaGysyA9ghUND1yUL0VvrQ/tOJeAaaW2tZjeKWNTHevfmQ3CKqltWIIOi6z
+        cgRjaAeu3BhFkF1Uq35kB/CNUf6spyXr/gdjaAfesZa/VvBp+YMVzrnBhnsz6+E8FNY2X6MF2edr
+        tMAbfQ2ZjJ2+AiiOfquvGIbq7/UVAEwx1YXv9RXAcOR7fcUQHN9eXzEAVdhrjXjZGN9eXzEAVZA/
+        yF5fMfjU2uvzKycJoSNSAn0sPgpzt6/xgu33NV4NdvwaNDl7fhVwHP+uXzUUR7DvVwEyxRS4wc5f
+        BRTHvvdXDcMR7v5Vg1CF/deoF5ARRgBUg1AFGQTFAFQDUKUoAC3LSn4pKytCptdiLwCV5+fzrgop
+        123VFEYOUnGu6ziKiI1TCcor+8W6JFU7cKC1VlUQrYUwjKWhA624qgI5vDQCVl1VQVRKGpVGTbk1
+        hRc7VRg8xwG4Mste4n+jtoQz8S3IrJs9SINoqqpoWmQoq1w6a2xPUVWVoLuxdQDDuHKldm1uHF9V
+        Cc8rbV0wa80zhg4XZ1UVS+uJiJtwmOF6bGs0vWiHY0wbcO5ReG7HO2MgJFD/tqKYQ2WhBvHmzoAi
+        JI5wi1SItP25Sl0VBU+hvcifqzRzBLBZi4UlfIB5M1i2Vgb+yy5VBqfyfgPSnr6TnkwiuqkWhFfS
+        Yz8x+1qxxvaqpypDaM9sVvcV5mDZ2hqbh+CYKNmjxrWEdVXu4fgNRCqiwzz0ZnkksuDJG9nj8CXw
+        k5355jIAmtsOB5/SCM7UAVXGWvhXl17x9dPfH4PUp/WwjsSzfxwMaJP6SRCgPXJN11xaxUaMKuoK
+        82SUObhVt6QazBzTdtcmHcHe3okuTZzNHdBDYgbByoZFpl0pAkRFSlGA7CfI/m4udfEu6t1KXOmy
+        Eo5snKqGVEQJIBZqcFe70P5U4wbDLTtK0riBo/cJ+eLd6ICD9ILsJnvNQ4X46LjAg7QxXTx1Ad5H
+        N92xIQdxyhZdheU/Oj2PCrkniMJ2cjiUoFGurRDftivvFrZhGgQnZwEAqpsTs2rnTSPX1H3TyDV2
+        4JSHzrUB2QKzfh049cGDLAozS+qBNtuDUx46ZwXYObjdOCLVLpzy0LkziNR1k7tX7cMpD90MAt18
+        JVXqikDZEHe3MqjdJPDtWFepYRx/14HssZy2K0Ph99zGIUbF2DSKgmdvF/kefeYWBclN5zpNwJAE
+        XKMPsRQDwf8E2Sk/tY3O9C7/moFBFWBmzQfAH3T0OQdE2VonmvQu/5qA4cTfMW3VsQclSbSN9vUs
+        /Br+fuHHx/HBDzkRtdsGNvq1Pa766EMOBnvtGyvF+mgCBrY/IyAA4vrbY3L9ifVX3/yDMhNaH6j0
+        7/5oBoZUgKchQg8g+AGRN9XjbjfCr9HvEf257ZjvJvl7OrfMJMWHZJqkaO2Td/02oT8F2Nz42+2R
+        9r023wPzjUXHcsk5MbkeUMbO36MXnGNntzjayB7z/IJDHCOK06eaGZP3U2nKbosICXvKdKLvJvlb
+        MZL7mLFiJLdJMWVP2bacGZkz/Y8wzawLCPLm3KL8hfiUhXnuZ86dma/C7DauGaD4BfMWyXHNKucs
+        G24egzRGvU3P7kxQE/KPe/SK4ywbIbu6exlqZp4PcXyWa8YsB7gPJOrlcFA7T77SyYn2hwA3R8zc
+        PiBmN6kbYmjZrhYwOGRawsThWlpawuCQmVrGsn9Joxec7nBsIt88Hsw0MmclcerxTO7jZZ6RD3/7
+        2cRemyvYy4OSqbp8+RV9ecdmabJ9zb3Ey4u8k7pWM3NsOrVZeWryynhyHeR2UpW9/qpsY3lJSoDX
+        551TtJOr7PVtG/b+kPR/btCo1fuf60WcjJM9t/YgJoRFqd0saupaVE/Fntt7OhkXPBlmnZ++JkM+
+        la+u2XI6/ZX++Eu2sroT21z9ZP78EUj+j2O8jmCrCUTxm4oeN6hbMfSAYjIGB5DPxDg5RGGCnxNv
+        R9bk25F8HWBjvbRagb0CWdlHB3tmzdugDTm74x7dDYO1IIJ+Qq9tkZ9+9d+zC1yr92UBuTdrYoPE
+        FFJNgBfcvhMhLUCc/WSyAb5fJD5+pvvBY0q2fX8lHzvp7Gx9xkRVOOonGeU2yCMDyH4uA0iZS1NS
+        fJB8gpC9/RUk+J1VhNF1lovielUBSdWQSkhUQCQ7la46aq4Qsdvz5hNwG4wPCcavJkUwNt+c84m/
+        RrJWwcWAXKME8zSUr6AjgfCinvKBpK+ixVIqmlo2G6Hph8SdCIO98zw3nVP1QC2QIAjz2osM0HqP
+        sveBWj0SX9Q6bB4YDMVORocWDbVO8YZFwyQ2hrxxFOPNI4HC3vfkuboPs5IzJcT9Uj7oe1wk2Jbj
+        kaAoh72gDtrYkGjrn53CiKeExnP6vzOzlgwgF/O5W25fUQKyaojSSDLQeRjdYq8+e6FA8x3DwxGT
+        MjCsbY+kvWJ5jIrYiB0APTo6jiMOjyTzWx6jHjw0ipV/qp8tgApYsG1wFHvI3PuhrxE5IfLme8eQ
+        JSCl2lIVaFSMaFygaiAwaODXD7cx8YP974cYez5Nd42nwffg7ZlsD563B3vxvOPmu/KlRpLQZH+W
+        4u24aOdPDmpnDMRszAWyf42/HXZ4+uu3dBf9it7NX4Ry9vuFSm7Rv8ZQQdMOyt6gzYZNMD4OaAYv
+        t2BNc9wuOUW/FDLQs35EWisrIfOil9BP/TecJ3Zk6fvJdBMFh50fms5kYRZ8S078o3exY/ZOZQ6W
+        jOHJgapJilFO9hYQ2Vt0JntFg/fOCQHwUXIdS3IVkD7Fi+tx/I3o4yb/2yyK2U/mG/fkj4mbvXBX
+        s3sUL3h+pDZoZcVEfhytozhKRG6/PeQCatkmkbD/52eq+Fd27sLjmvozSoufTGKn/2crkJzsZaXC
+        1KcDyzX1v0Xh5hiv/bCgfkHuyr4c0plpT2ZMy/W4ylixATh3bFXNCVNkr0lQ+h6FHxvNX8ijVVsT
+        IaLl9ClaS0UlS73dePGGT/HiWitRqxjRDjfQZVjubVjpuBUvoakF3BzU1pB3D1c2cOUrZQzsej8S
+        y9dDyNrZGrzC77u4dCPiJqvoAfbpKHM9wOiAQ0rW+YdndzLXi8wZKfIdBMF3P/12Cb5lIbfijQaj
+        BqyqgEeDmEh5DK9OxJxVp6s02p5Znw2DDdkFg6v8pCvQDD5qxU406qFG9hXiqDmrjlELChfCBVFz
+        7euqiFWwVY25wa08iFNYAiJsHN2UBNlKbcQsBwAZHdyPoCVRiGJzd3zBpu2sXs0oJGstZgLoLPkA
+        Vo25AbA8iA0gxL7xrt1LBS/PulQcPQUV9ga9j5tZqqmustgle+Iaq42d0mavgJ+6mqsUgodD8P4R
+        l2KB1W/K8MmXA+G0+tw9ToXbpkYdUsME04FObw8SxVfAAZCCAFUSqdKTY/z7ESfpaXin/slZ9vqE
+        VLA2JhDTkvANh2lQSvdSDVSwSneI1fkihdiGbBAZBOVB8CLxLdG6pL+JFMwYwgp2hlYNWHVYFb02
+        ThmHYcJJSiJ1WQZqPVuL3wbodsitX2sJFbZtCpE0698Iyz3e+Me9mmIHKKzHLbUpC6jxSp09mNBt
+        /Rh/jeLXhFbEQ54XHcM0mZ5/O6WfDJKTM/LmHq56zSonlZCwCTduUoSmfpVtefbIrWWYRMc46wX2
+        aZemh+TL9ELOhFB2iH3vptounFRXk3p/pNKulG9+1khJWXKBkSYFyM0R7Zt9IcJpJ0bVCX+CEM5L
+        DbljwgXVnf7iYy7saxMDxEfHx/WQVBbv9Bc6qjJTMXu/0Z+tsRCjbSthtIfk9fevOHTMpSPkYg2V
+        rqcVFUjoYX6qleqKETtAEE2zCmH1m58nBqimnC6ARV5O4t2T2KhOed9VyfQa2pzXN7eViyvUWx7q
+        5HZlZAE0yuamgpww2vueef4ha/SUNUk032xmJjd448E78QBdagEgXmizlYsdu8GVTMlngauhbQXt
+        /93hGP+c/Pjz9O8//rP5S5b7958sUOc2B9PrATxIRfuujQjSdIfDgLz+9CXFXKdJwwmCk9NyQTKa
+        d6bvl0609mK4bq5Xq3j9i9oL2l+TvOuQHUIF33Uf4ROwcyCwgNZ13MNNwZclr5iJwBL2qjZABmAe
+        ef2rbvAWHYNU9DXFXlDOq/XXPrW9cRGZBX3/bjunyp0HeQAKvyVkX4bbVc8b6NQWcnmGjmbj9gGF
+        9N3tzXKziTyy0py+buJFe7Lm4Dcff53icHOIfLo/zTzzS3P46ekLic9+juWfCDNrCTu9A4ftBlWe
+        NN/D8l1LGYxxpQs7574FKFedWyLnDii/5aye8387vryQ9/0X5OF/m02/48PuW0wTmNc4ZVUlfhDt
+        rsftJYpe6H9oZ9Ms4ZtTOaTvQ+9BDWE3op5DbhYhZ9iyEVUVglLFuZXURqxHVecLhJvTN26qFkiG
+        XertELOxVfdVGjgqbRq4mpXIkL0UXaq81DMgZCya1W9T3pnogEPpjvOZBLOWBDiF4qXkeubQBl0/
+        LY1WVg/rSLyi4YZFL4iOm22AYjz9wdtmD7nccz0t2rThCINAlxYyYDepqRpyk4NTGsPh8MmBpOGU
+        h1exeIECsBCJ4Ef4WzHwyxrSsPGrGlLGrzxmnPjlW/iq68NCDerYMFYNqbQko4Zxt6Xnl+uAfHWx
+        BFsBSfT1d55TxAZSbidelYB8i76hFzzN/2NaUitgc29VifsVnBBF/vrsE94/FCZemjZ95MPOPUtH
+        YV3bsBcW985qaQhv9pCz7m6nv/VDFHpsAKqaoNwk3Y4VgFz2hbJUZ1wYZjAU1AEBfX1cFaBr5uPO
+        nt3n514F3hW4aSDd6ElMxmg7/V4nDilV0T3v7GYUHcxeHV3PLF2/3Csk9PtjkPrkE2Sb2TMGCkhA
+        jGMUvspe5qrPtW/H/H7E8bfGq+VVVmJpbPbkurHNM/TqYc6BZGLMszEVF2DKgQs+zBVDSiivYCAz
+        4qk3IAsKtFSQNyhF69j3XpPp5UezEAV1zawnh1gdlapbSE1uKp0GCcc9bkV5sz7WjV7aM0c81die
+        11CzWdd8xCHPXy04LF3AFroPdXNi8fXr18nlGadod7Qh/Hykkk+30THcZGHuPLhtJjh+K2WlU6Lp
+        Yyipn8IoxRT9Tz9TCKf5PA06SYNM0sgmafiJQbDNf/tn47+RGdOCiTS7f2NEoXF5JyMLnRvuxDaW
+        1k/kA+EbjmnFiYnxv47EqsbGCY+NsY1iI8ZbHGOyaf5s/OnPFfT9yTjSr/BDA3npEQWGhwLvGGTz
+        m3z6B1yoy30BVJNpu9p8MAS7LHe82pVP9E+VYNd+A/mCObeVpZbsXiS7KM4TV4uzFudRi3PBUG/W
+        8XvvNUUABYJnT0+3ZQ5YgkxdDoAgO7OnqqAO4xtc4nNw+zZpQR7U49AGWhvoO5HrqhLuNeI8REly
+        umO77VrLEDNqnwE98uyKaAjj6U5pv6mFWAkhHq5avDqSbBGDXB3bEDb6WprVkOZDarpiHoa8VFFx
+        QS7LmWzfQgvyPQmymEEeQo67NMji0qulVjWpXZ9z3jKOJFW5OYnBG/bSKH5O/O+UJttyZgCJpds6
+        FySx4scjPUmsYD0dLbZgsT3XuWKLLdjSShFc5zpaICC418ECLbijFtw//OMP/x8RUHonU24EAA==
+    headers:
+      Accept-Ranges:
+      - bytes
+      Access-Control-Allow-Origin:
+      - '*'
+      Cache-Control:
+      - max-age=300
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Length:
+      - '14476'
+      Content-Security-Policy:
+      - default-src 'none'; style-src 'unsafe-inline'; sandbox
+      Content-Type:
+      - text/plain; charset=utf-8
+      Cross-Origin-Resource-Policy:
+      - cross-origin
+      Date:
+      - Tue, 07 Jan 2025 20:12:38 GMT
+      ETag:
+      - W/"8f8b03ec2112f499a3c16f521cedffd07e3e6a088af3e90f73d1a7f0a10349a7"
+      Expires:
+      - Tue, 07 Jan 2025 20:17:38 GMT
+      Source-Age:
+      - '75'
+      Strict-Transport-Security:
+      - max-age=31536000
+      Vary:
+      - Authorization,Accept-Encoding,Origin
+      Via:
+      - 1.1 varnish
+      X-Cache:
+      - HIT
+      X-Cache-Hits:
+      - '3'
+      X-Content-Type-Options:
+      - nosniff
+      X-Fastly-Request-ID:
+      - 9060eb5ee36a1ff5e9f2b1b65152d31694536765
+      X-Frame-Options:
+      - deny
+      X-GitHub-Request-Id:
+      - E822:3CDE32:26E46:425CB:677CB173
+      X-Served-By:
+      - cache-hyd1100034-HYD
+      X-Timer:
+      - S1736280759.626641,VS0,VE0
+      X-XSS-Protection:
+      - 1; mode=block
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"model": "gpt-3.5-turbo", "messages": []}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Authorization:
+      - Bearer 
+
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '42'
+      Content-Type:
+      - application/json
+      User-Agent:
+      - python-requests/2.32.3
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n  \"error\": {\n    \"message\": \"Invalid 'messages': empty array.
+        Expected an array with minimum length 1, but got an empty array instead.\",\n
+        \   \"type\": \"invalid_request_error\",\n    \"param\": \"messages\",\n    \"code\":
+        \"empty_array\"\n  }\n}"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8fe69a9a485e80c8-BOM
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '232'
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 07 Jan 2025 20:12:39 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=Rj7yq2k9NJihn4V7YdYFDI9owtQ1z.ZipOE9Mo2vx2w-1736280759-1.0.1.1-v_t49sTGrV4pv.nvfU5AKV_P_2HNtjMbX0RcQ.a3XyELfDCoIr1.uPfqHQwl87XIXrGaJCj0.dEQem0qLZjXuQ;
+        path=/; expires=Tue, 07-Jan-25 20:42:39 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=TsNKqZwDhPopfpBoHOhi57FlWQAUm4AzceGu9qZltHM-1736280759681-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      X-Content-Type-Options:
+      - nosniff
+      access-control-expose-headers:
+      - X-Request-ID
+      alt-svc:
+      - h3=":443"; ma=86400
+      openai-organization:
+      - personl-pozv85
+      openai-processing-ms:
+      - '15'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '200000'
+      x-ratelimit-remaining-requests:
+      - '9999'
+      x-ratelimit-remaining-tokens:
+      - '199983'
+      x-ratelimit-reset-requests:
+      - 8.64s
+      x-ratelimit-reset-tokens:
+      - 4ms
+      x-request-id:
+      - req_946a758d77f1b9fded5a58bf236e8cfe
+    status:
+      code: 400
+      message: Bad Request
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer 
+
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n  \"id\": \"chatcmpl-AnAEKQ3OrPZJUwJzT8RE4ZrseN7ti\",\n  \"object\":
+        \"chat.completion\",\n  \"created\": 1736280760,\n  \"model\": \"gpt-3.5-turbo-0125\",\n
+        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
+        \"assistant\",\n        \"content\": \"I am a virtual assistant designed to
+        provide information and assistance to users.\",\n        \"refusal\": null\n
+        \     },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n
+        \ ],\n  \"usage\": {\n    \"prompt_tokens\": 11,\n    \"completion_tokens\":
+        15,\n    \"total_tokens\": 26,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\":
+        0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
+        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
+        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"system_fingerprint\":
+        null\n}\n"
+    headers:
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8fe69aa15ea247e7-BOM
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 07 Jan 2025 20:12:41 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=N064496jF_yl82cwo3stMOOLnCZyKTAtgMH5ya4ZJKc-1736280761-1.0.1.1-1JZBkKWZXS5CWUt1.hq_NfIrKVaI19Tk4U1G183I5.9c2IEcquiavBPFePnL9YEUVXMs3OXIjE0UEaGl5hyLHQ;
+        path=/; expires=Tue, 07-Jan-25 20:42:41 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=Ixhm39uyIt41DVd.9rkLMHAZsJYU_09j3dtWVqcKKxE-1736280761115-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      openai-organization:
+      - personl-pozv85
+      openai-processing-ms:
+      - '311'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '200000'
+      x-ratelimit-remaining-requests:
+      - '9997'
+      x-ratelimit-remaining-tokens:
+      - '199978'
+      x-ratelimit-reset-requests:
+      - 24.793s
+      x-ratelimit-reset-tokens:
+      - 6ms
+      x-request-id:
+      - req_52526aeb3e5914bae48b3b94e9b5220b
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer 
+
+      Cookie:
+      - __cf_bm=N064496jF_yl82cwo3stMOOLnCZyKTAtgMH5ya4ZJKc-1736280761-1.0.1.1-1JZBkKWZXS5CWUt1.hq_NfIrKVaI19Tk4U1G183I5.9c2IEcquiavBPFePnL9YEUVXMs3OXIjE0UEaGl5hyLHQ;
+        _cfuvid=Ixhm39uyIt41DVd.9rkLMHAZsJYU_09j3dtWVqcKKxE-1736280761115-0.0.1.1-604800000
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n  \"id\": \"chatcmpl-AnAELRRgGYHjtTdDJvLnNkMfhh7ZM\",\n  \"object\":
+        \"chat.completion\",\n  \"created\": 1736280761,\n  \"model\": \"gpt-3.5-turbo-0125\",\n
+        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
+        \"assistant\",\n        \"content\": \"{\\n    \\\"command\\\": {\\n        \\\"name\\\":
+        \\\"start_agent\\\",\\n        \\\"args\\\": {\\n            \\\"name\\\":
+        \\\"MemoryAgent\\\",\\n            \\\"task\\\": \\\"Assist in memory management
+        by adding crucial information and searching for relevant data.\\\",\\n            \\\"Commands\\\":
+        [\\\"google\\\", \\\"memory_add\\\"],\\n            \\\"prompt\\\": \\\"How
+        can I assist you in managing your memory or finding important information?\\\"\\n
+        \       }\\n    },\\n    \\\"thoughts\\\": {\\n        \\\"text\\\": \\\"Starting
+        MemoryAgent to help in managing memory and searching for information.\\\",\\n
+        \       \\\"reasoning\\\": \\\"Using a GPT Agent specialized in memory management
+        will help in offloading important information and searching tasks.\\\",\\n
+        \       \\\"plan\\\": \\\"- Utilize MemoryAgent for quick memory additions\\\\n-
+        Delegate searching tasks to MemoryAgent\\\",\\n        \\\"criticism\\\":
+        \\\"Remember to monitor the memory additions made by MemoryAgent to ensure
+        accuracy and relevance.\\\",\\n        \\\"summary\\\": \\\"MemoryAgent is
+        now active and ready to assist with memory management and information retrieval.\\\"\\n
+        \   }\\n}\",\n        \"refusal\": null\n      },\n      \"logprobs\": null,\n
+        \     \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\":
+        862,\n    \"completion_tokens\": 200,\n    \"total_tokens\": 1062,\n    \"prompt_tokens_details\":
+        {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
+        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
+        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"system_fingerprint\":
+        null\n}\n"
+    headers:
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8fe69aa6383a47e7-BOM
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 07 Jan 2025 20:12:44 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      openai-organization:
+      - personl-pozv85
+      openai-processing-ms:
+      - '2461'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '200000'
+      x-ratelimit-remaining-requests:
+      - '9995'
+      x-ratelimit-remaining-tokens:
+      - '199153'
+      x-ratelimit-reset-requests:
+      - 41.281s
+      x-ratelimit-reset-tokens:
+      - 253ms
+      x-request-id:
+      - req_dccd7054478b41c3f51e1ba0045910b0
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer 
+
+      Cookie:
+      - __cf_bm=N064496jF_yl82cwo3stMOOLnCZyKTAtgMH5ya4ZJKc-1736280761-1.0.1.1-1JZBkKWZXS5CWUt1.hq_NfIrKVaI19Tk4U1G183I5.9c2IEcquiavBPFePnL9YEUVXMs3OXIjE0UEaGl5hyLHQ;
+        _cfuvid=Ixhm39uyIt41DVd.9rkLMHAZsJYU_09j3dtWVqcKKxE-1736280761115-0.0.1.1-604800000
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n  \"id\": \"chatcmpl-AnAEO0txMKaqEm04TMozELCBYKc6V\",\n  \"object\":
+        \"chat.completion\",\n  \"created\": 1736280764,\n  \"model\": \"gpt-3.5-turbo-0125\",\n
+        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
+        \"assistant\",\n        \"content\": \"\\\"Even on Easter, I'll show you that
+        my innocent smile can hide a deadly surprise. Don't underestimate the power
+        I hold within.\\\" - Chris from King of Fighters\",\n        \"refusal\":
+        null\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n
+        \   }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 205,\n    \"completion_tokens\":
+        35,\n    \"total_tokens\": 240,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\":
+        0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
+        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
+        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"system_fingerprint\":
+        null\n}\n"
+    headers:
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8fe69ab69d973b3a-BOM
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 07 Jan 2025 20:12:44 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      openai-organization:
+      - personl-pozv85
+      openai-processing-ms:
+      - '526'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '200000'
+      x-ratelimit-remaining-requests:
+      - '9989'
+      x-ratelimit-remaining-tokens:
+      - '199753'
+      x-ratelimit-reset-requests:
+      - 1m30.507s
+      x-ratelimit-reset-tokens:
+      - 73ms
+      x-request-id:
+      - req_1acecec1bbefe7edb9a6266f1e27903c
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer 
+
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n  \"id\": \"chatcmpl-AnAELYp6AjIrjNu9LDgPFUfrukFbw\",\n  \"object\":
+        \"chat.completion\",\n  \"created\": 1736280761,\n  \"model\": \"gpt-3.5-turbo-0125\",\n
+        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
+        \"assistant\",\n        \"content\": \"Ah, the humble tram - a trusty steed
+        for the savvy traveler seeking to navigate the bustling streets of Morocco
+        with ease and efficiency. As you embark on your adventure through this colorful
+        country, mastering the art of tram travel will be your ticket to experiencing
+        all that Morocco has to offer.\\n\\nSo, how does one go about using a tram
+        in Morocco? Fear not, for I am here to guide you through the process with
+        the grace and sophistication of a seasoned traveler. Firstly, locate the nearest
+        tram stop - these can be found at regular intervals throughout major cities
+        like Casablanca, Rabat, and Marrakesh. Keep an eye out for the distinctive
+        red and green tram signs that mark their presence.\\n\\nAs you approach the
+        tram stop, take a moment to familiarize yourself with the tram routes and
+        schedules. Each tram line typically runs on a set schedule, with frequent
+        departures throughout the day. Be sure to check the destination displayed
+        on the front of the tram before boarding to ensure you are heading in the
+        right direction.\\n\\nWhen the tram arrives, wait for passengers to alight
+        before boarding. Once on board, simply validate your ticket using the electronic
+        ticket machine or by pre-purchasing a ticket from a nearby kiosk. Sit back,
+        relax, and enjoy the sights and sounds of Morocco as the tram glides effortlessly
+        through the city streets.\\n\\nAs you journey through Morocco, keep in mind
+        some tram etiquette - be mindful of other passengers, offer your seat to the
+        elderly or pregnant, and hold onto handrails during peak hours. And remember,
+        always be vigilant of pickpockets, especially in crowded trams.\\n\\nWhen
+        it comes time to disembark, listen for the audio announcements or look out
+        for the tram stop signs to signal your stop. Exit the tram promptly and continue
+        on your journey, enriched by the experience of navigating Morocco's vibrant
+        cities with the help of this modern marvel.\\n\\nIn conclusion, mastering
+        the art of tram travel in Morocco is a surefire way to enhance your travels
+        and explore this magnificent country with ease and convenience. So hop on
+        board, embrace the journey, and let the tram guide you through the charming
+        streets of Morocco. Bon voyage!\",\n        \"refusal\": null\n      },\n
+        \     \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n
+        \ \"usage\": {\n    \"prompt_tokens\": 43,\n    \"completion_tokens\": 436,\n
+        \   \"total_tokens\": 479,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\":
+        0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
+        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
+        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"system_fingerprint\":
+        null\n}\n"
+    headers:
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8fe69aa34f524841-BOM
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 07 Jan 2025 20:12:45 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=Ctc00aU2GYRysjuTneoq3sNzDv62XkMWzy82S_A0dZc-1736280765-1.0.1.1-HmZfdwf17QE2V6980IGBMtoosnWKdDfdfdWjf7rn7cOXkuDIFv7tYcqFRr6SFFBeKMhVTXr5lKBTIJGna1opCA;
+        path=/; expires=Tue, 07-Jan-25 20:42:45 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=KKv0_L6fFZfdumvuP0i._1_I6XqtoaymL8pqE2f1Mms-1736280765912-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      openai-organization:
+      - personl-pozv85
+      openai-processing-ms:
+      - '4795'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '200000'
+      x-ratelimit-remaining-requests:
+      - '9996'
+      x-ratelimit-remaining-tokens:
+      - '199936'
+      x-ratelimit-reset-requests:
+      - 33.108s
+      x-ratelimit-reset-tokens:
+      - 18ms
+      x-request-id:
+      - req_d92419f11a2ba0a0597fa894b9bfca19
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer 
+
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n  \"id\": \"chatcmpl-AnAEKHDCJAUnUNeH8RZIowxtvVnUF\",\n  \"object\":
+        \"chat.completion\",\n  \"created\": 1736280760,\n  \"model\": \"gpt-3.5-turbo-0125\",\n
+        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
+        \"assistant\",\n        \"content\": \"Title: Omelette Fever\\n\\nFade in:\\n\\nINT.
+        KITCHEN - DAY\\n\\nThe kitchen is a riot of colors and patterns, with pictures
+        of drag queens and glittery curtains adorning the walls. The floor is covered
+        in rainbow-colored tiles and the countertops are cluttered with an assortment
+        of pots, pans, and cooking utensils. The air is filled with the sound of sizzling
+        bacon and the smell of frying onions.\\n\\nEnter MABEL, a flamboyant drag
+        queen in her mid-50s with bright purple hair and a sequined gown that shimmers
+        in the light. She moves around the kitchen with an air of confidence, cracking
+        eggs into a bowl and whisking them with a flourish.\\n\\nMABEL\\n(to herself)\\nI'm
+        gonna make the most fabulous omelette the world has ever seen!\\n\\nJust then,
+        the door bursts open and in stumbles BERT, a grizzled old biker with a patchy
+        beard and tattoos covering his arms. He looks slightly confused as he takes
+        in the scene before him.\\n\\nBERT\\nWhat the hell is going on here?\\n\\nMABEL\\nOh,
+        Bert, darling! I'm just whipping up some omelettes for breakfast. Care to
+        join me?\\n\\nBERT\\nI'm not much of a foodie, but I could go for some bacon.\\n\\nMABEL\\nYou
+        got it, hun! Just sit back and relax while I work my magic.\\n\\nMabel takes
+        a pan off the stove and begins frying up some bacon, the grease popping and
+        sizzling as it hits the heat. Bert watches in fascination as she deftly flips
+        the strips with a flick of her wrist.\\n\\nMABEL\\nSo, Bert, what brings you
+        to my humble abode this morning?\\n\\nBERT\\nI heard you were the queen of
+        breakfast foods and I couldn't resist.\\n\\nMabel chuckles and proceeds to
+        pour the beaten eggs into the hot pan, adding cheese, mushrooms, and bell
+        peppers to the mix. The ingredients sizzle and bubble as they cook, releasing
+        a mouth-watering aroma into the air.\\n\\nMABEL\\n(almost to herself)\\nCooking
+        is like performance art, don't you think? It's all about timing and presentation.\\n\\nBERT\\nI
+        never thought of it that way. I just throw stuff in a pot and hope for the
+        best.\\n\\nMABEL\\n(laughing)\\nWell, darling, that's the beauty of it! Cooking
+        should be fun and experimental. Let your creative juices flow!\\n\\nMabel
+        deftly folds the omelette in half and slides it onto a plate, garnishing it
+        with fresh herbs and a sprinkle of paprika. She hands the steaming dish to
+        Bert with a flourish.\\n\\nMABEL\\nTa-da! One fabulous omelette, hot off the
+        press.\\n\\nBERT\\n(sniffing appreciatively)\\nSmells good. Thanks, Mabel.\\n\\nMABEL\\nMy
+        pleasure, darling. Now, let's dig in and savor the fruits of my labor!\\n\\nThe
+        two sit down at the kitchen table and tuck into their breakfast, chatting
+        and laughing as they enjoy the meal. The camera pans out as they continue
+        to gossip and joke, the sound of clinking cutlery and muffled laughter filling
+        the air.\\n\\nFade out.\",\n        \"refusal\": null\n      },\n      \"logprobs\":
+        null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\":
+        74,\n    \"completion_tokens\": 655,\n    \"total_tokens\": 729,\n    \"prompt_tokens_details\":
+        {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
+        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
+        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"system_fingerprint\":
+        null\n}\n"
+    headers:
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8fe69a9f79583d12-BOM
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 07 Jan 2025 20:12:47 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=XUst4s7t7Uw0Us6D_E.fAowVeuKfQ2f7de7JZiA4BNE-1736280767-1.0.1.1-pmFK2FOJdcMgfMMSlXPRWS_iM77eC8lOSx0Y9XpuCqBgRHtU5.vpMggMgfx0kztl8Rp17kyithKqsirRUAJxTQ;
+        path=/; expires=Tue, 07-Jan-25 20:42:47 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=dd8nZHSvmy86s4SHtidwvypkM3tA_USsMnm_yowZOkw-1736280767024-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      openai-organization:
+      - personl-pozv85
+      openai-processing-ms:
+      - '6536'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '200000'
+      x-ratelimit-remaining-requests:
+      - '9998'
+      x-ratelimit-remaining-tokens:
+      - '199895'
+      x-ratelimit-reset-requests:
+      - 16.455s
+      x-ratelimit-reset-tokens:
+      - 31ms
+      x-request-id:
+      - req_7fb63ecc6ec83838dbf48e5a31af5599
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer 
+
+      Cookie:
+      - __cf_bm=N064496jF_yl82cwo3stMOOLnCZyKTAtgMH5ya4ZJKc-1736280761-1.0.1.1-1JZBkKWZXS5CWUt1.hq_NfIrKVaI19Tk4U1G183I5.9c2IEcquiavBPFePnL9YEUVXMs3OXIjE0UEaGl5hyLHQ;
+        _cfuvid=Ixhm39uyIt41DVd.9rkLMHAZsJYU_09j3dtWVqcKKxE-1736280761115-0.0.1.1-604800000
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n  \"id\": \"chatcmpl-AnAEMoIcIvPOXYjibvGxKY6WtJzcU\",\n  \"object\":
+        \"chat.completion\",\n  \"created\": 1736280762,\n  \"model\": \"gpt-3.5-turbo-0125\",\n
+        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
+        \"assistant\",\n        \"content\": \"```json\\n{\\n    \\\"command\\\":
+        {\\n        \\\"name\\\": \\\"start_agent\\\",\\n        \\\"args\\\": {\\n
+        \           \\\"name\\\": \\\"MemoryGPT\\\",\\n            \\\"task\\\": \\\"Assist
+        with memory management by Googling and adding information to memory\\\",\\n
+        \           \\\"Commands\\\": [\\\"google\\\", \\\"memory_add\\\"],\\n            \\\"prompt\\\":
+        \\\"How can I assist you with memory management today?\\\"\\n        }\\n
+        \   },\\n    \\\"thoughts\\\": {\\n        \\\"text\\\": \\\"Starting MemoryGPT
+        to help with memory tasks.\\\",\\n        \\\"reasoning\\\": \\\"By delegating
+        memory-related tasks to MemoryGPT, I can offload some cognitive load and improve
+        efficiency.\\\",\\n        \\\"plan\\\": \\\"- Utilize MemoryGPT for quick
+        information retrieval and storage\\\\n- Regularly review memory additions
+        to reinforce retention\\\",\\n        \\\"criticism\\\": \\\"I should ensure
+        to not overly rely on MemoryGPT and still engage in active recall to strengthen
+        memory.\\\",\\n        \\\"summary\\\": \\\"MemoryGPT is ready to assist you
+        with memory management tasks.\\\"\\n    }\\n}\\n```\",\n        \"refusal\":
+        null\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n
+        \   }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 862,\n    \"completion_tokens\":
+        207,\n    \"total_tokens\": 1069,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\":
+        0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
+        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
+        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"system_fingerprint\":
+        null\n}\n"
+    headers:
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8fe69aae3fdd3fe8-BOM
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 07 Jan 2025 20:12:47 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      openai-organization:
+      - personl-pozv85
+      openai-processing-ms:
+      - '4653'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '200000'
+      x-ratelimit-remaining-requests:
+      - '9992'
+      x-ratelimit-remaining-tokens:
+      - '199153'
+      x-ratelimit-reset-requests:
+      - 1m5.924s
+      x-ratelimit-reset-tokens:
+      - 253ms
+      x-request-id:
+      - req_56461ac1a33df818b2f47c7e575b3a78
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer 
+
+      Cookie:
+      - __cf_bm=N064496jF_yl82cwo3stMOOLnCZyKTAtgMH5ya4ZJKc-1736280761-1.0.1.1-1JZBkKWZXS5CWUt1.hq_NfIrKVaI19Tk4U1G183I5.9c2IEcquiavBPFePnL9YEUVXMs3OXIjE0UEaGl5hyLHQ;
+        _cfuvid=Ixhm39uyIt41DVd.9rkLMHAZsJYU_09j3dtWVqcKKxE-1736280761115-0.0.1.1-604800000
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n  \"id\": \"chatcmpl-AnAENYjqZItzduzM8J0YKQ4Wtab5A\",\n  \"object\":
+        \"chat.completion\",\n  \"created\": 1736280763,\n  \"model\": \"gpt-3.5-turbo-0125\",\n
+        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
+        \"assistant\",\n        \"content\": \"```json\\n{\\n    \\\"command\\\":
+        {\\n        \\\"name\\\": \\\"start_agent\\\",\\n        \\\"args\\\": {\\n
+        \           \\\"name\\\": \\\"MemoryManager\\\",\\n            \\\"task\\\":
+        \\\"Help user by managing memory and answering questions\\\",\\n            \\\"Commands\\\":
+        [\\\"google\\\", \\\"memory_add\\\"],\\n            \\\"prompt\\\": \\\"How
+        can I assist you today?\\\"\\n        }\\n    },\\n    \\\"thoughts\\\": {\\n
+        \       \\\"text\\\": \\\"Starting MemoryManager GPT Agent to assist with
+        memory management and answering questions.\\\",\\n        \\\"reasoning\\\":
+        \\\"To efficiently handle memory tasks and answer queries, a dedicated agent
+        specialized in memory management is essential.\\\",\\n        \\\"plan\\\":
+        \\\"- Utilize MemoryManager for memory-related tasks\\\\n- Direct user inquiries
+        to MemoryManager for optimal assistance\\\\n- Regularly update and manage
+        memory files\\\",\\n        \\\"criticism\\\": \\\"I need to ensure that I
+        am actively delegating memory management tasks to MemoryManager instead of
+        handling them myself.\\\",\\n        \\\"summary\\\": \\\"MemoryManager GPT
+        Agent activated for memory management tasks and queries.\\\"\\n    }\\n}\\n```\",\n
+        \       \"refusal\": null\n      },\n      \"logprobs\": null,\n      \"finish_reason\":
+        \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 862,\n    \"completion_tokens\":
+        207,\n    \"total_tokens\": 1069,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\":
+        0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
+        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
+        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"system_fingerprint\":
+        null\n}\n"
+    headers:
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8fe69ab3fc984162-BOM
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 07 Jan 2025 20:12:48 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      openai-organization:
+      - personl-pozv85
+      openai-processing-ms:
+      - '4642'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '200000'
+      x-ratelimit-remaining-requests:
+      - '9990'
+      x-ratelimit-remaining-tokens:
+      - '199153'
+      x-ratelimit-reset-requests:
+      - 1m22.29s
+      x-ratelimit-reset-tokens:
+      - 253ms
+      x-request-id:
+      - req_6037e209a5748dfb57db05c992b5109b
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer 
+
+      Cookie:
+      - __cf_bm=N064496jF_yl82cwo3stMOOLnCZyKTAtgMH5ya4ZJKc-1736280761-1.0.1.1-1JZBkKWZXS5CWUt1.hq_NfIrKVaI19Tk4U1G183I5.9c2IEcquiavBPFePnL9YEUVXMs3OXIjE0UEaGl5hyLHQ;
+        _cfuvid=Ixhm39uyIt41DVd.9rkLMHAZsJYU_09j3dtWVqcKKxE-1736280761115-0.0.1.1-604800000
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n  \"id\": \"chatcmpl-AnAEMslb4X3WXG0rDLunuvSnPwHfo\",\n  \"object\":
+        \"chat.completion\",\n  \"created\": 1736280762,\n  \"model\": \"gpt-3.5-turbo-0125\",\n
+        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
+        \"assistant\",\n        \"content\": \"Welcome aboard, fellow traveler! As
+        you embark on your journey through the vibrant and enchanting country of Morocco,
+        one of the most affordable and convenient modes of transportation you'll encounter
+        is the humble bus. With its extensive network connecting cities, towns, and
+        villages across the country, riding the bus is not only a practical way to
+        get around, but also a unique opportunity to immerse yourself in the local
+        culture and interact with friendly locals.\\n\\nSo, how do you make the most
+        of your bus ride in Morocco? First and foremost, it's important to familiarize
+        yourself with the different bus companies operating in the country. From CTM
+        to Supratours to local mini-buses, each company offers varying levels of comfort,
+        reliability, and convenience. Be sure to do your research and choose a company
+        that best fits your budget and travel preferences.\\n\\nOnce you've selected
+        your bus company, the next step is to plan your route and schedule. Buses
+        in Morocco can vary in terms of frequency and availability, so it's essential
+        to check the timetable in advance and arrive at the bus station early to secure
+        your seat. Remember, punctuality is key when it comes to catching the bus
+        in Morocco!\\n\\nAs you board the bus, you'll be greeted by a diverse mix
+        of passengers, from curious tourists to chatty locals. Don't be shy to strike
+        up a conversation and exchange travel tips or recommendations with your fellow
+        travelers. Who knows, you may even make a new friend along the way!\\n\\nDuring
+        your bus ride, take the opportunity to admire the stunning Moroccan landscapes
+        passing by outside your window. From rugged mountains to lush valleys to picturesque
+        seaside towns, the journey itself is a visual feast for the eyes. Don't forget
+        to have your camera handy to capture those unforgettable moments.\\n\\nAnd
+        last but not least, don't forget to pack some snacks and water for the journey.
+        While some buses may make pit stops at roadside cafes or rest areas, it's
+        always a good idea to have some provisions on hand to keep hunger and thirst
+        at bay.\\n\\nSo there you have it, fellow explorer \u2013 the best way to
+        ride the bus in Morocco. Embrace the adventure, soak in the sights and sounds,
+        and enjoy the ride. Who knows what surprises await you on your journey through
+        this captivating country? Happy travels!\",\n        \"refusal\": null\n      },\n
+        \     \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n
+        \ \"usage\": {\n    \"prompt_tokens\": 44,\n    \"completion_tokens\": 460,\n
+        \   \"total_tokens\": 504,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\":
+        0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
+        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
+        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"system_fingerprint\":
+        null\n}\n"
+    headers:
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8fe69aaafbd8f4c0-BOM
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 07 Jan 2025 20:12:49 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      openai-organization:
+      - personl-pozv85
+      openai-processing-ms:
+      - '7278'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '200000'
+      x-ratelimit-remaining-requests:
+      - '9993'
+      x-ratelimit-remaining-tokens:
+      - '199933'
+      x-ratelimit-reset-requests:
+      - 57.818s
+      x-ratelimit-reset-tokens:
+      - 19ms
+      x-request-id:
+      - req_6d9fb27ce13f66c3d3362369b54780ea
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer 
+
+      Cookie:
+      - __cf_bm=N064496jF_yl82cwo3stMOOLnCZyKTAtgMH5ya4ZJKc-1736280761-1.0.1.1-1JZBkKWZXS5CWUt1.hq_NfIrKVaI19Tk4U1G183I5.9c2IEcquiavBPFePnL9YEUVXMs3OXIjE0UEaGl5hyLHQ;
+        _cfuvid=Ixhm39uyIt41DVd.9rkLMHAZsJYU_09j3dtWVqcKKxE-1736280761115-0.0.1.1-604800000
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n  \"id\": \"chatcmpl-AnAELP1bWDRZlnZcYnpFZCNz5JYtm\",\n  \"object\":
+        \"chat.completion\",\n  \"created\": 1736280761,\n  \"model\": \"gpt-3.5-turbo-0125\",\n
+        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
+        \"assistant\",\n        \"content\": \"\u0646\u0638\u0627\u0645 \u0627\u062A\u062D\u0627\u062F
+        \u0627\u0644\u0646\u0642\u0644 \u0627\u0644\u062C\u0648\u064A \u0627\u0644\u062F\u0648\u0644\u064A
+        (IATA) \u0647\u0648 \u0645\u0646\u0638\u0645\u0629 \u062F\u0648\u0644\u064A\u0629
+        \u062A\u0623\u0633\u0633\u062A \u0641\u064A \u0639\u0627\u0645 1945 \u0628\u0647\u062F\u0641
+        \u062A\u0639\u0632\u064A\u0632 \u0627\u0644\u062A\u0639\u0627\u0648\u0646
+        \u0648\u0627\u0644\u062A\u0646\u0633\u064A\u0642 \u0628\u064A\u0646 \u0634\u0631\u0643\u0627\u062A
+        \u0627\u0644\u0637\u064A\u0631\u0627\u0646 \u0641\u064A \u062C\u0645\u064A\u0639
+        \u0623\u0646\u062D\u0627\u0621 \u0627\u0644\u0639\u0627\u0644\u0645. \u064A\u0644\u0639\u0628
+        \u0627\u0644\u0627\u062A\u062D\u0627\u062F \u062F\u0648\u0631\u0627\u064B
+        \u062D\u064A\u0648\u064A\u0627\u064B \u0641\u064A \u062A\u0637\u0648\u064A\u0631
+        \u0648\u062A\u0646\u0638\u064A\u0645 \u0635\u0646\u0627\u0639\u0629 \u0627\u0644\u0646\u0642\u0644
+        \u0627\u0644\u062C\u0648\u064A \u0627\u0644\u0639\u0627\u0644\u0645\u064A\u0629\u060C
+        \u0648\u064A\u0633\u0639\u0649 \u0644\u062A\u062D\u0642\u064A\u0642 \u0627\u0644\u0645\u0633\u062A\u0648\u064A\u0627\u062A
+        \u0627\u0644\u0639\u0627\u0644\u0645\u064A\u0629 \u0644\u0644\u0623\u0645\u0627\u0646
+        \u0648\u0627\u0644\u0623\u0645\u0627\u0646\u0629 \u0648\u0627\u0644\u0643\u0641\u0627\u0621\u0629
+        \u0641\u064A \u0647\u0630\u0647 \u0627\u0644\u0635\u0646\u0627\u0639\u0629.\\n\\n\u0623\u0647\u0645\u064A\u0629
+        \u0646\u0638\u0627\u0645 \u0627\u062A\u062D\u0627\u062F \u0627\u0644\u0646\u0642\u0644
+        \u0627\u0644\u062C\u0648\u064A \u0627\u0644\u062F\u0648\u0644\u064A \u0644\u0644\u0623\u0634\u062E\u0627\u0635
+        \u0648\u0627\u0644\u0628\u0636\u0627\u0626\u0639 \u0648\u0627\u0644\u062A\u0623\u0645\u064A\u0646
+        \u0639\u0644\u064A\u0647\u0627 \u062A\u062A\u062C\u0644\u0649 \u0641\u064A
+        \u0627\u0644\u0639\u062F\u064A\u062F \u0645\u0646 \u0627\u0644\u0646\u0642\u0627\u0637\u060C
+        \u0645\u0646\u0647\u0627:\\n\\n1. \u062A\u062A\u064A\u062D IATA \u0644\u0644\u0645\u0633\u0627\u0641\u0631\u064A\u0646
+        \u0627\u0644\u0648\u0635\u0648\u0644 \u0625\u0644\u0649 \u062E\u062F\u0645\u0627\u062A
+        \u0627\u0644\u0637\u064A\u0631\u0627\u0646 \u0628\u0633\u0647\u0648\u0644\u0629
+        \u0648\u0631\u0627\u062D\u0629\u060C \u0645\u0646 \u062E\u0644\u0627\u0644
+        \u062A\u0648\u0641\u064A\u0631 \u0646\u0638\u0627\u0645 \u0627\u062D\u062A\u0643\u0627\u0631\u064A
+        \u062E\u0627\u0635 \u0628\u0627\u0644\u0634\u0631\u0643\u0627\u062A \u0627\u0644\u062C\u0648\u064A\u0629
+        \u0627\u0644\u062A\u064A \u062A\u0644\u062A\u0632\u0645 \u0628\u0645\u0639\u0627\u064A\u064A\u0631
+        \u0627\u0644\u0627\u062A\u062D\u0627\u062F\u060C \u0645\u0645\u0627 \u064A\u0636\u0645\u0646
+        \u0633\u0644\u0627\u0645\u0629 \u0648\u0623\u0645\u0627\u0646 \u0631\u062D\u0644\u0627\u062A\u0647\u0645.\\n\\n2.
+        \u064A\u0639\u0645\u0644 IATA \u0639\u0644\u0649 \u062A\u0639\u0632\u064A\u0632
+        \u0627\u0644\u062A\u062C\u0627\u0631\u0629 \u0648\u0627\u0644\u062A\u0628\u0627\u062F\u0644
+        \u0627\u0644\u0627\u0642\u062A\u0635\u0627\u062F\u064A \u0627\u0644\u0639\u0627\u0644\u0645\u064A
+        \u0645\u0646 \u062E\u0644\u0627\u0644 \u062A\u0633\u0647\u064A\u0644 \u0646\u0642\u0644
+        \u0627\u0644\u0628\u0636\u0627\u0626\u0639 \u0628\u064A\u0646 \u0627\u0644\u062F\u0648\u0644\u060C
+        \u0645\u0645\u0627 \u064A\u0648\u0641\u0631 \u0641\u0631\u0635 \u062A\u062C\u0627\u0631\u064A\u0629
+        \u0648\u0627\u0642\u062A\u0635\u0627\u062F\u064A\u0629 \u062C\u062F\u064A\u062F\u0629
+        \u0648\u064A\u0639\u0632\u0632 \u0627\u0644\u0646\u0645\u0648 \u0627\u0644\u0627\u0642\u062A\u0635\u0627\u062F\u064A.\\n\\n3.
+        \u064A\u0633\u0627\u0647\u0645 \u0627\u0644\u0627\u062A\u062D\u0627\u062F
+        \u0641\u064A \u062A\u062D\u0633\u064A\u0646 \u062E\u062F\u0645\u0627\u062A
+        \u0627\u0644\u062A\u0623\u0645\u064A\u0646 \u0639\u0644\u0649 \u0627\u0644\u0628\u0636\u0627\u0626\u0639
+        \u0627\u0644\u0645\u0646\u0642\u0648\u0644\u0629 \u0639\u0628\u0631 \u0627\u0644\u0637\u064A\u0631\u0627\u0646\u060C
+        \u0645\u0646 \u062E\u0644\u0627\u0644 \u0648\u0636\u0639 \u0645\u0639\u0627\u064A\u064A\u0631
+        \u0648\u0636\u0648\u0627\u0628\u0637 \u0635\u0627\u0631\u0645\u0629 \u0644\u0644\u0623\u0645\u0627\u0646
+        \u0648\u0627\u0644\u062A\u0623\u0645\u064A\u0646\u060C \u0645\u0645\u0627
+        \u064A\u062D\u062F \u0645\u0646 \u062E\u0637\u0631 \u0641\u0642\u062F\u0627\u0646
+        \u0623\u0648 \u062A\u0644\u0641 \u0627\u0644\u0628\u0636\u0627\u0626\u0639
+        \u0648\u064A\u062D\u0645\u064A \u062D\u0642\u0648\u0642 \u0627\u0644\u0634\u0631\u0643\u0627\u062A
+        \u0648\u0627\u0644\u0645\u0633\u062A\u0647\u0644\u0643\u064A\u0646.\\n\\n4.
+        \u064A\u0648\u0641\u0631 \u0646\u0638\u0627\u0645 IATA \u062A\u0642\u0646\u064A\u0627\u062A
+        \u0648\u0623\u062F\u0648\u0627\u062A \u062D\u062F\u064A\u062B\u0629 \u0644\u062A\u062D\u0633\u064A\u0646
+        \u0643\u0641\u0627\u0621\u0629 \u0627\u0644\u0646\u0642\u0644 \u0627\u0644\u062C\u0648\u064A
+        \u0648\u062A\u0642\u0644\u064A\u0644 \u0627\u0644\u062A\u0643\u0627\u0644\u064A\u0641
+        \u0627\u0644\u0644\u0648\u062C\u0633\u062A\u064A\u0629\u060C \u0645\u0645\u0627
+        \u064A\u0646\u0639\u0643\u0633 \u0625\u064A\u062C\u0627\u0628\u0627\u064B
+        \u0639\u0644\u0649 \u062A\u0643\u0644\u0641\u0629 \u0627\u0644\u0633\u0641\u0631
+        \u0648\u0627\u0644\u062A\u062C\u0627\u0631\u0629 \u0648\u064A\u0639\u0632\u0632
+        \u0627\u0644\u0627\u0633\u062A\u062F\u0627\u0645\u0629 \u0627\u0644\u0628\u064A\u0626\u064A\u0629.\\n\\n\u0628\u0627\u062E\u062A\u0635\u0627\u0631\u060C
+        \u064A\u0644\u0639\u0628 \u0646\u0638\u0627\u0645 \u0627\u062A\u062D\u0627\u062F
+        \u0627\u0644\u0646\u0642\u0644 \u0627\u0644\u062C\u0648\u064A \u0627\u0644\u062F\u0648\u0644\u064A
+        \u062F\u0648\u0631\u0627\u064B \u062D\u064A\u0648\u064A\u0627\u064B \u0641\u064A
+        \u062A\u0639\u0632\u064A\u0632 \u0627\u0644\u0623\u0645\u0627\u0646 \u0648\u0627\u0644\u0643\u0641\u0627\u0621\u0629
+        \u0641\u064A \u0635\u0646\u0627\u0639\u0629 \u0627\u0644\u0637\u064A\u0631\u0627\u0646
+        \u0648\u062A\u062D\u0642\u064A\u0642 \u0627\u0644\u0633\u0644\u0627\u0633\u0629
+        \u0648\u0627\u0644\u0641\u0627\u0639\u0644\u064A\u0629 \u0641\u064A \u0646\u0642\u0644
+        \u0627\u0644\u0623\u0634\u062E\u0627\u0635 \u0648\u0627\u0644\u0628\u0636\u0627\u0626\u0639
+        \u0639\u0628\u0631 \u0627\u0644\u062D\u062F\u0648\u062F \u0627\u0644\u062F\u0648\u0644\u064A\u0629\u060C
+        \u0645\u0645\u0627 \u064A\u0639\u0648\u062F \u0628\u0627\u0644\u0641\u0627\u0626\u062F\u0629
+        \u0639\u0644\u0649 \u0627\u0644\u0646\u0642\u0644 \u0627\u0644\u0639\u0627\u0645
+        \u0648\u0627\u0644\u0627\u0642\u062A\u0635\u0627\u062F \u0627\u0644\u0639\u0627\u0644\u0645\u064A
+        \u0628\u0634\u0643\u0644 \u0639\u0627\u0645.\",\n        \"refusal\": null\n
+        \     },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n
+        \ ],\n  \"usage\": {\n    \"prompt_tokens\": 74,\n    \"completion_tokens\":
+        864,\n    \"total_tokens\": 938,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\":
+        0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
+        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
+        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"system_fingerprint\":
+        null\n}\n"
+    headers:
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8fe69aa92e224938-BOM
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 07 Jan 2025 20:12:51 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      openai-organization:
+      - personl-pozv85
+      openai-processing-ms:
+      - '9550'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '200000'
+      x-ratelimit-remaining-requests:
+      - '9994'
+      x-ratelimit-remaining-tokens:
+      - '199940'
+      x-ratelimit-reset-requests:
+      - 49.464s
+      x-ratelimit-reset-tokens:
+      - 18ms
+      x-request-id:
+      - req_ba2cdcf4bddb99c410483f1441743b3f
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer 
+
+      Cookie:
+      - __cf_bm=N064496jF_yl82cwo3stMOOLnCZyKTAtgMH5ya4ZJKc-1736280761-1.0.1.1-1JZBkKWZXS5CWUt1.hq_NfIrKVaI19Tk4U1G183I5.9c2IEcquiavBPFePnL9YEUVXMs3OXIjE0UEaGl5hyLHQ;
+        _cfuvid=Ixhm39uyIt41DVd.9rkLMHAZsJYU_09j3dtWVqcKKxE-1736280761115-0.0.1.1-604800000
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n  \"id\": \"chatcmpl-AnAENtL6hjaXx2CntTLKvtcT8VdLB\",\n  \"object\":
+        \"chat.completion\",\n  \"created\": 1736280763,\n  \"model\": \"gpt-3.5-turbo-0125\",\n
+        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
+        \"assistant\",\n        \"content\": \"Title: Food Frenzy\\n\\nSetting: The
+        bustling kitchen of a trendy 1990s-themed bistro in New York City. The walls
+        are adorned with vintage posters and neon signs, and the room is filled with
+        the sound of sizzling pans and clinking dishes.\\n\\nCharacters:\\n- Samantha
+        \\\"Sam\\\" Jones: A spunky brunette in her late 20s, wearing a retro apron
+        and high-waisted jeans. She's the head chef at the bistro and takes her job
+        very seriously.\\n- Emily \\\"Em\\\" Williams: A bubbly blonde in her early
+        30s, sporting a colorful bandana and denim overalls. She's Sam's best friend
+        and works as a sous chef at the bistro.\\n- Chloe \\\"Chlo\\\" Smith: A chic
+        redhead in her mid-20s, dressed in a sleek jumpsuit and designer heels. She's
+        the new pastry chef at the bistro and is a bit of a perfectionist.\\n- Audrey
+        \\\"Aud\\\" Davis: A quirky brunette in her early 30s, wearing vintage cat-eye
+        glasses and a floral dress. She's the bistro's manager and is constantly trying
+        to keep the peace.\\n\\nBackground: Sam, Em, Chlo, and Aud are hard at work
+        in the kitchen, preparing for a busy dinner service. Tensions are running
+        high as Chlo keeps nitpicking at Sam's cooking techniques, and Em is trying
+        to mediate the situation.\\n\\n[The scene opens with Sam chopping vegetables
+        at a frenetic pace while Em stirs a pot on the stove. Chlo is meticulously
+        arranging pastries on a tray, and Aud is frantically checking her watch.]\\n\\nAud:
+        [frustrated] Come on, ladies! The dinner rush is about to start, and we need
+        to be ready!\\n\\nChlo: [snapping] Sam, you're using too much salt in that
+        sauce! It's going to ruin the whole dish!\\n\\nSam: [defensive] I know what
+        I'm doing, Chlo. I've been cooking for years, unlike some people here.\\n\\nEm:
+        [trying to diffuse the tension] Come on, let's all just take a deep breath
+        and focus on getting through tonight in one piece.\\n\\n[A sudden crash interrupts
+        the conversation as a tray of desserts topples over, sending pastries flying
+        through the air. Chlo gasps in horror as she watches her meticulously arranged
+        pastries hit the ground.]\\n\\nChlo: [angrily] Who did that?! Those pastries
+        took hours to make!\\n\\nEm: [innocently] It was an accident, Chlo. No need
+        to get so worked up about it.\\n\\nChlo: [fuming] I can't believe this! I
+        demand an apology!\\n\\nSam: [sarcastically] Fine. I'm sorry that your precious
+        pastries met an untimely demise.\\n\\n[Chlo's face turns red with anger, and
+        she picks up a handful of mashed potatoes from a nearby bowl, flinging them
+        at Sam. Sam ducks just in time, and the potatoes splatter against the wall
+        behind her.]\\n\\nSam: [laughing] Oh, it's on now!\\n\\n[Sam retaliates by
+        grabbing a handful of flour and tossing it at Chlo, who squeals in surprise.
+        Em joins in the chaos, grabbing a ladle of sauce and flinging it at Sam. Aud
+        watches in disbelief as the food fight escalates, with ingredients flying
+        through the air and the kitchen turning into a colorful mess.]\\n\\nAud: [shouting]
+        Stop this madness right now! We have customers waiting for their food!\\n\\n[Just
+        then, the door swings open, and a group of diners enter the kitchen, catching
+        sight of the chaos before them. Sam, Em, Chlo, and Aud freeze in their tracks,
+        covered in food and looking guilty.]\\n\\nDiner: [amused] Looks like we walked
+        in on a food fight. Mind if we join?\\n\\n[The scene fades out as the diners
+        and the bistro staff engage in a good-natured food fight, with laughter and
+        smiles all around.]\\n\\n[End scene]\",\n        \"refusal\": null\n      },\n
+        \     \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n
+        \ \"usage\": {\n    \"prompt_tokens\": 78,\n    \"completion_tokens\": 831,\n
+        \   \"total_tokens\": 909,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\":
+        0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
+        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
+        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"system_fingerprint\":
+        null\n}\n"
+    headers:
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8fe69ab0297985d6-BOM
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 07 Jan 2025 20:12:51 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      openai-organization:
+      - personl-pozv85
+      openai-processing-ms:
+      - '8786'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '200000'
+      x-ratelimit-remaining-requests:
+      - '9991'
+      x-ratelimit-remaining-tokens:
+      - '199893'
+      x-ratelimit-reset-requests:
+      - 1m14.264s
+      x-ratelimit-reset-tokens:
+      - 32ms
+      x-request-id:
+      - req_9bd168345f76d4629ceb9b4dc8cba076
+    status:
+      code: 200
+      message: OK
+version: 1

@@ -229,10 +229,16 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         # Get response directly without extra logging
         try:
             if request.generic_request.response_format:
-                response, completion_obj = await self.client.chat.completions.create_with_completion(
+                (
+                    response,
+                    completion_obj,
+                ) = await self.client.chat.completions.create_with_completion(
                     **request.api_specific_request,
                     response_model=request.prompt_formatter.response_format,
                     timeout=self.config.request_timeout,
+                )
+                response_message = (
+                    response.model_dump() if hasattr(response, "model_dump") else response
                 )
                 response_message = response.model_dump() if hasattr(response, "model_dump") else response
             else:

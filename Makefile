@@ -14,6 +14,9 @@ test_integration:
 	@echo "Running integration test..."
 	pytest tests/integrations/$$integration_name --maxfail=1 --disable-warnings -q
 
+check: 
+	@echo "Checking Linter (black)..."
+	black --check src/ 
 clean:
 	@echo "Cleaning up build artifacts and cache..."
 	rm -rf $(CLEANUP_DIRS)
