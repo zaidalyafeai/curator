@@ -209,7 +209,8 @@ npm -v # should print `10.9.0`
   - [Basic usage](#basic-usage)
   - [Inference with models that do not fit in memory of one GPU (tensor parallelism)](#inference-for-models-that-dont-fit-in-one-gpus-memory-tensor-parallel)
   - [Structured output with local models](#structured-output)
-  - [Deatils on vLLM specific arguments](#details-on-vllm-specific-arguments)
+  - [Batched inference](#batched-inference)
+  - [Details on vLLM specific arguments](#details-on-vllm-specific-arguments)
 - [Full list of local models examples](#full-list-of-vllm-examples)
 
 ## Online Inference with Local Models (vLLM)
@@ -345,8 +346,8 @@ Offline vLLM inference support batch inference by default, the default batch siz
 
 - [Generate recipes with Meta LLama 3.1 8B offline](examples/vllm-recipe-generation/vllm_recipe.py)
 - [Recipes with structured output](examples/vllm-recipe-generation/vllm_recipe_structured.py)
-- [Use vLLM OpneAI compatible server](examples/vllm-online/vllm_online.py)
-- [Use vLLM OpneAI compatible server with structured output](examples/vllm-online/vllm_online_structured.py)
+- [Use vLLM OpeneAI compatible server](examples/vllm-online/vllm_online.py)
+- [Use vLLM OpenAI compatible server with structured output](examples/vllm-online/vllm_online_structured.py)
 
 ## Contributing
 Contributions are welcome! 
