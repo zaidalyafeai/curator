@@ -2,9 +2,10 @@ from typing import Dict, List
 
 import pandas as pd
 import pytest
-from bespokelabs import curator
 from datasets import Dataset
 from pydantic import BaseModel, Field
+
+from bespokelabs import curator
 
 
 class Answer(BaseModel):

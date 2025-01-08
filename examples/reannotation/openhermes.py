@@ -6,8 +6,9 @@ using Claude 3 Sonnet. It processes the data in batches for efficiency.
 
 import logging
 
-from bespokelabs import curator
 from datasets import load_dataset
+
+from bespokelabs import curator
 
 # To see more detail about how batches are being processed
 logger = logging.getLogger("bespokelabs.curator")

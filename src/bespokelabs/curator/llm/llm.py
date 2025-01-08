@@ -7,6 +7,11 @@ from datetime import datetime
 from io import BytesIO
 from typing import Any, Callable, Dict, Iterable, Optional, Type, TypeVar
 
+from datasets import Dataset
+from datasets.utils._dill import Pickler
+from pydantic import BaseModel
+from xxhash import xxh64
+
 from bespokelabs.curator.db import MetadataDB
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor import (
@@ -21,10 +26,6 @@ from bespokelabs.curator.request_processor.config import (
     OfflineRequestProcessorConfig,
     OnlineRequestProcessorConfig,
 )
-from datasets import Dataset
-from datasets.utils._dill import Pickler
-from pydantic import BaseModel
-from xxhash import xxh64
 
 _CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")

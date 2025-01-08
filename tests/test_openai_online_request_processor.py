@@ -1,4 +1,5 @@
 import pytest
+
 from bespokelabs.curator.request_processor.config import OnlineRequestProcessorConfig
 from bespokelabs.curator.request_processor.online.openai_online_request_processor import (
     OpenAIOnlineRequestProcessor,

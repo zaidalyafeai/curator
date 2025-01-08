@@ -6,8 +6,9 @@ using GPT-4o-mini. It processes the data in batches for efficiency.
 
 import logging
 
-from bespokelabs import curator
 from datasets import load_dataset
+
+from bespokelabs import curator
 
 dataset = load_dataset("allenai/WildChat", split="train")
 dataset = dataset.select(range(3_000))

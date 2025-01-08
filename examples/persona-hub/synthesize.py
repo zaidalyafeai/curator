@@ -14,8 +14,9 @@ Use `curator-viewer` to view the output.
 import argparse
 
 import prompt_templates
-from bespokelabs import curator
 from datasets import load_dataset
+
+from bespokelabs import curator
 
 
 def get_template(template_name):

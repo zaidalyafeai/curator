@@ -5,8 +5,9 @@ world cuisines in an efficient batched manner. It uses Meta-Llama-3.1-8B-Instruc
 
 """
 
-from bespokelabs import curator
 from datasets import Dataset
+
+from bespokelabs import curator
 
 
 def main():

@@ -15,9 +15,10 @@ Qwen/Qwen2.5-3B-Instruct
 import os
 from typing import List
 
-from bespokelabs import curator
 from datasets import Dataset
 from pydantic import BaseModel, Field
+
+from bespokelabs import curator
 
 
 class Recipe(BaseModel):

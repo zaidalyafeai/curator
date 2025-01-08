@@ -1,5 +1,6 @@
-from bespokelabs import curator
 from datasets import Dataset
+
+from bespokelabs import curator
 
 
 def test_same_value_caching(tmp_path):

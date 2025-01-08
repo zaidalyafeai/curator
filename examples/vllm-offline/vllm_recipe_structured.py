@@ -6,8 +6,9 @@ Demonstrates how to use a structured output format with vllm.
 import logging
 from typing import List
 
-from bespokelabs import curator
 from pydantic import BaseModel, Field
+
+from bespokelabs import curator
 
 logger = logging.getLogger(__name__)
 

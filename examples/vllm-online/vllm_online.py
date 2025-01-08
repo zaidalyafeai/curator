@@ -13,8 +13,9 @@ Qwen/Qwen2.5-3B-Instruct
 
 import os
 
-from bespokelabs import curator
 from datasets import Dataset
+
+from bespokelabs import curator
 
 
 def main():

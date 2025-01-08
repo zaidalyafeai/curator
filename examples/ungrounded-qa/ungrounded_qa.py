@@ -6,8 +6,9 @@ See section F (appendix) of https://arxiv.org/pdf/2303.17760.
 
 from typing import List
 
-from bespokelabs import curator
 from pydantic import BaseModel, Field
+
+from bespokelabs import curator
 
 
 class Subject(BaseModel):

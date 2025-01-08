@@ -5,15 +5,16 @@ import logging
 
 import torch
 import vllm
+from pydantic import BaseModel
+from vllm.distributed import destroy_distributed_environment, destroy_model_parallel
+from vllm.sampling_params import GuidedDecodingParams
+
 from bespokelabs.curator.request_processor import BaseOfflineRequestProcessor
 from bespokelabs.curator.request_processor.config import OfflineRequestProcessorConfig
 from bespokelabs.curator.request_processor.online.base_online_request_processor import APIRequest
 from bespokelabs.curator.status_tracker import OfflineStatusTracker
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
-from pydantic import BaseModel
-from vllm.distributed import destroy_distributed_environment, destroy_model_parallel
-from vllm.sampling_params import GuidedDecodingParams
 
 logger = logging.getLogger(__name__)
 

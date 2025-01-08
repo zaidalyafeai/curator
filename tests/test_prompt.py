@@ -3,9 +3,10 @@ from typing import Optional
 from unittest.mock import patch
 
 import pytest
-from bespokelabs.curator import LLM
 from datasets import Dataset
 from pydantic import BaseModel
+
+from bespokelabs.curator import LLM
 
 
 class MockResponseFormat(BaseModel):
