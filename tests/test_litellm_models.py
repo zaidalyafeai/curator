@@ -3,7 +3,7 @@ import os
 
 import pytest
 from bespokelabs.curator import LLM
-from datasets import Dataset
+from tests.helpers import clear_test_cache
 
 """
 USAGE:
@@ -12,7 +12,7 @@ pytest -s tests/test_litellm_models.py
 
 
 @pytest.mark.cache_dir(os.path.expanduser("~/.cache/curator-tests/test-models"))
-@pytest.mark.usefixtures("prepare_test_cache")
+@pytest.mark.usefixtures("clear_test_cache")
 class TestLiteLLMModels:
     @pytest.fixture(autouse=True)
     def check_environment(self):

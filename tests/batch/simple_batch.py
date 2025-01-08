@@ -4,7 +4,8 @@ import logging
 from bespokelabs.curator import LLM
 from datasets import Dataset
 
-# python tests/batch_tests/simple_batch.py --log-level DEBUG --n-requests 3 --batch-size 1 --batch-check-interval 10
+# python tests/batch/simple_batch.py --log-level DEBUG --n-requests 3 --batch-size 1 --batch-check-interval 10 --model gpt-4o-mini
+# python tests/batch/simple_batch.py --log-level DEBUG --n-requests 3 --batch-size 1 --batch-check-interval 10 --model claude-3-5-haiku-20241022
 
 
 def main(args):
@@ -16,11 +17,12 @@ def main(args):
 
     prompter = LLM(
         prompt_func=lambda row: row["prompt"],
-        model_name="gpt-4o-mini",
+        model_name=args.model,
         response_format=None,
         batch=True,
         batch_size=args.batch_size,
         batch_check_interval=args.batch_check_interval,
+        base_url=args.base_url,
     )
 
     dataset = prompter(dataset, batch_cancel=args.cancel)
@@ -30,6 +32,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Simple batch test bed")
     parser.add_argument("--cancel", action="store_true", default=False, help="Cancel the batches")
+    parser.add_argument("--model", type=str, default="gpt-4o-mini", help="Model to use")
     parser.add_argument("--batch-size", type=int, default=1_000, help="Batch size")
     parser.add_argument("--batch-check-interval", type=int, default=60, help="Batch check interval")
     parser.add_argument("--n-requests", type=int, help="Number of requests to process")
@@ -39,5 +42,6 @@ if __name__ == "__main__":
         default=None,
         help="Set the logging level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
+    parser.add_argument("--base-url", type=str, help="Base URL", default=None)
     args = parser.parse_args()
     main(args)

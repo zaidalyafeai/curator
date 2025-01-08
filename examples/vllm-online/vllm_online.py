@@ -1,7 +1,16 @@
-"""Generate synthetic recipes for different cuisines."""
+"""
+Generate synthetic recipes for different cuisines using vLLM online API.
+To start the vLLM server, run the following command:
+vllm serve
+Qwen/Qwen2.5-3B-Instruct
+--host localhost
+--port 8787
+--api-key token-abc123
+"""
 
 from bespokelabs import curator
 from datasets import Dataset
+import os
 
 
 def main():
@@ -23,28 +32,25 @@ def main():
     ]
     cuisines = Dataset.from_list(cuisines)
 
-    # Create prompter using LiteLLM backend
-    #############################################
-    # To use Gemini models:
-    # 1. Go to https://aistudio.google.com/app/apikey
-    # 2. Generate an API key
-    # 3. Set environment variable: GEMINI_API_KEY
-    # 4. If you are a free user, update rate limits:
-    #       max_requests_per_minute=15
-    #       max_tokens_per_minute=1_000_000
-    #       (Up to 1,000 requests per day)
-    #############################################
+    model_path = "Qwen/Qwen2.5-3B-Instruct"
+    model_path = f"hosted_vllm/{model_path}"  # Use the hosted_vllm backend
+
+    API_KEY = "token-abc123"
+    os.environ["HOSTED_VLLM_API_KEY"] = API_KEY
+
+    # Define the vLLM server params
+    PORT = 8787
+    HOST = "localhost"
 
     recipe_prompter = curator.LLM(
-        model_name="gemini/gemini-1.5-flash",
+        model_name=model_path,
         prompt_func=lambda row: f"Generate a random {row['cuisine']} recipe. Be creative but keep it realistic.",
         parse_func=lambda row, response: {
             "recipe": response,
             "cuisine": row["cuisine"],
         },
         backend="litellm",
-        max_requests_per_minute=2_000,
-        max_tokens_per_minute=4_000_000,
+        base_url=f"http://{HOST}:{PORT}/v1",
     )
 
     # Generate recipes for all cuisines

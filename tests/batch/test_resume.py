@@ -4,6 +4,7 @@ import time
 import pytest
 
 from tests.helpers import run_script
+from tests.helpers import clear_test_cache
 
 """
 USAGE:
@@ -11,9 +12,9 @@ pytest -s tests/batch/test_resume.py
 """
 
 
-@pytest.mark.skip(reason="Temporarily disabled, need to add mocking")
+@pytest.mark.skip(reason="Temporarily disabled, since it takes a while")
 @pytest.mark.cache_dir(os.path.expanduser("~/.cache/curator-tests/test-batch-resume"))
-@pytest.mark.usefixtures("prepare_test_cache")
+@pytest.mark.usefixtures("clear_test_cache")
 def test_batch_resume():
     script = [
         "python",

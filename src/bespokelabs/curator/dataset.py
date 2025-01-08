@@ -8,7 +8,7 @@ from datasets.arrow_writer import ArrowWriter, SchemaInferenceError
 from pydantic import BaseModel
 
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
-from bespokelabs.curator.request_processor.generic_response import GenericResponse
+from bespokelabs.curator.types.generic_response import GenericResponse
 
 T = TypeVar("T")
 
@@ -36,7 +36,7 @@ class Dataset:
             return
 
         if self.working_dir:
-            response_file = f"{self.working_dir}/responses.jsonl"
+            response_file = os.path.join(self.working_dir, "responses.jsonl")
 
             for line in open(response_file, "r"):
                 response = GenericResponse.model_validate_json(line)
@@ -69,8 +69,8 @@ class Dataset:
 
         os.makedirs(self.working_dir, exist_ok=True)
 
-        dataset_file = f"{self.working_dir}/dataset.arrow"
-        responses_files = glob.glob(f"{self.working_dir}/responses_*.jsonl")
+        dataset_file = os.path.join(self.working_dir, "dataset.arrow")
+        responses_files = glob.glob(os.path.join(self.working_dir, "responses_*.jsonl"))
         if len(responses_files) == 0:
             raise ValueError(f"No responses files found in {self.working_dir}, can't construct dataset")
 

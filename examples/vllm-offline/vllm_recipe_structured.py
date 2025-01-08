@@ -1,13 +1,12 @@
-"""Generate synthetic recipes for different cuisines.
+"""Generate synthetic recipes for different cuisines. 
 
-Demonstrates how to use a structured output format with Litellm.
+Demonstrates how to use a structured output format with vllm.
 """
 
-import logging
 from typing import List
-
-from bespokelabs import curator
 from pydantic import BaseModel, Field
+from bespokelabs import curator
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -27,35 +26,20 @@ class Cuisines(BaseModel):
 
 
 def main():
-    # We define a prompter that generates cuisines
-    #############################################
-    # To use Claude models:
-    # 1. Go to https://console.anthropic.com/settings/keys
-    # 2. Generate an API key or use an existing API key
-    # 3. Set environment variable: ANTHROPIC_API_KEY
-    #############################################
+    # List of cuisines to generate recipes for
+    model_path = "Qwen/Qwen2.5-3B-Instruct"
     cuisines_generator = curator.LLM(
-        prompt_func=lambda: "Generate 10 diverse cuisines.",
-        model_name="claude-3-5-haiku-20241022",
+        prompt_func=lambda: f"Generate 10 diverse cuisines.",
+        model_name=model_path,
         response_format=Cuisines,
         parse_func=lambda _, cuisines: [{"cuisine": t} for t in cuisines.cuisines_list],
-        backend="litellm",
+        backend="vllm",
     )
     cuisines = cuisines_generator()
     print(cuisines.to_pandas())
 
-    #############################################
-    # To use Gemini models:
-    # 1. Go to https://aistudio.google.com/app/apikey
-    # 2. Generate an API key or use an existing API key
-    # 3. Set environment variable: GEMINI_API_KEY
-    # 4. If you are a free user, update rate limits:
-    #       max_requests_per_minute=15
-    #       max_tokens_per_minute=1_000_000
-    #       (Up to 1,000 requests per day)
-    #############################################
     recipe_prompter = curator.LLM(
-        model_name="gemini/gemini-1.5-flash",
+        model_name=model_path,
         prompt_func=lambda row: f"Generate a random {row['cuisine']} recipe. Be creative but keep it realistic.",
         parse_func=lambda row, response: {
             "title": response.title,
@@ -64,12 +48,9 @@ def main():
             "prep_time": response.prep_time,
             "cook_time": response.cook_time,
             "servings": response.servings,
-            "cuisine": row["cuisine"],
         },
         response_format=Recipe,
-        backend="litellm",
-        max_requests_per_minute=2_000,
-        max_tokens_per_minute=4_000_000,
+        backend="vllm",
     )
 
     # Generate recipes for all cuisines

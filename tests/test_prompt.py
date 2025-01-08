@@ -114,7 +114,7 @@ def test_single_completion_batch(prompter: LLM):
 
     # Mock the run method of OpenAIBatchRequestProcessor
     with patch(
-        "bespokelabs.curator.request_processor.openai_batch_request_processor.OpenAIBatchRequestProcessor.run",
+        "bespokelabs.curator.request_processor.batch.openai_batch_request_processor.OpenAIBatchRequestProcessor.run",
         return_value=mock_dataset,
     ):
         # Get single completion
@@ -160,7 +160,7 @@ def test_single_completion_no_batch(prompter: LLM):
 
     # Mock the run method of OpenAIOnlineRequestProcessor
     with patch(
-        "bespokelabs.curator.request_processor.openai_online_request_processor.OpenAIOnlineRequestProcessor.run",
+        "bespokelabs.curator.request_processor.online.openai_online_request_processor.OpenAIOnlineRequestProcessor.run",
         return_value=mock_dataset,
     ):
         # Get single completion

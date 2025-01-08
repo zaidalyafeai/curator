@@ -21,6 +21,7 @@ def main(args):
         max_tokens_per_minute=args.max_tokens_per_minute,
         max_retries=args.max_retries,
         require_all_responses=not args.partial_responses,
+        base_url=args.base_url,
     )
 
     dataset = prompter(dataset, batch_cancel=args.cancel)
@@ -47,5 +48,6 @@ if __name__ == "__main__":
         default=False,
         help="Require all responses",
     )
+    parser.add_argument("--base-url", type=str, help="Base URL", default=None)
     args = parser.parse_args()
     main(args)

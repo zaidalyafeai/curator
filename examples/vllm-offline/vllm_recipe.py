@@ -1,4 +1,4 @@
-"""Generate synthetic recipes for different cuisines."""
+"""Generate synthetic recipes for different cuisines with offline vLLM."""
 
 from bespokelabs import curator
 from datasets import Dataset
@@ -23,28 +23,17 @@ def main():
     ]
     cuisines = Dataset.from_list(cuisines)
 
-    # Create prompter using LiteLLM backend
-    #############################################
-    # To use Gemini models:
-    # 1. Go to https://aistudio.google.com/app/apikey
-    # 2. Generate an API key
-    # 3. Set environment variable: GEMINI_API_KEY
-    # 4. If you are a free user, update rate limits:
-    #       max_requests_per_minute=15
-    #       max_tokens_per_minute=1_000_000
-    #       (Up to 1,000 requests per day)
-    #############################################
+    model_path = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 
     recipe_prompter = curator.LLM(
-        model_name="gemini/gemini-1.5-flash",
+        model_name=model_path,
         prompt_func=lambda row: f"Generate a random {row['cuisine']} recipe. Be creative but keep it realistic.",
         parse_func=lambda row, response: {
             "recipe": response,
             "cuisine": row["cuisine"],
         },
-        backend="litellm",
-        max_requests_per_minute=2_000,
-        max_tokens_per_minute=4_000_000,
+        backend="vllm",
+        tensor_parallel_size=4,
     )
 
     # Generate recipes for all cuisines
