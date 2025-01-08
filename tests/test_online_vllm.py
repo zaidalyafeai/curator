@@ -6,6 +6,9 @@ import shutil
 import time
 import os
 import socket
+import subprocess
+import shlex
+import psutil
 
 
 def download_model(model_name):
@@ -27,6 +30,24 @@ def start_vllm_server(model_path, host, port):
         raise e
 
 
+def kill_vllm_server():
+    """Kill the VLLM server."""
+    try:
+        for p in psutil.process_iter():
+            if p.name() == "vllm":
+                break
+
+        for child in p.children(recursive=True):
+            try:
+                child.kill()
+            except psutil.NoSuchProcess:
+                continue
+        p.kill()
+    except Exception as e:
+        print(e)
+        raise e
+
+
 @pytest.mark.parametrize("model_name", ["HuggingFaceTB/SmolLM-135M-Instruct"])
 def test_online_vllm(model_name):
 
@@ -35,7 +56,7 @@ def test_online_vllm(model_name):
 
     port = 5432
 
-    start_vllm_server(model_path, host, port)
+    pid = start_vllm_server(model_path, host, port)
 
     time.sleep(60)
 
@@ -51,7 +72,12 @@ def test_online_vllm(model_name):
     )
 
     dataset = prompter()
+    kill_vllm_server()
     shutil.rmtree(model_path)
     assert dataset is not None
     assert len(dataset) == 1
     assert "response" in dataset.column_names
+
+
+# if __name__ == "__main__":
+#     test_online_vllm("/p/data1/mmlaion/marianna/models/Qwen/Qwen2.5-3B-Instruct")
