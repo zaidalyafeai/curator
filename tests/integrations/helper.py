@@ -3,7 +3,9 @@ from pydantic import BaseModel, Field
 
 
 from bespokelabs import curator
+
 batch_check_interval = 1
+
 
 class Subject(BaseModel):
     subject: str = Field(description="A subject")
@@ -28,7 +30,7 @@ def create_camel(temp_directory, batch=False):
         parse_func=lambda _, subjects: [subject for subject in subjects.subjects],
         model_name="gpt-4o-mini",
         response_format=Subjects,
-        batch_check_interval=batch_check_interval
+        batch_check_interval=batch_check_interval,
     )
     subsubject_prompter = curator.LLM(
         prompt_func=lambda subject: f"For the given subject {subject}. Generate 3 diverse subsubjects. No explanation.",
@@ -38,7 +40,7 @@ def create_camel(temp_directory, batch=False):
         ],
         model_name="gpt-4o-mini",
         response_format=Subjects,
-        batch_check_interval=batch_check_interval
+        batch_check_interval=batch_check_interval,
     )
 
     qa_prompter = curator.LLM(
@@ -54,7 +56,7 @@ def create_camel(temp_directory, batch=False):
             }
             for qa in qas.qas
         ],
-        batch_check_interval=batch_check_interval
+        batch_check_interval=batch_check_interval,
     )
 
     subject_dataset = subject_prompter()
@@ -62,6 +64,7 @@ def create_camel(temp_directory, batch=False):
     qa_dataset = qa_prompter(subsubject_dataset, working_dir=temp_directory)
     qa_dataset = qa_dataset.map(lambda row: {"answer": row["answer"].strip()}, num_proc=2)
     return qa_dataset
+
 
 def prompt_func(row):
     return row["conversation"][0]["content"]
@@ -72,10 +75,24 @@ def parse_func(row, response):
     return {"instruction": instruction, "new_response": response}
 
 
-
 def create_basic(temp_directory, mock_dataset, batch=False):
     prompter = curator.LLM(
-        prompt_func=prompt_func, parse_func=parse_func, model_name="gpt-3.5-turbo", backend="openai", batch_check_interval=batch_check_interval
+        prompt_func=prompt_func,
+        parse_func=parse_func,
+        model_name="gpt-3.5-turbo",
+        backend="openai",
+        batch_check_interval=batch_check_interval,
     )
     distilled_dataset = prompter(mock_dataset, working_dir=temp_directory)
     return distilled_dataset
+
+
+def create_llm(batch=False):
+    prompter = curator.LLM(
+        prompt_func=prompt_func,
+        parse_func=parse_func,
+        model_name="gpt-3.5-turbo",
+        backend="openai",
+        batch_check_interval=batch_check_interval,
+    )
+    return prompter
