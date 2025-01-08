@@ -27,7 +27,7 @@ class Cuisines(BaseModel):
 
 def main():
     # List of cuisines to generate recipes for
-    model_path = "/local/path/to/weight/Qwen/Qwen2.5-3B-Instruct"
+    model_path = "Qwen/Qwen2.5-3B-Instruct"
     cuisines_generator = curator.LLM(
         prompt_func=lambda: f"Generate 10 diverse cuisines.",
         model_name=model_path,

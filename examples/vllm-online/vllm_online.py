@@ -1,4 +1,12 @@
-"""Generate synthetic recipes for different cuisines using vLLM online API."""
+"""
+Generate synthetic recipes for different cuisines using vLLM online API.
+To start the vLLM server, run the following command:
+vllm serve
+Qwen/Qwen2.5-3B-Instruct
+--host localhost
+--port 8787
+--api-key token-abc123
+"""
 
 from bespokelabs import curator
 from datasets import Dataset
@@ -24,7 +32,7 @@ def main():
     ]
     cuisines = Dataset.from_list(cuisines)
 
-    model_path = "/path/to/Qwen/Qwen2.5-3B-Instruct"
+    model_path = "Qwen/Qwen2.5-3B-Instruct"
     model_path = f"hosted_vllm/{model_path}"  # Use the hosted_vllm backend
 
     API_KEY = "token-abc123"
@@ -33,7 +41,6 @@ def main():
     # Define the vLLM server params
     PORT = 8787
     HOST = "localhost"
-    URL = f"http://{HOST}:{PORT}/v1"
 
     recipe_prompter = curator.LLM(
         model_name=model_path,

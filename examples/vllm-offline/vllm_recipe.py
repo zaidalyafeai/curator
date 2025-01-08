@@ -1,4 +1,4 @@
-"""Generate synthetic recipes for different cuisines."""
+"""Generate synthetic recipes for different cuisines with offline vLLM."""
 
 from bespokelabs import curator
 from datasets import Dataset
@@ -23,7 +23,7 @@ def main():
     ]
     cuisines = Dataset.from_list(cuisines)
 
-    model_path = "/local/path/to/weights/meta-llama/Meta-Llama-3.1-8B-Instruct"
+    model_path = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 
     recipe_prompter = curator.LLM(
         model_name=model_path,
