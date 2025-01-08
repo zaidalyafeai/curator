@@ -230,18 +230,20 @@ See [here](examples/vllm-online/start_vllm_server.sh) a full example on starting
 
 Then, to use this server, provide the API endpoint URL and the dummy API key. We use LiteLLM to generate data with vLLM hosted local models so you need to set the backend to `litellm`. In order for LiteLLM to recognize proper backend, add `hosted_vllm/` prefix to your model name. Set `HOSTED_VLLM_API_KEY` environment varibale to your dummy API key. Example:
 ```python
+from bespokelabs import curator
 model_path = "hosted_vllm/NousResearch/Meta-Llama-3-8B-Instruct" # Make sure to add hosted_vllm/ prefix
 PORT = 8787
 HOST = "localhost"
 URL = f"http://{HOST}:{PORT}/v1"
-os.environ["HOSTED_VLLM_API_KEY"] = API_KEY
+os.environ["HOSTED_VLLM_API_KEY"] = "token-abc123
 
-recipe_prompter = curator.LLM(
+poem_prompter = curator.LLM(
     model_name=model_path,
     prompt_func=lambda row: "Generate a poem",
     backend="litellm",
     base_url=URL,
 )
+poem_prompter()
 ```
 
 See [here](examples/vllm-online/vllm_online.py) a full example.
@@ -274,21 +276,21 @@ Please refer to the vLLM isntallation [instructions](https://docs.vllm.ai/en/lat
 To use curator with a local model, povide your model local path in the model argument and set the backend to `vllm`:
 
 ```python
-model_path = "/local/path/to/weights/meta-llama/Meta-Llama-3.1-8B-Instruct"
+model_path = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 curator.LLM(
         model_name=model_path,
         backend="vllm"
     )
 ```
 
-See full example [here](examples/vllm-recipe-generation/vllm_recipe.py).
+See full example [here](examples/vllm-offline/vllm_recipe.py).
 
 ### Inference for models that don't fit in one GPU's memory (tensor parallel)
 
 To use local model that are too big to fit on one GPU, use tensor parallelism. That way you can split the model across multiple GPUs. To do that, specify `tensor_parallel_size` argument that should be equal to number of GPUs you have:
 
 ```python
-model_path = "/local/path/to/weights/meta-llama/Meta-Llama-3.1-70B-Instruct"
+model_path = "meta-llama/Meta-Llama-3.1-70B-Instruct"
 curator.LLM(
         model_name=model_path,
         backend="vllm",
@@ -315,7 +317,7 @@ We use [vLLM's Guided Decoding](https://docs.vllm.ai/en/latest/usage/structured_
   )
 ```
 
-See full example [here](examples/vllm-recipe-generation/vllm_recipe_structured.py).
+See full example [here](examples/vllm-offline/vllm_recipe_structured.py).
 
 ### Batched inference
 
@@ -344,8 +346,8 @@ Offline vLLM inference support batch inference by default, the default batch siz
 
 ## Full list of vLLM examples
 
-- [Generate recipes with Meta LLama 3.1 8B offline](examples/vllm-recipe-generation/vllm_recipe.py)
-- [Recipes with structured output](examples/vllm-recipe-generation/vllm_recipe_structured.py)
+- [Generate recipes with Meta LLama 3.1 8B offline](examples/vllm-offline/vllm_recipe.py)
+- [Recipes with structured output](examples/vllm-offline/vllm_recipe_structured.py)
 - [Use vLLM OpeneAI compatible server](examples/vllm-online/vllm_online.py)
 - [Use vLLM OpenAI compatible server with structured output](examples/vllm-online/vllm_online_structured.py)
 
