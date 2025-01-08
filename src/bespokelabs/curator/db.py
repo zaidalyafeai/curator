@@ -8,6 +8,11 @@ class MetadataDB:
     """Database class for storing Bella run metadata."""
 
     def __init__(self, db_path: str):
+        """Initialize the MetadataDB with a given database path.
+
+        Args:
+            db_path: Path to the SQLite database file.
+        """
         self.db_path = db_path
 
     def _get_current_schema(self) -> list:

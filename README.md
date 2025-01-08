@@ -297,7 +297,7 @@ curator.LLM(
 
 ### Structured output
 
-We use [vLLM's Guided Decoding](https://docs.vllm.ai/en/latest/usage/structured_outputs.html#offline-inference) to obtain structured output from local models during offline inference: 
+We use [vLLM's Guided Decoding](https://docs.vllm.ai/en/latest/usage/structured_outputs.html#offline-inference) to obtain structured output from local models during offline inference:
 
 ```python
   from pydantic import BaseModel, Field

@@ -31,8 +31,10 @@ def test_different_values_caching(tmp_path):
 
     # Test with different values
     for x in [1, 2, 3]:
+        # Bind x to avoid late binding closure issue
+        x_val = x
 
-        def prompt_func():
+        def prompt_func(x=x_val):
             return f"Say '{x}'. Do not explain."
 
         prompter = curator.LLM(
@@ -103,7 +105,7 @@ def test_nested_call_caching(tmp_path):
     result = prompter(working_dir=str(tmp_path))
     assert result.to_pandas().iloc[0]["response"] == "1"
 
-    def value_generator():
+    def value_generator():  # noqa: F811
         return 2
 
     result = prompter(working_dir=str(tmp_path))

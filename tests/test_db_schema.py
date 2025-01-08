@@ -1,5 +1,6 @@
-import pytest
 import sqlite3
+
+import pytest
 from bespokelabs.curator.db import MetadataDB
 
 

@@ -53,7 +53,7 @@ build-backend = "poetry.core.masonry.api"
 curator-viewer = "bespokelabs.curator.viewer.__main__:main"
 
 [tool.ruff]
-line-length = 120
+line-length = 160
 
 [tool.ruff.lint]
 select = [
@@ -67,10 +67,16 @@ select = [
     "D"  # pydocstyle
 ]
 ignore = [
+    "D100",  # Remove this eventually
     "C901",  # too complex
     "W191",  # indentation contains tabs
     "D401",  # imperative mood
+    "N806",  # uppercase variable names, for example, "API_KEY"
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = ["D"]  # ignore tests for now
+"**/prompt_templates.py" = ["E501"]  # ignore line-too-long for prompt template files
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

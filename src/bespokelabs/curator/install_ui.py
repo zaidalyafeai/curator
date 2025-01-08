@@ -27,6 +27,7 @@ class InstallationStage(Enum):
     COMPLETE = ("Installation complete!", 1.0)
 
     def __init__(self, message: str, progress: float):
+        """Initialize the InstallationStage with a message and progress."""
         self.message = message
         self.progress = progress
 
@@ -89,6 +90,12 @@ class PackageInstaller:
     """Class to handle the package installation process."""
 
     def __init__(self, package_name: str, version: Optional[str] = None):
+        """Initialize the PackageInstaller with the package name and optional version.
+
+        Args:
+            package_name: The name of the package to install
+            version: Optional specific version to install
+        """
         self.package_spec = f"{package_name}=={version}" if version else package_name
         self.ui = InstallationUI(package_name)
 
@@ -115,7 +122,7 @@ class PackageInstaller:
                     percent = float(line.split("%")[0].split()[-1])
                     # Scale download progress between 20% and 60%
                     return InstallationStage.DOWNLOADING, 0.2 + (percent / 100.0 * 0.4)
-                except:
+                except Exception:
                     pass
             return InstallationStage.DOWNLOADING, InstallationStage.DOWNLOADING.progress
         elif "installing" in line:

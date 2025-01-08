@@ -1,10 +1,8 @@
-import logging
-import time
-import tqdm
-
-from dataclasses import dataclass, field
 import datetime
+import logging
 import platform
+from dataclasses import dataclass, field
+
 import torch
 
 logger = logging.getLogger(__name__)
@@ -23,6 +21,7 @@ class System:
     pytorch_version: str = torch.__version__
 
     def __str__(self):
+        """String representation of the System class."""
         return (
             f"System: {self.system}\n"
             f"Version: {self.version}\n"
@@ -45,6 +44,7 @@ class OfflineStatusTracker:
     system: System = System()
 
     def __str__(self):
+        """String representation of the OfflineStatusTracker class."""
         return (
             f"Started: {self.time_started}\n"
             f"Finished: {self.time_finished}\n"

@@ -5,23 +5,26 @@ import logging
 import os
 from datetime import datetime
 from io import BytesIO
-from typing import Any, Callable, Dict, Iterable, Optional, Type, TypeVar, Union
+from typing import Any, Callable, Dict, Iterable, Optional, Type, TypeVar
 
 from bespokelabs.curator.db import MetadataDB
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor import (
-    LiteLLMOnlineRequestProcessor,
-    OpenAIOnlineRequestProcessor,
     AnthropicBatchRequestProcessor,
+    LiteLLMOnlineRequestProcessor,
     OpenAIBatchRequestProcessor,
+    OpenAIOnlineRequestProcessor,
     VLLMOfflineRequestProcessor,
 )
 from bespokelabs.curator.request_processor.config import (
     BatchRequestProcessorConfig,
-    OnlineRequestProcessorConfig,
     OfflineRequestProcessorConfig,
+    OnlineRequestProcessorConfig,
 )
-
+from datasets import Dataset
+from datasets.utils._dill import Pickler
+from pydantic import BaseModel
+from xxhash import xxh64
 
 _CURATOR_DEFAULT_CACHE_DIR = "~/.cache/curator"
 T = TypeVar("T")
@@ -66,21 +69,25 @@ class LLM:
                 and returns either a string (assumed to be a user prompt) or messages list
             parse_func: A function that takes the input row and
                 response object and returns the parsed output
+            base_url: Optional base URL for the API endpoint
             response_format: A Pydantic model specifying the
-                response format from the LLM.
-            backend: The backend to use ("openai" or "litellm"). If None, will be auto-determined
+                response format from the LLM
             batch: Whether to use batch processing
+            backend: The backend to use ("openai", "litellm", or "vllm"). If None, will be auto-determined
+            max_requests_per_minute: Maximum number of requests per minute for rate limiting
+            max_tokens_per_minute: Maximum number of tokens per minute for rate limiting
             batch_size: The size of the batch to use, only used if batch is True
             batch_check_interval: The interval to check for batch completions, only used if batch is True
             delete_successful_batch_files: Whether to delete successful batch files, only used if batch is True
             delete_failed_batch_files: Whether to delete failed batch files, only used if batch is True
             max_retries: The maximum number of retries to use for the LLM
             require_all_responses: Whether to require all responses
+            generation_params: Additional parameters to pass to the generation API
+            seconds_to_pause_on_rate_limit: Number of seconds to pause when rate limited
             tensor_parallel_size: The tensor parallel size to use for the VLLM backend
             enforce_eager: Whether to enforce eager execution for the VLLM backend
             max_model_length: The maximum model length to use for the VLLM backend
             max_tokens: The maximum tokens to use for the VLLM backend
-            min_tokens: The minimum tokens to use for the VLLM backend
             gpu_memory_utilization: The GPU memory utilization to use for the VLLM backend
         """
         if generation_params is None:
@@ -88,9 +95,7 @@ class LLM:
         else:
             generation_params = _remove_none_values(generation_params)
 
-        self.prompt_formatter = PromptFormatter(
-            model_name, prompt_func, parse_func, response_format, generation_params
-        )
+        self.prompt_formatter = PromptFormatter(model_name, prompt_func, parse_func, response_format, generation_params)
         self.batch_mode = batch
 
         if backend is not None:
@@ -160,9 +165,7 @@ class LLM:
         return OpenAIOnlineRequestProcessor(config).check_structured_output_support()
 
     @staticmethod
-    def _determine_backend(
-        model_name: str, response_format: Optional[Type[BaseModel]] = None, batch: bool = False
-    ) -> str:
+    def _determine_backend(model_name: str, response_format: Optional[Type[BaseModel]] = None, batch: bool = False) -> str:
         """Determine which backend to use based on model name and response format.
 
         Args:
@@ -189,9 +192,7 @@ class LLM:
             return "anthropic"
 
         # Default to LiteLLM for all other cases
-        logger.info(
-            f"Requesting {'structured' if response_format else 'text'} output from {model_name}, using LiteLLM backend"
-        )
+        logger.info(f"Requesting {'structured' if response_format else 'text'} output from {model_name}, using LiteLLM backend")
         return "litellm"
 
     def __call__(
@@ -200,15 +201,12 @@ class LLM:
         working_dir: str = None,
         batch_cancel: bool = False,
     ) -> Dataset:
-        """Apply structured completions in parallel to a dataset using specified model and
-        prompts.
+        """Apply structured completions in parallel to a dataset using specified model and prompts.
 
         Args:
             dataset (Iterable): A dataset consisting of a list of items to apply completions
-            prompter (LLM): A LLM that contains the logic for formatting each
-                item in the dataset
             working_dir (str): The working directory to save the requests.jsonl, responses.jsonl, and dataset.arrow files.
-
+            batch_cancel (bool): Whether to cancel the batch if it is running
         Returns:
             Iterable: A list of structured outputs from the completions
         """
@@ -237,11 +235,7 @@ class LLM:
                 str(dataset_hash),
                 str(prompt_func_hash),
                 str(self.prompt_formatter.model_name),
-                str(
-                    self.prompt_formatter.response_format.model_json_schema()
-                    if self.prompt_formatter.response_format
-                    else "text"
-                ),
+                str(self.prompt_formatter.response_format.model_json_schema() if self.prompt_formatter.response_format else "text"),
                 str(self.batch_mode),
                 str(self.backend),
             ]
@@ -271,11 +265,7 @@ class LLM:
             "prompt_func": prompt_func_source,
             "parse_func": parse_func_source,
             "model_name": self.prompt_formatter.model_name,
-            "response_format": (
-                str(self.prompt_formatter.response_format.model_json_schema())
-                if self.prompt_formatter.response_format
-                else "text"
-            ),
+            "response_format": (str(self.prompt_formatter.response_format.model_json_schema()) if self.prompt_formatter.response_format else "text"),
             "run_hash": fingerprint,
             "batch_mode": self.batch_mode,
         }

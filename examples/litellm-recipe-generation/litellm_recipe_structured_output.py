@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 # Define response format using Pydantic
 class Recipe(BaseModel):
+    """A recipe with title, ingredients, instructions, prep time, cook time, and servings."""
+
     title: str = Field(description="Title of the recipe")
     ingredients: List[str] = Field(description="List of ingredients needed")
     instructions: List[str] = Field(description="Step by step cooking instructions")
@@ -23,10 +25,13 @@ class Recipe(BaseModel):
 
 
 class Cuisines(BaseModel):
+    """A list of cuisines."""
+
     cuisines_list: List[str] = Field(description="A list of cuisines.")
 
 
 def main():
+    """Main function to generate synthetic recipes."""
     # We define a prompter that generates cuisines
     #############################################
     # To use Claude models:

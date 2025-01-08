@@ -5,6 +5,7 @@ from datasets import Dataset
 
 
 def main():
+    """Generate synthetic recipes for different cuisines."""
     # List of cuisines to generate recipes for
     cuisines = [
         {"cuisine": cuisine}
