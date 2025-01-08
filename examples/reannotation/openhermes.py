@@ -1,8 +1,4 @@
-"""Example of reannotating the OpenHermes dataset using a different model.
-
-This script takes conversations from the OpenHermes dataset and generates new responses
-using Claude 3 Sonnet. It processes the data in batches for efficiency.
-"""
+"""Example of reannotating the OpenHermes dataset using curator."""
 
 import logging
 

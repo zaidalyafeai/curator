@@ -1,8 +1,4 @@
-"""Example of reannotating the WildChat dataset using a different model.
-
-This script takes conversations from the WildChat dataset and generates new responses
-using GPT-4o-mini. It processes the data in batches for efficiency.
-"""
+"""Example of reannotating the WildChat dataset using curator."""
 
 import logging
 

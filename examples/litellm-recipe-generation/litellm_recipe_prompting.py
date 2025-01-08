@@ -1,4 +1,4 @@
-"""Generate synthetic recipes for different cuisines."""
+"""Generate synthetic recipes for different cuisines using curator."""
 
 from datasets import Dataset
 
