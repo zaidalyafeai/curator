@@ -1,7 +1,9 @@
+import time
 import pytest
 import vcr
 import pandas as pd
 import os
+from unittest.mock import patch
 
 from tests.integrations import helper
 mode = os.environ.get('VCR_MODE', None)
@@ -41,6 +43,30 @@ def test_camel(mocked_workspace):
     qa_dataset.cleanup_cache_files()
     pandas_hash = pd.util.hash_pandas_object(qa_dataset.to_pandas())
     assert str(int(pandas_hash.sum())) == '15734523020459649279'
+
+
+@pytest.mark.parametrize(
+    'mocked_workspace',
+    ([{'integration':'openai'}]),
+    indirect=True
+)
+@vcr_config.use_cassette("basic_completion.yaml")
+def test_basic_cache(caplog, mocked_workspace, mock_dataset):
+    st = time.time()
+    distilled_dataset = helper.create_basic(mocked_workspace, mock_dataset)
+    tt = time.time() - st
+
+    # This should use cache
+    import logging
+    from bespokelabs.curator.request_processor.base_request_processor import CACHE_MSG
+    logger = "bespokelabs.curator.request_processor.base_request_processor"
+    with caplog.at_level(logging.INFO, logger=logger):
+        st = time.time()
+        distilled_dataset_cached = helper.create_basic(mocked_workspace, mock_dataset)
+        cached_tt = time.time() - st
+        distilled_dataset.cleanup_cache_files()
+        assert f"Using cached output dataset. {CACHE_MSG}" in caplog.text
+        assert cached_tt < tt//2
 
 
 ##############################

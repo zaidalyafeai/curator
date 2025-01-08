@@ -7,7 +7,7 @@ interactions:
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer 
+      - Bearer
       Connection:
       - keep-alive
       Content-Length:
@@ -80,7 +80,7 @@ interactions:
     body: null
     headers:
       Authorization:
-      - Bearer 
+      - Bearer
     method: POST
     uri: https://api.openai.com/v1/chat/completions
   response:
@@ -154,7 +154,7 @@ interactions:
     body: null
     headers:
       Authorization:
-      - Bearer 
+      - Bearer
       Cookie:
       - __cf_bm=0UfUq0JnzC7cUq4ryN3ntTp_oBT1Oth7yDj4j5vobNg-1736335635-1.0.1.1-r633UU_efNxE6j2ynxj8vLR1Q63T0yghiqArwUzcGjVI363.Se6o7N0Ewn0IVIFxRWMoXFOLOgHa11OlMU9IwA;
         _cfuvid=wZgSuIuLumNsRsq0FaVShHtaxOYJtI3OpeQ2fCcebEk-1736335635885-0.0.1.1-604800000
@@ -240,7 +240,7 @@ interactions:
     body: null
     headers:
       Authorization:
-      - Bearer 
+      - Bearer
       Cookie:
       - __cf_bm=0UfUq0JnzC7cUq4ryN3ntTp_oBT1Oth7yDj4j5vobNg-1736335635-1.0.1.1-r633UU_efNxE6j2ynxj8vLR1Q63T0yghiqArwUzcGjVI363.Se6o7N0Ewn0IVIFxRWMoXFOLOgHa11OlMU9IwA;
         _cfuvid=wZgSuIuLumNsRsq0FaVShHtaxOYJtI3OpeQ2fCcebEk-1736335635885-0.0.1.1-604800000
@@ -313,7 +313,7 @@ interactions:
     body: null
     headers:
       Authorization:
-      - Bearer 
+      - Bearer
       Cookie:
       - __cf_bm=0UfUq0JnzC7cUq4ryN3ntTp_oBT1Oth7yDj4j5vobNg-1736335635-1.0.1.1-r633UU_efNxE6j2ynxj8vLR1Q63T0yghiqArwUzcGjVI363.Se6o7N0Ewn0IVIFxRWMoXFOLOgHa11OlMU9IwA;
         _cfuvid=wZgSuIuLumNsRsq0FaVShHtaxOYJtI3OpeQ2fCcebEk-1736335635885-0.0.1.1-604800000
@@ -399,7 +399,7 @@ interactions:
     body: null
     headers:
       Authorization:
-      - Bearer 
+      - Bearer
       Cookie:
       - __cf_bm=0UfUq0JnzC7cUq4ryN3ntTp_oBT1Oth7yDj4j5vobNg-1736335635-1.0.1.1-r633UU_efNxE6j2ynxj8vLR1Q63T0yghiqArwUzcGjVI363.Se6o7N0Ewn0IVIFxRWMoXFOLOgHa11OlMU9IwA;
         _cfuvid=wZgSuIuLumNsRsq0FaVShHtaxOYJtI3OpeQ2fCcebEk-1736335635885-0.0.1.1-604800000
@@ -485,7 +485,7 @@ interactions:
     body: null
     headers:
       Authorization:
-      - Bearer 
+      - Bearer
       Cookie:
       - __cf_bm=0UfUq0JnzC7cUq4ryN3ntTp_oBT1Oth7yDj4j5vobNg-1736335635-1.0.1.1-r633UU_efNxE6j2ynxj8vLR1Q63T0yghiqArwUzcGjVI363.Se6o7N0Ewn0IVIFxRWMoXFOLOgHa11OlMU9IwA;
         _cfuvid=wZgSuIuLumNsRsq0FaVShHtaxOYJtI3OpeQ2fCcebEk-1736335635885-0.0.1.1-604800000
@@ -581,7 +581,7 @@ interactions:
     body: null
     headers:
       Authorization:
-      - Bearer 
+      - Bearer
     method: POST
     uri: https://api.openai.com/v1/chat/completions
   response:
@@ -695,7 +695,7 @@ interactions:
     body: null
     headers:
       Authorization:
-      - Bearer 
+      - Bearer
     method: POST
     uri: https://api.openai.com/v1/chat/completions
   response:
@@ -796,7 +796,7 @@ interactions:
     body: null
     headers:
       Authorization:
-      - Bearer 
+      - Bearer
       Cookie:
       - __cf_bm=0UfUq0JnzC7cUq4ryN3ntTp_oBT1Oth7yDj4j5vobNg-1736335635-1.0.1.1-r633UU_efNxE6j2ynxj8vLR1Q63T0yghiqArwUzcGjVI363.Se6o7N0Ewn0IVIFxRWMoXFOLOgHa11OlMU9IwA;
         _cfuvid=wZgSuIuLumNsRsq0FaVShHtaxOYJtI3OpeQ2fCcebEk-1736335635885-0.0.1.1-604800000
@@ -1051,4 +1051,63 @@ interactions:
     status:
       code: 200
       message: OK
+- request:
+    body: '{"model": "gpt-3.5-turbo", "messages": []}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Authorization:
+      - Bearer sk-mocked-**
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '42'
+      Content-Type:
+      - application/json
+      User-Agent:
+      - python-requests/2.32.3
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n    \"error\": {\n        \"message\": \"Incorrect API key provided:
+        sk-mocked-**. You can find your API key at https://platform.openai.com/account/api-keys.\",\n
+        \       \"type\": \"invalid_request_error\",\n        \"param\": null,\n        \"code\":
+        \"invalid_api_key\"\n    }\n}\n"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8fec70481da73a35-BOM
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '262'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Wed, 08 Jan 2025 13:12:20 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=TMA..2UjzP9mrFTbr2xJO8GJpaSKCCj1H582rq4aARQ-1736341940-1.0.1.1-wn8cHCzqtRebhjjp6aS5qjPlmVkVOR4x8elDHZjrDvAs8MJrwBqYb84X4wHz0onSxMQVl1H3fby0Jh.vHoOl1g;
+        path=/; expires=Wed, 08-Jan-25 13:42:20 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=F.ianikH_ZJfYhU1RBzQ8PFFApMtFnVa3OrC4s1mJEg-1736341940749-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      vary:
+      - Origin
+      x-request-id:
+      - req_ddaa880b5f361e5458e37acbcdd2aa9b
+    status:
+      code: 401
+      message: Unauthorized
 version: 1
