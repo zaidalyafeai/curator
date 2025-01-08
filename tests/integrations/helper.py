@@ -24,7 +24,7 @@ class QAs(BaseModel):
     qas: t.List[QA] = Field(description="A list of QAs")
 
 
-def create_camel(temp_directory, batch=False):
+def create_camel(temp_working_dir, batch=False):
     subject_prompter = curator.LLM(
         prompt_func=lambda: "Generate a diverse list of 3 subjects. Keep it high-level (e.g. Math, Science).",
         parse_func=lambda _, subjects: [subject for subject in subjects.subjects],
@@ -61,7 +61,7 @@ def create_camel(temp_directory, batch=False):
 
     subject_dataset = subject_prompter()
     subsubject_dataset = subsubject_prompter(subject_dataset)
-    qa_dataset = qa_prompter(subsubject_dataset, working_dir=temp_directory)
+    qa_dataset = qa_prompter(subsubject_dataset, working_dir=temp_working_dir)
     qa_dataset = qa_dataset.map(lambda row: {"answer": row["answer"].strip()}, num_proc=2)
     return qa_dataset
 
@@ -75,15 +75,16 @@ def parse_func(row, response):
     return {"instruction": instruction, "new_response": response}
 
 
-def create_basic(temp_directory, mock_dataset, batch=False):
+def create_basic(temp_working_dir, mock_dataset, batch=False, llm_params={}):
     prompter = curator.LLM(
         prompt_func=prompt_func,
         parse_func=parse_func,
         model_name="gpt-3.5-turbo",
         backend="openai",
         batch_check_interval=batch_check_interval,
+        **llm_params,
     )
-    distilled_dataset = prompter(mock_dataset, working_dir=temp_directory)
+    distilled_dataset = prompter(mock_dataset, working_dir=temp_working_dir)
     return distilled_dataset
 
 

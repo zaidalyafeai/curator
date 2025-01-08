@@ -7,17 +7,17 @@ _KEY_MAP = {"openai": "OPENAI_API_KEY"}
 
 
 @pytest.fixture
-def mocked_workspace(request):
+def temp_working_dir(request):
     backend = request.param["integration"]
     os.environ[_KEY_MAP[backend]] = "sk-mocked-**"
     os.environ["HF_DATASETS_CACHE"] = "/dev/null"
-    mocked_request_dir = f"tests/integrations/{backend}/fixtures/.test_cache"
-    os.makedirs(mocked_request_dir, exist_ok=True)
+    temp_working_dir = f"tests/integrations/{backend}/fixtures/.test_cache"
+    os.makedirs(temp_working_dir, exist_ok=True)
 
     try:
-        yield mocked_request_dir
+        yield temp_working_dir
     finally:
-        shutil.rmtree(mocked_request_dir)
+        shutil.rmtree(temp_working_dir)
 
 
 @pytest.fixture

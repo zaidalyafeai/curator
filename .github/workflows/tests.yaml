@@ -28,11 +28,4 @@ jobs:
 
       - name: Run integrations tests
         run: |
-          make test_integration openai # Hardcoding it.
-          
-      - name: Upload coverage report
-        if: success()
-        uses: codecov/codecov-action@v2
-        with:
-          file: coverage.xml
-          token: ${{ secrets.CODECOV_TOKEN }}
+          pytest tests/integrations/
