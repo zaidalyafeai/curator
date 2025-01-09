@@ -76,6 +76,11 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         self.header_based_max_tokens_per_minute = None
 
     @property
+    def backend(self) -> str:
+        """Backend property."""
+        return "base"
+
+    @property
     def max_requests_per_minute(self) -> int:
         """Gets the maximum requests per minute rate limit.
 

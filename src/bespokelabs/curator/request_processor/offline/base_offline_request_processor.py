@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import os
+import typing as t
 from abc import ABC
 from dataclasses import dataclass, field
 
@@ -10,12 +11,14 @@ from bespokelabs.curator.request_processor.base_request_processor import (
     BaseRequestProcessor,
 )
 from bespokelabs.curator.request_processor.config import OfflineRequestProcessorConfig
-from bespokelabs.curator.status_tracker import OfflineStatusTracker
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+if t.TYPE_CHECKING:
+    from bespokelabs.curator.status_tracker.offline_status_tracker import OfflineStatusTracker
 
 
 @dataclass
@@ -69,6 +72,11 @@ class BaseOfflineRequestProcessor(BaseRequestProcessor, ABC):
         self.batch_size: int = config.batch_size
         self.generation_params = config.generation_params
 
+    @property
+    def backend(self):
+        """Backend property."""
+        return "base"
+
     def load_offline_model(self):
         """Load the offline model into memory.
 
@@ -83,9 +91,7 @@ class BaseOfflineRequestProcessor(BaseRequestProcessor, ABC):
         """
         pass
 
-    def process_requests(
-        self, requests: list[APIRequest], status_tracker: OfflineStatusTracker
-    ) -> list[GenericResponse]:
+    def process_requests(self, requests: list[APIRequest], status_tracker: "OfflineStatusTracker") -> list[GenericResponse]:
         """Process a batch of requests through the model.
 
         Args:
@@ -137,6 +143,8 @@ class BaseOfflineRequestProcessor(BaseRequestProcessor, ABC):
             - Logs progress and completion status
             - May prompt user for confirmation on file overwrite
         """
+        from bespokelabs.curator.status_tracker.offline_status_tracker import OfflineStatusTracker
+
         status_tracker = OfflineStatusTracker()
 
         # Track completed requests for resume functionality

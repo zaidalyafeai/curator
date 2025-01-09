@@ -25,7 +25,7 @@ from bespokelabs.curator.request_processor.config import (
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.types.generic_response import GenericResponse
 
-logger = logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 CACHE_MSG = "If you want to regenerate the dataset, disable or delete the cache."
 
@@ -54,6 +54,12 @@ class BaseRequestProcessor(ABC):
         )
         resource.setrlimit(resource.RLIMIT_NOFILE, (desired_limit, hard))
         self.config = config
+
+    @property
+    @abstractmethod
+    def backend(self) -> str:
+        """Backend property."""
+        return "base"
 
     @abstractmethod
     def requests_to_responses(self, generic_request_files: list[str]) -> None:

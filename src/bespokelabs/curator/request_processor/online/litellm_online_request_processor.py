@@ -7,10 +7,10 @@ import instructor
 import litellm
 from pydantic import BaseModel
 
-from bespokelabs.curator.request_processor import APIRequest, BaseOnlineRequestProcessor
 from bespokelabs.curator.request_processor.config import OnlineRequestProcessorConfig
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
-from bespokelabs.curator.status_tracker import OnlineStatusTracker
+from bespokelabs.curator.request_processor.online.base_online_request_processor import APIRequest, BaseOnlineRequestProcessor
+from bespokelabs.curator.status_tracker.online_status_tracker import OnlineStatusTracker
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse, TokenUsage
 
@@ -47,6 +47,11 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             self.header_based_max_requests_per_minute,
             self.header_based_max_tokens_per_minute,
         ) = self.get_header_based_rate_limits()
+
+    @property
+    def backend(self):
+        """Backend property."""
+        return "litellm"
 
     def check_structured_output_support(self):
         """Verify if the model supports structured output via instructor.
@@ -237,18 +242,15 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         # Get response directly without extra logging
         try:
             if request.generic_request.response_format:
-                response, completion_obj = (
-                    await self.client.chat.completions.create_with_completion(
-                        **request.api_specific_request,
-                        response_model=request.prompt_formatter.response_format,
-                        timeout=self.config.request_timeout,
-                    )
+                (
+                    response,
+                    completion_obj,
+                ) = await self.client.chat.completions.create_with_completion(
+                    **request.api_specific_request,
+                    response_model=request.prompt_formatter.response_format,
+                    timeout=self.config.request_timeout,
                 )
-                response_message = (
-                    response.model_dump()
-                    if hasattr(response, "model_dump")
-                    else response
-                )
+                response_message = response.model_dump() if hasattr(response, "model_dump") else response
             else:
                 completion_obj = await litellm.acompletion(
                     **request.api_specific_request, timeout=self.config.request_timeout

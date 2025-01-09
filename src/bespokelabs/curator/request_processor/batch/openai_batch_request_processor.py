@@ -8,16 +8,10 @@ from openai.types.batch import Batch
 from openai.types.batch_request_counts import BatchRequestCounts
 from openai.types.file_object import FileObject
 
-from bespokelabs.curator.request_processor import BaseBatchRequestProcessor
+from bespokelabs.curator.request_processor.batch.base_batch_request_processor import BaseBatchRequestProcessor
 from bespokelabs.curator.request_processor.config import BatchRequestProcessorConfig
-from bespokelabs.curator.request_processor.openai_request_mixin import (
-    OpenAIRequestMixin,
-)
-from bespokelabs.curator.types.generic_batch import (
-    GenericBatch,
-    GenericBatchRequestCounts,
-    GenericBatchStatus,
-)
+from bespokelabs.curator.request_processor.openai_request_mixin import OpenAIRequestMixin
+from bespokelabs.curator.types.generic_batch import GenericBatch, GenericBatchRequestCounts, GenericBatchStatus
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
 from bespokelabs.curator.types.token_usage import TokenUsage
@@ -42,6 +36,11 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
                 max_retries=self.config.max_retries, base_url=self.config.base_url
             )
         self.web_dashboard = "https://platform.openai.com/batches"
+
+    @property
+    def backend(self):
+        """Backend property."""
+        return "openai"
 
     @property
     def max_requests_per_batch(self) -> int:
