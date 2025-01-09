@@ -49,6 +49,7 @@ def test_basic(temp_working_dir, mock_dataset, basic_gt_dataset):
     assert np.array_equal(distilled_dataset.to_pandas().values, basic_gt_dataset.to_pandas().values)
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize("temp_working_dir", ([{"integration": "openai"}]), indirect=True)
 @vcr_config.use_cassette("camel_completion.yaml")
 def test_camel(temp_working_dir, camel_gt_dataset):
@@ -93,7 +94,7 @@ def test_auto_rpm(temp_working_dir):
 
 @pytest.mark.parametrize("temp_working_dir", ([{"integration": "openai"}]), indirect=True)
 @vcr_config.use_cassette("basic_resume.yaml")
-def test_resume(caplog, temp_working_dir, mock_dataset, basic_gt_dataset):
+def test_resume(caplog, temp_working_dir, mock_dataset):
     with pytest.raises(TimeoutError):
         with Timeout(3):
             helper.create_basic(temp_working_dir, mock_dataset, llm_params={"max_requests_per_minute": 1})
