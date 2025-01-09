@@ -110,6 +110,9 @@ class LLM:
 
         self._request_processor = _RequestProcessorFactory.create(backend_params, batch=batch, response_format=response_format, backend=backend)
 
+    def _hash_fingerprint(self, fingerprint_str):
+        return xxh64(fingerprint_str.encode("utf-8")).hexdigest()
+
     def __call__(
         self,
         dataset: Optional[Iterable] = None,
@@ -160,7 +163,7 @@ class LLM:
             generation_params_str = str(sorted(self.prompt_formatter.generation_params.items()))
             fingerprint_str += f"_{generation_params_str}"
 
-        fingerprint = xxh64(fingerprint_str.encode("utf-8")).hexdigest()
+        fingerprint = self._hash_fingerprint(fingerprint_str)
         logger.debug(f"Curator Cache Fingerprint String: {fingerprint_str}")
         logger.debug(f"Curator Cache Fingerprint: {fingerprint}")
 
