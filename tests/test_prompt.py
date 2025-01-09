@@ -62,9 +62,16 @@ def test_completions(prompter: LLM, tmp_path):
     os.environ["BELLA_CACHE_DIR"] = str(tmp_path)
 
     # Mock OpenAI API response
-    mock_response = {"choices": [{"message": {"content": "1 + 1 equals 2."}, "finish_reason": "stop"}]}
+    mock_response = {
+        "choices": [
+            {"message": {"content": "1 + 1 equals 2."}, "finish_reason": "stop"}
+        ]
+    }
 
-    with patch("openai.resources.chat.completions.Completions.create", return_value=mock_response):
+    with patch(
+        "openai.resources.chat.completions.Completions.create",
+        return_value=mock_response,
+    ):
         # Process dataset and get responses
         result_dataset = prompter(dataset)
 
@@ -111,7 +118,9 @@ def test_single_completion_batch(prompter: LLM):
     )
 
     # Mock response data
-    mock_dataset = Dataset.from_list([{"response": {"message": "This is a test message.", "confidence": 0.9}}])
+    mock_dataset = Dataset.from_list(
+        [{"response": {"message": "This is a test message.", "confidence": 0.9}}]
+    )
 
     # Mock the run method of OpenAIBatchRequestProcessor
     with patch(
@@ -157,7 +166,9 @@ def test_single_completion_no_batch(prompter: LLM):
     )
 
     # Mock response data
-    mock_dataset = Dataset.from_list([{"response": {"message": "This is a test message.", "confidence": 0.9}}])
+    mock_dataset = Dataset.from_list(
+        [{"response": {"message": "This is a test message.", "confidence": 0.9}}]
+    )
 
     # Mock the run method of OpenAIOnlineRequestProcessor
     with patch(

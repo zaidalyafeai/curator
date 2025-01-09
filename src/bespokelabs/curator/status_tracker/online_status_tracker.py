@@ -48,12 +48,14 @@ class OnlineStatusTracker:
         seconds_since_update = current_time - self.last_update_time
 
         self.available_request_capacity = min(
-            self.available_request_capacity + self.max_requests_per_minute * seconds_since_update / 60.0,
+            self.available_request_capacity
+            + self.max_requests_per_minute * seconds_since_update / 60.0,
             self.max_requests_per_minute,
         )
 
         self.available_token_capacity = min(
-            self.available_token_capacity + self.max_tokens_per_minute * seconds_since_update / 60.0,
+            self.available_token_capacity
+            + self.max_tokens_per_minute * seconds_since_update / 60.0,
             self.max_tokens_per_minute,
         )
 
@@ -62,7 +64,10 @@ class OnlineStatusTracker:
     def has_capacity(self, token_estimate: int) -> bool:
         """Check if there's enough capacity for a request."""
         self.update_capacity()
-        has_capacity = self.available_request_capacity >= 1 and self.available_token_capacity >= token_estimate
+        has_capacity = (
+            self.available_request_capacity >= 1
+            and self.available_token_capacity >= token_estimate
+        )
         if not has_capacity:
             logger.debug(
                 f"No capacity for request with {token_estimate} tokens. "

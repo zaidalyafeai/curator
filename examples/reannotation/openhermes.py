@@ -21,8 +21,12 @@ def convert_row(row: dict) -> dict:
         Dictionary with 'instruction' and 'original_response' fields extracted from the conversation
     """
     conversation = row["conversations"]
-    instruction = next((item["value"] for item in conversation if item["from"] == "human"), None)
-    response = next((item["value"] for item in conversation if item["from"] == "gpt"), None)
+    instruction = next(
+        (item["value"] for item in conversation if item["from"] == "human"), None
+    )
+    response = next(
+        (item["value"] for item in conversation if item["from"] == "gpt"), None
+    )
     return {"instruction": instruction, "original_response": response}
 
 

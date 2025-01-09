@@ -19,7 +19,9 @@ import litellm
 from tqdm import tqdm
 
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
-from bespokelabs.curator.request_processor.base_request_processor import BaseRequestProcessor
+from bespokelabs.curator.request_processor.base_request_processor import (
+    BaseRequestProcessor,
+)
 from bespokelabs.curator.request_processor.config import OnlineRequestProcessorConfig
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.status_tracker.online_status_tracker import OnlineStatusTracker
@@ -81,10 +83,14 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         or uses default value as last resort.
         """
         if self.manual_max_requests_per_minute:
-            logger.info(f"Manually set max_requests_per_minute to {self.manual_max_requests_per_minute}")
+            logger.info(
+                f"Manually set max_requests_per_minute to {self.manual_max_requests_per_minute}"
+            )
             return self.manual_max_requests_per_minute
         elif self.header_based_max_requests_per_minute:
-            logger.info(f"Automatically set max_requests_per_minute to {self.header_based_max_requests_per_minute}")
+            logger.info(
+                f"Automatically set max_requests_per_minute to {self.header_based_max_requests_per_minute}"
+            )
             return self.header_based_max_requests_per_minute
         else:
             logger.warning(
@@ -100,10 +106,14 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         or uses default value as last resort.
         """
         if self.manual_max_tokens_per_minute:
-            logger.info(f"Manually set max_tokens_per_minute to {self.manual_max_tokens_per_minute}")
+            logger.info(
+                f"Manually set max_tokens_per_minute to {self.manual_max_tokens_per_minute}"
+            )
             return self.manual_max_tokens_per_minute
         elif self.header_based_max_tokens_per_minute:
-            logger.info(f"Automatically set max_tokens_per_minute to {self.header_based_max_tokens_per_minute}")
+            logger.info(
+                f"Automatically set max_tokens_per_minute to {self.header_based_max_tokens_per_minute}"
+            )
             return self.header_based_max_tokens_per_minute
         else:
             logger.warning(
@@ -133,7 +143,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         pass
 
     @abstractmethod
-    def create_api_specific_request_online(self, generic_request: GenericRequest) -> dict:
+    def create_api_specific_request_online(
+        self, generic_request: GenericRequest
+    ) -> dict:
         """Create an API-specific request body from a generic request body.
 
         Args:
@@ -181,15 +193,21 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 )
             )
 
-    async def cool_down_if_rate_limit_error(self, status_tracker: OnlineStatusTracker) -> None:
+    async def cool_down_if_rate_limit_error(
+        self, status_tracker: OnlineStatusTracker
+    ) -> None:
         """Pause processing if a rate limit error is detected.
 
         Args:
             status_tracker: Tracker containing rate limit status
         """
         seconds_to_pause_on_rate_limit = self.config.seconds_to_pause_on_rate_limit
-        seconds_since_rate_limit_error = time.time() - status_tracker.time_of_last_rate_limit_error
-        remaining_seconds_to_pause = seconds_to_pause_on_rate_limit - seconds_since_rate_limit_error
+        seconds_since_rate_limit_error = (
+            time.time() - status_tracker.time_of_last_rate_limit_error
+        )
+        remaining_seconds_to_pause = (
+            seconds_to_pause_on_rate_limit - seconds_since_rate_limit_error
+        )
         if remaining_seconds_to_pause > 0:
             logger.warn(f"Pausing for {int(remaining_seconds_to_pause)} seconds")
             await asyncio.sleep(remaining_seconds_to_pause)
@@ -229,7 +247,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         )
 
         # Use higher connector limit for better throughput
-        connector = aiohttp.TCPConnector(limit=10 * status_tracker.max_requests_per_minute)
+        connector = aiohttp.TCPConnector(
+            limit=10 * status_tracker.max_requests_per_minute
+        )
         async with aiohttp.ClientSession(connector=connector) as session:
             async with aiofiles.open(generic_request_filepath) as file:
                 pending_requests = []
@@ -244,12 +264,16 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     request = APIRequest(
                         task_id=status_tracker.num_tasks_started,
                         generic_request=generic_request,
-                        api_specific_request=self.create_api_specific_request_online(generic_request),
+                        api_specific_request=self.create_api_specific_request_online(
+                            generic_request
+                        ),
                         attempts_left=self.config.max_retries,
                         prompt_formatter=self.prompt_formatter,
                     )
 
-                    token_estimate = self.estimate_total_tokens(request.generic_request.messages)
+                    token_estimate = self.estimate_total_tokens(
+                        request.generic_request.messages
+                    )
 
                     # Wait for capacity if needed
                     while not status_tracker.has_capacity(token_estimate):
@@ -285,8 +309,12 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 # Process new items from the queue if we have capacity
                 if not queue_of_requests_to_retry.empty():
                     retry_request = await queue_of_requests_to_retry.get()
-                    token_estimate = self.estimate_total_tokens(retry_request.generic_request.messages)
-                    attempt_number = self.config.max_retries - retry_request.attempts_left
+                    token_estimate = self.estimate_total_tokens(
+                        retry_request.generic_request.messages
+                    )
+                    attempt_number = (
+                        self.config.max_retries - retry_request.attempts_left
+                    )
                     logger.debug(
                         f"Retrying request {retry_request.task_id} "
                         f"(attempt #{attempt_number} of {self.config.max_retries})"
@@ -313,7 +341,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
 
                 # Wait for some tasks to complete
                 if pending_retries:
-                    done, pending_retries = await asyncio.wait(pending_retries, timeout=0.1)
+                    done, pending_retries = await asyncio.wait(
+                        pending_retries, timeout=0.1
+                    )
 
         status_tracker.pbar.close()
 
@@ -355,7 +385,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             )
 
             # Allows us to retry on responses that don't match the response format
-            self.prompt_formatter.response_to_response_format(generic_response.response_message)
+            self.prompt_formatter.response_to_response_format(
+                generic_response.response_message
+            )
 
             # Save response in the base class
             await self.append_generic_response(generic_response, response_file)
@@ -416,7 +448,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         """
         pass
 
-    async def append_generic_response(self, data: GenericResponse, filename: str) -> None:
+    async def append_generic_response(
+        self, data: GenericResponse, filename: str
+    ) -> None:
         """Append a response to a jsonl file with async file operations.
 
         Args:

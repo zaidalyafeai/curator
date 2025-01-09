@@ -94,7 +94,10 @@ def test_partial_batch_resubmit():
     )
 
     # this doesn't work because it creates a subdir with the hash in the test_working_dir
-    llm(dataset=Dataset.from_dict({"instruction": ["just say 'hi'"] * 1551}), working_dir=test_dir)
+    llm(
+        dataset=Dataset.from_dict({"instruction": ["just say 'hi'"] * 1551}),
+        working_dir=test_dir,
+    )
 
 
 if __name__ == "__main__":

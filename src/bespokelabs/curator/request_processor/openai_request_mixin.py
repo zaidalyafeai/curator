@@ -9,7 +9,9 @@ class OpenAIRequestMixin:
     Provides shared functionality for both batch and online OpenAI request processors.
     """
 
-    def create_api_specific_request_online(self, generic_request: GenericRequest) -> dict:
+    def create_api_specific_request_online(
+        self, generic_request: GenericRequest
+    ) -> dict:
         """Create an OpenAI-specific request from a generic request.
 
         Args:

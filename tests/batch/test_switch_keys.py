@@ -12,7 +12,9 @@ pytest -s tests/batch/test_switch_keys.py
 
 
 @pytest.mark.skip(reason="Temporarily disabled, since it takes a while")
-@pytest.mark.cache_dir(os.path.expanduser("~/.cache/curator-tests/test-batch-switch-keys"))
+@pytest.mark.cache_dir(
+    os.path.expanduser("~/.cache/curator-tests/test-batch-switch-keys")
+)
 @pytest.mark.usefixtures("clear_test_cache")
 def test_batch_switch_keys():
     script = [

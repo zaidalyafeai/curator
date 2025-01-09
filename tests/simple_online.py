@@ -31,17 +31,30 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Simple batch test bed")
-    parser.add_argument("--cancel", action="store_true", default=False, help="Cancel the batches")
-    parser.add_argument("--n-requests", type=int, help="Number of requests to process", default=3)
+    parser.add_argument(
+        "--cancel", action="store_true", default=False, help="Cancel the batches"
+    )
+    parser.add_argument(
+        "--n-requests", type=int, help="Number of requests to process", default=3
+    )
     parser.add_argument(
         "--log-level",
         type=lambda x: getattr(logging, x.upper()),
         default=None,
         help="Set the logging level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
-    parser.add_argument("--model", type=str, help="Model to use", default="gemini/gemini-1.5-flash")
-    parser.add_argument("--max-requests-per-minute", type=int, help="Max requests per minute", default=None)
-    parser.add_argument("--max-tokens-per-minute", type=int, help="Max tokens per minute", default=None)
+    parser.add_argument(
+        "--model", type=str, help="Model to use", default="gemini/gemini-1.5-flash"
+    )
+    parser.add_argument(
+        "--max-requests-per-minute",
+        type=int,
+        help="Max requests per minute",
+        default=None,
+    )
+    parser.add_argument(
+        "--max-tokens-per-minute", type=int, help="Max tokens per minute", default=None
+    )
     parser.add_argument("--max-retries", type=int, help="Max retries", default=None)
     parser.add_argument(
         "--partial-responses",

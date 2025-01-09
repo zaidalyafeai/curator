@@ -18,7 +18,10 @@ from pydantic import BaseModel, ValidationError
 
 from bespokelabs.curator.file_utilities import count_lines
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
-from bespokelabs.curator.request_processor.config import BatchRequestProcessorConfig, RequestProcessorConfig
+from bespokelabs.curator.request_processor.config import (
+    BatchRequestProcessorConfig,
+    RequestProcessorConfig,
+)
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.types.generic_response import GenericResponse
 
@@ -46,7 +49,9 @@ class BaseRequestProcessor(ABC):
         # Increase the number of open file descriptors to avoid "Too many open files" errors
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         desired_limit = min(10_000_000, hard)
-        logger.debug(f"Adjusting file descriptor limit from {soft} to {desired_limit} (hard limit: {hard})")
+        logger.debug(
+            f"Adjusting file descriptor limit from {soft} to {desired_limit} (hard limit: {hard})"
+        )
         resource.setrlimit(resource.RLIMIT_NOFILE, (desired_limit, hard))
         self.config = config
 
@@ -96,12 +101,17 @@ class BaseRequestProcessor(ABC):
         if output_dataset is not None:
             return output_dataset
 
-        logger.info(f"Running {self.__class__.__name__} completions with model: {self.config.model}")
+        logger.info(
+            f"Running {self.__class__.__name__} completions with model: {self.config.model}"
+        )
 
         self.prompt_formatter = prompt_formatter
         if self.prompt_formatter.response_format:
             if not self.check_structured_output_support():
-                raise ValueError(f"Model {self.config.model} does not support structured output, " f"response_format: {self.prompt_formatter.response_format}")
+                raise ValueError(
+                    f"Model {self.config.model} does not support structured output, "
+                    f"response_format: {self.prompt_formatter.response_format}"
+                )
         generic_request_files = self.create_request_files(dataset)
 
         self.requests_to_responses(generic_request_files)
@@ -135,7 +145,9 @@ class BaseRequestProcessor(ABC):
                     continue
 
                 if not os.path.exists(meta_f):
-                    logger.warning(f"Cache missing metadata file {meta_f} for request file {req_f}")
+                    logger.warning(
+                        f"Cache missing metadata file {meta_f} for request file {req_f}"
+                    )
                     incomplete_files.append(i)
                     continue
 
@@ -148,13 +160,17 @@ class BaseRequestProcessor(ABC):
 
                 expected_num_jobs = metadata["num_jobs"]
                 if num_jobs != expected_num_jobs:
-                    logger.warning(f"Request file {req_f} has {num_jobs} jobs, but metadata file {meta_f} has {expected_num_jobs} jobs")
+                    logger.warning(
+                        f"Request file {req_f} has {num_jobs} jobs, but metadata file {meta_f} has {expected_num_jobs} jobs"
+                    )
                     incomplete_files.append(i)
 
             return incomplete_files
 
         except Exception as e:
-            logger.warning(f"Cache verification failed due to {e} - regenerating all request files.")
+            logger.warning(
+                f"Cache verification failed due to {e} - regenerating all request files."
+            )
             incomplete_files = list(range(expected_num_files))
             return incomplete_files
 
@@ -202,7 +218,9 @@ class BaseRequestProcessor(ABC):
 
         if dataset is None:
             with open(request_file, "w") as f:
-                generic_request = self.prompt_formatter.create_generic_request(dict(), 0)  # noqa: C408
+                generic_request = self.prompt_formatter.create_generic_request(
+                    dict(), 0
+                )  # noqa: C408
                 generic_request.generation_params = self.config.generation_params
                 f.write(json.dumps(generic_request.model_dump(), default=str) + "\n")
 
@@ -213,8 +231,14 @@ class BaseRequestProcessor(ABC):
 
         if isinstance(self.config, BatchRequestProcessorConfig):
             num_batches = ceil(len(dataset) / self.config.batch_size)
-            request_files = [os.path.join(self.working_dir, f"requests_{i}.jsonl") for i in range(num_batches)]
-            metadata_files = [os.path.join(self.working_dir, f"metadata_{i}.json") for i in range(num_batches)]
+            request_files = [
+                os.path.join(self.working_dir, f"requests_{i}.jsonl")
+                for i in range(num_batches)
+            ]
+            metadata_files = [
+                os.path.join(self.working_dir, f"metadata_{i}.json")
+                for i in range(num_batches)
+            ]
 
             async def create_all_request_files():
                 tasks = [
@@ -231,7 +255,9 @@ class BaseRequestProcessor(ABC):
 
             run_in_event_loop(create_all_request_files())
         else:
-            run_in_event_loop(self.acreate_request_file(dataset, request_file, metadata_file))
+            run_in_event_loop(
+                self.acreate_request_file(dataset, request_file, metadata_file)
+            )
 
         return request_files
 
@@ -260,7 +286,9 @@ class BaseRequestProcessor(ABC):
             for idx, dataset_row in enumerate(dataset):
                 dataset_row_idx = idx + start_idx
                 # Get the generic request from the map function
-                request = self.prompt_formatter.create_generic_request(dataset_row, dataset_row_idx)
+                request = self.prompt_formatter.create_generic_request(
+                    dataset_row, dataset_row_idx
+                )
                 request.generation_params = self.config.generation_params
                 await f.write(json.dumps(request.model_dump(), default=str) + "\n")
 
@@ -330,7 +358,9 @@ class BaseRequestProcessor(ABC):
                 with open(responses_file, "r") as f_in:
                     for generic_response_string in f_in:
                         total_responses_count += 1
-                        response = GenericResponse.model_validate_json(generic_response_string)
+                        response = GenericResponse.model_validate_json(
+                            generic_response_string
+                        )
 
                         if response.response_errors is not None:
                             failed_responses_count += 1
@@ -339,9 +369,15 @@ class BaseRequestProcessor(ABC):
                             continue
 
                         try:
-                            response.response_message = self.prompt_formatter.response_to_response_format(response.response_message)
+                            response.response_message = (
+                                self.prompt_formatter.response_to_response_format(
+                                    response.response_message
+                                )
+                            )
                         except (json.JSONDecodeError, ValidationError):
-                            logger.warning("Skipping response due to error parsing response message into response format")
+                            logger.warning(
+                                "Skipping response due to error parsing response message into response format"
+                            )
                             failed_responses_count += 1
                             continue
 
@@ -353,7 +389,9 @@ class BaseRequestProcessor(ABC):
                                     response.response_message,
                                 )
                             except Exception as e:
-                                logger.error(f"Exception raised in your `parse_func`. {error_help}")
+                                logger.error(
+                                    f"Exception raised in your `parse_func`. {error_help}"
+                                )
                                 os.remove(dataset_file)
                                 raise e
                             if not isinstance(dataset_rows, list):
@@ -374,13 +412,18 @@ class BaseRequestProcessor(ABC):
                             if not isinstance(row, dict):
                                 os.remove(dataset_file)
                                 raise ValueError(
-                                    f"Got invalid row {row} of type {type(row)} from `parse_func`. " f"This should be type <class 'dict'>. {error_help}"
+                                    f"Got invalid row {row} of type {type(row)} from `parse_func`. "
+                                    f"This should be type <class 'dict'>. {error_help}"
                                 )
                             if not row:
                                 os.remove(dataset_file)
-                                raise ValueError(f"Got empty row {row} from `parse_func`. {error_help}")
+                                raise ValueError(
+                                    f"Got empty row {row} from `parse_func`. {error_help}"
+                                )
                             # Add the original row index to the row so that we can sort by it later.
-                            row["__original_row_idx"] = response.generic_request.original_row_idx
+                            row["__original_row_idx"] = (
+                                response.generic_request.original_row_idx
+                            )
                             writer.write(row)
 
             logger.info(f"Read {total_responses_count} responses.")
@@ -399,10 +442,14 @@ class BaseRequestProcessor(ABC):
                 logger.warning(f"{failed_responses_count} requests failed.")
                 if self.config.require_all_responses:
                     os.remove(dataset_file)
-                    raise ValueError(f"Some requests failed and require_all_responses is True. {error_sample_msg}")
+                    raise ValueError(
+                        f"Some requests failed and require_all_responses is True. {error_sample_msg}"
+                    )
 
             # number of responses matches number of requests
-            request_files = glob.glob(os.path.join(self.working_dir, "requests_*.jsonl"))
+            request_files = glob.glob(
+                os.path.join(self.working_dir, "requests_*.jsonl")
+            )
             n_requests = 0
             for request_file in request_files:
                 n_requests += count_lines(request_file)
@@ -414,7 +461,9 @@ class BaseRequestProcessor(ABC):
                 )
                 if self.config.require_all_responses:
                     os.remove(dataset_file)
-                    raise ValueError("Some requests do not have responses and require_all_responses is True.")
+                    raise ValueError(
+                        "Some requests do not have responses and require_all_responses is True."
+                    )
 
         d = Dataset.from_file(dataset_file)
         d = d.sort("__original_row_idx")
@@ -422,7 +471,9 @@ class BaseRequestProcessor(ABC):
         return d
 
 
-def parse_response_message(response_message: str, response_format: Optional[BaseModel]) -> tuple[Optional[dict | str], Optional[list[str]]]:
+def parse_response_message(
+    response_message: str, response_format: Optional[BaseModel]
+) -> tuple[Optional[dict | str], Optional[list[str]]]:
     """Parse a response message into the expected format.
 
     Args:
@@ -439,7 +490,9 @@ def parse_response_message(response_message: str, response_format: Optional[Base
         try:
             response_message = json.loads(response_message)
         except json.JSONDecodeError:
-            logger.warning(f"Failed to parse response as JSON: {response_message}, skipping this response.")
+            logger.warning(
+                f"Failed to parse response as JSON: {response_message}, skipping this response."
+            )
             response_message = None
             response_errors = [f"Failed to parse response as JSON: {response_message}"]
     return response_message, response_errors
@@ -449,11 +502,15 @@ def resume_from_existing_response_file(response_file: str) -> set[int]:
     completed_request_ids = set()
     if not os.path.exists(response_file):
         logger.info(f"Resuming progress by reading existing file: {response_file}")
-        logger.debug(f"Removing all failed requests from {response_file} so they can be retried")
+        logger.debug(
+            f"Removing all failed requests from {response_file} so they can be retried"
+        )
         temp_filepath = response_file + ".temp"
         num_previously_failed_requests = 0
 
-        with open(response_file, "r") as input_file, open(temp_filepath, "w") as output_file:
+        with open(response_file, "r") as input_file, open(
+            temp_filepath, "w"
+        ) as output_file:
             for line in input_file:
                 response = GenericResponse.model_validate_json(line)
                 if response.response_errors:
@@ -476,6 +533,8 @@ def resume_from_existing_response_file(response_file: str) -> set[int]:
             f"Found {len(completed_request_ids)} successful requests and "
             f"{num_previously_failed_requests} previously failed requests"
         )
-        logger.info("Remaining requests (including failed requests) will now be processed.")
+        logger.info(
+            "Remaining requests (including failed requests) will now be processed."
+        )
         os.replace(temp_filepath, response_file)
     return completed_request_ids

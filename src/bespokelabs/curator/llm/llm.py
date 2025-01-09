@@ -41,7 +41,9 @@ class LLM:
         self,
         model_name: str,
         prompt_func: Callable[[_DictOrBaseModel], _DictOrBaseModel],
-        parse_func: Callable[[_DictOrBaseModel, _DictOrBaseModel], _DictOrBaseModel] | None = None,
+        parse_func: (
+            Callable[[_DictOrBaseModel, _DictOrBaseModel], _DictOrBaseModel] | None
+        ) = None,
         base_url: str | None = None,
         response_format: Type[BaseModel] | None = None,
         batch: bool = False,
@@ -96,7 +98,9 @@ class LLM:
         else:
             generation_params = _remove_none_values(generation_params)
 
-        self.prompt_formatter = PromptFormatter(model_name, prompt_func, parse_func, response_format, generation_params)
+        self.prompt_formatter = PromptFormatter(
+            model_name, prompt_func, parse_func, response_format, generation_params
+        )
         self.batch_mode = batch
 
         if backend is not None:
@@ -150,7 +154,9 @@ class LLM:
         elif self.backend == "anthropic" and batch:
             self._request_processor = AnthropicBatchRequestProcessor(config)
         elif self.backend == "anthropic" and not batch:
-            raise ValueError("Online mode is not currently supported with Anthropic backend.")
+            raise ValueError(
+                "Online mode is not currently supported with Anthropic backend."
+            )
         elif self.backend == "litellm" and batch:
             raise ValueError("Batch mode is not supported with LiteLLM backend")
         elif self.backend == "litellm":
@@ -166,7 +172,11 @@ class LLM:
         return OpenAIOnlineRequestProcessor(config).check_structured_output_support()
 
     @staticmethod
-    def _determine_backend(model_name: str, response_format: Optional[Type[BaseModel]] = None, batch: bool = False) -> str:
+    def _determine_backend(
+        model_name: str,
+        response_format: Optional[Type[BaseModel]] = None,
+        batch: bool = False,
+    ) -> str:
         """Determine which backend to use based on model name and response format.
 
         Args:
@@ -180,12 +190,18 @@ class LLM:
 
         # GPT-4o models with response format should use OpenAI
         if response_format and LLM._check_openai_structured_output_support(model_name):
-            logger.info(f"Requesting structured output from {model_name}, using OpenAI backend")
+            logger.info(
+                f"Requesting structured output from {model_name}, using OpenAI backend"
+            )
             return "openai"
 
         # GPT models and O1 models without response format should use OpenAI
-        if not response_format and any(x in model_name for x in ["gpt-", "o1-preview", "o1-mini"]):
-            logger.info(f"Requesting text output from {model_name}, using OpenAI backend")
+        if not response_format and any(
+            x in model_name for x in ["gpt-", "o1-preview", "o1-mini"]
+        ):
+            logger.info(
+                f"Requesting text output from {model_name}, using OpenAI backend"
+            )
             return "openai"
 
         if batch and "claude" in model_name:
@@ -193,7 +209,9 @@ class LLM:
             return "anthropic"
 
         # Default to LiteLLM for all other cases
-        logger.info(f"Requesting {'structured' if response_format else 'text'} output from {model_name}, using LiteLLM backend")
+        logger.info(
+            f"Requesting {'structured' if response_format else 'text'} output from {model_name}, using LiteLLM backend"
+        )
         return "litellm"
 
     def __call__(
@@ -223,7 +241,9 @@ class LLM:
         else:
             curator_cache_dir = working_dir
 
-        dataset_hash = dataset._fingerprint if dataset is not None else xxh64("").hexdigest()
+        dataset_hash = (
+            dataset._fingerprint if dataset is not None else xxh64("").hexdigest()
+        )
 
         prompt_func_hash = _get_function_hash(self.prompt_formatter.prompt_func)
 
@@ -236,14 +256,20 @@ class LLM:
                 str(dataset_hash),
                 str(prompt_func_hash),
                 str(self.prompt_formatter.model_name),
-                str(self.prompt_formatter.response_format.model_json_schema() if self.prompt_formatter.response_format else "text"),
+                str(
+                    self.prompt_formatter.response_format.model_json_schema()
+                    if self.prompt_formatter.response_format
+                    else "text"
+                ),
                 str(self.batch_mode),
                 str(self.backend),
             ]
         )
 
         if self.prompt_formatter.generation_params:
-            generation_params_str = str(sorted(self.prompt_formatter.generation_params.items()))
+            generation_params_str = str(
+                sorted(self.prompt_formatter.generation_params.items())
+            )
             fingerprint_str += f"_{generation_params_str}"
 
         fingerprint = xxh64(fingerprint_str.encode("utf-8")).hexdigest()
@@ -266,7 +292,11 @@ class LLM:
             "prompt_func": prompt_func_source,
             "parse_func": parse_func_source,
             "model_name": self.prompt_formatter.model_name,
-            "response_format": (str(self.prompt_formatter.response_format.model_json_schema()) if self.prompt_formatter.response_format else "text"),
+            "response_format": (
+                str(self.prompt_formatter.response_format.model_json_schema())
+                if self.prompt_formatter.response_format
+                else "text"
+            ),
             "run_hash": fingerprint,
             "batch_mode": self.batch_mode,
         }

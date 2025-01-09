@@ -20,7 +20,9 @@ def batch_call(model_name, prompts):
         response_format=Answer,
         batch=True,
         batch_size=2,
-        parse_func=lambda row, response: [{"input": row["prompt"], "answer": response.answer}],
+        parse_func=lambda row, response: [
+            {"input": row["prompt"], "answer": response.answer}
+        ],
     )
     response = llm(dataset)
     return response
@@ -37,16 +39,24 @@ def test_batch_call() -> None:
     test_prompts: List[str] = ["What is 2+2?", "What is 3+3?", "What is 4+4?"]
 
     # Expected answers for our test prompts
-    expected_answers: Dict[str, int] = {"What is 2+2?": 4, "What is 3+3?": 6, "What is 4+4?": 8}
+    expected_answers: Dict[str, int] = {
+        "What is 2+2?": 4,
+        "What is 3+3?": 6,
+        "What is 4+4?": 8,
+    }
 
     # Call the batch processing function
     result = batch_call("gpt-4o-mini", test_prompts)
 
     # Verify the results
-    assert len(result) == len(test_prompts), "Number of results should match number of prompts"
+    assert len(result) == len(
+        test_prompts
+    ), "Number of results should match number of prompts"
     for i in range(len(result)):
         result_item = result[i]
-        assert result_item["input"] == test_prompts[i], f"Result at index {i} for prompt {result_item['input']} should match expected prompt"
+        assert (
+            result_item["input"] == test_prompts[i]
+        ), f"Result at index {i} for prompt {result_item['input']} should match expected prompt"
         # TODO: this is potentially an incorrect assertion
         assert (  # noqa: F631
             result_item["answer"] == expected_answers[result_item["input"]],
@@ -96,7 +106,9 @@ def test_anthropic_batch_structured_output() -> None:
     result = llm(dataset)
 
     # Verify the results
-    assert len(result) == len(test_prompts), "Number of results should match number of prompts"
+    assert len(result) == len(
+        test_prompts
+    ), "Number of results should match number of prompts"
 
     for item in result:
         assert "title" in item, "Each result should have a title"

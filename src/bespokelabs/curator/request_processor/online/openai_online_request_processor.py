@@ -11,7 +11,9 @@ import tiktoken
 
 from bespokelabs.curator.request_processor import APIRequest, BaseOnlineRequestProcessor
 from bespokelabs.curator.request_processor.config import OnlineRequestProcessorConfig
-from bespokelabs.curator.request_processor.openai_request_mixin import OpenAIRequestMixin
+from bespokelabs.curator.request_processor.openai_request_mixin import (
+    OpenAIRequestMixin,
+)
 from bespokelabs.curator.status_tracker import OnlineStatusTracker
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse, TokenUsage
@@ -42,7 +44,10 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
             self.url = self.config.base_url + "/chat/completions"
         self.api_key = os.getenv("OPENAI_API_KEY")
         self.token_encoding = self.get_token_encoding()
-        self.header_based_max_requests_per_minute, self.header_based_max_tokens_per_minute = self.get_header_based_rate_limits()
+        (
+            self.header_based_max_requests_per_minute,
+            self.header_based_max_tokens_per_minute,
+        ) = self.get_header_based_rate_limits()
 
     def get_header_based_rate_limits(self) -> tuple[int, int]:
         """Get rate limits from OpenAI API headers.
@@ -54,7 +59,9 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
             - Makes a dummy request to get actual rate limits
         """
         if not self.api_key:
-            raise ValueError("Missing OpenAI API Key - Please set OPENAI_API_KEY in your environment vars")
+            raise ValueError(
+                "Missing OpenAI API Key - Please set OPENAI_API_KEY in your environment vars"
+            )
 
         response = requests.post(
             self.url,
@@ -99,12 +106,18 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
         """
         num_tokens = 0
         for message in messages:
-            num_tokens += 4  # every message follows <im_start>{role/name}\n{content}<im_end>\n
+            num_tokens += (
+                4  # every message follows <im_start>{role/name}\n{content}<im_end>\n
+            )
             for key, value in message.items():
                 try:
-                    num_tokens += len(self.token_encoding.encode(str(value), disallowed_special=()))
+                    num_tokens += len(
+                        self.token_encoding.encode(str(value), disallowed_special=())
+                    )
                 except TypeError:
-                    logger.warning(f"Failed to encode value {value} with tiktoken. Assuming 1 token per 4 chars.")
+                    logger.warning(
+                        f"Failed to encode value {value} with tiktoken. Assuming 1 token per 4 chars."
+                    )
                     num_tokens += len(str(value)) // 4
                 if key == "name":  # if there's a name, the role is omitted
                     num_tokens -= 1  # role is always required and always 1 token
@@ -130,7 +143,9 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
         if model_name == "gpt-4o-mini":  # Latest version
             return True
         if "gpt-4o-mini-" in model_name:
-            mini_date = datetime.datetime.strptime(model_name.split("gpt-4o-mini-")[1], "%Y-%m-%d")
+            mini_date = datetime.datetime.strptime(
+                model_name.split("gpt-4o-mini-")[1], "%Y-%m-%d"
+            )
             if mini_date >= datetime(2024, 7, 18):
                 return True
 
@@ -138,22 +153,32 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
         if model_name in ["gpt-4o", "o1"]:  # Latest version
             return True
         if "gpt-4o-" in model_name:
-            base_date = datetime.datetime.strptime(model_name.split("gpt-4o-")[1], "%Y-%m-%d")
+            base_date = datetime.datetime.strptime(
+                model_name.split("gpt-4o-")[1], "%Y-%m-%d"
+            )
             if base_date >= datetime.datetime(2024, 8, 6):
                 return True
         if "o1-" in model_name:
-            base_date = datetime.datetime.strptime(model_name.split("o1-")[1], "%Y-%m-%d")
-            if base_date >= datetime.datetime(2024, 12, 17):  # Support o1 dated versions from 2024-12-17
+            base_date = datetime.datetime.strptime(
+                model_name.split("o1-")[1], "%Y-%m-%d"
+            )
+            if base_date >= datetime.datetime(
+                2024, 12, 17
+            ):  # Support o1 dated versions from 2024-12-17
                 return True
 
         return False
 
-    def create_api_specific_request_online(self, generic_request: GenericRequest) -> dict:
+    def create_api_specific_request_online(
+        self, generic_request: GenericRequest
+    ) -> dict:
         """Create an OpenAI-specific request from a generic request.
 
         Delegates to the mixin implementation.
         """
-        return OpenAIRequestMixin.create_api_specific_request_online(self, generic_request)
+        return OpenAIRequestMixin.create_api_specific_request_online(
+            self, generic_request
+        )
 
     async def call_single_request(
         self,
@@ -195,7 +220,9 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
                 raise Exception(f"API error: {error}")
 
             if response_obj.status != 200:
-                raise Exception(f"API request failed with status {response_obj.status}: {response}")
+                raise Exception(
+                    f"API request failed with status {response_obj.status}: {response}"
+                )
 
             response_message = response["choices"][0]["message"]["content"]
             usage = response["usage"]

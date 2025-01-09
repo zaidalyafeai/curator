@@ -32,10 +32,14 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Simple batch test bed")
-    parser.add_argument("--cancel", action="store_true", default=False, help="Cancel the batches")
+    parser.add_argument(
+        "--cancel", action="store_true", default=False, help="Cancel the batches"
+    )
     parser.add_argument("--model", type=str, default="gpt-4o-mini", help="Model to use")
     parser.add_argument("--batch-size", type=int, default=1_000, help="Batch size")
-    parser.add_argument("--batch-check-interval", type=int, default=60, help="Batch check interval")
+    parser.add_argument(
+        "--batch-check-interval", type=int, default=60, help="Batch check interval"
+    )
     parser.add_argument("--n-requests", type=int, help="Number of requests to process")
     parser.add_argument(
         "--log-level",

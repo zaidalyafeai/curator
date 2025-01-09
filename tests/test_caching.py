@@ -22,7 +22,9 @@ def test_same_value_caching(tmp_path):
 
     # Count cache directories, excluding metadata.db
     cache_dirs = [d for d in tmp_path.glob("*") if d.name != "metadata.db"]
-    assert len(cache_dirs) == 1, f"Expected 1 cache directory but found {len(cache_dirs)}"
+    assert (
+        len(cache_dirs) == 1
+    ), f"Expected 1 cache directory but found {len(cache_dirs)}"
     assert values == ["1", "1", "1"], "Same value should produce same results"
 
 
@@ -47,8 +49,14 @@ def test_different_values_caching(tmp_path):
 
     # Count cache directories, excluding metadata.db
     cache_dirs = [d for d in tmp_path.glob("*") if d.name != "metadata.db"]
-    assert len(cache_dirs) == 3, f"Expected 3 cache directories but found {len(cache_dirs)}"
-    assert values == ["1", "2", "3"], "Different values should produce different results"
+    assert (
+        len(cache_dirs) == 3
+    ), f"Expected 3 cache directories but found {len(cache_dirs)}"
+    assert values == [
+        "1",
+        "2",
+        "3",
+    ], "Different values should produce different results"
 
 
 def test_same_dataset_caching(tmp_path):
@@ -67,7 +75,9 @@ def test_same_dataset_caching(tmp_path):
 
     # Count cache directories, excluding metadata.db
     cache_dirs = [d for d in tmp_path.glob("*") if d.name != "metadata.db"]
-    assert len(cache_dirs) == 1, f"Expected 1 cache directory but found {len(cache_dirs)}"
+    assert (
+        len(cache_dirs) == 1
+    ), f"Expected 1 cache directory but found {len(cache_dirs)}"
 
 
 def test_different_dataset_caching(tmp_path):
@@ -87,7 +97,9 @@ def test_different_dataset_caching(tmp_path):
 
     # Count cache directories, excluding metadata.db
     cache_dirs = [d for d in tmp_path.glob("*") if d.name != "metadata.db"]
-    assert len(cache_dirs) == 2, f"Expected 2 cache directory but found {len(cache_dirs)}"
+    assert (
+        len(cache_dirs) == 2
+    ), f"Expected 2 cache directory but found {len(cache_dirs)}"
 
 
 def test_nested_call_caching(tmp_path):
@@ -114,7 +126,9 @@ def test_nested_call_caching(tmp_path):
 
     # Count cache directories, excluding metadata.db
     cache_dirs = [d for d in tmp_path.glob("*") if d.name != "metadata.db"]
-    assert len(cache_dirs) == 2, f"Expected 2 cache directory but found {len(cache_dirs)}"
+    assert (
+        len(cache_dirs) == 2
+    ), f"Expected 2 cache directory but found {len(cache_dirs)}"
 
 
 def test_function_hash_dir_change():
@@ -127,7 +141,9 @@ def test_function_hash_dir_change():
 
     # Set up logging to write to a file in the current directory
     debug_log = Path("function_debug.log")
-    logging.basicConfig(level=logging.DEBUG, format="%(message)s", filename=str(debug_log), filemode="w")
+    logging.basicConfig(
+        level=logging.DEBUG, format="%(message)s", filename=str(debug_log), filemode="w"
+    )
     logger = logging.getLogger(__name__)
 
     def dump_function_details(func, prefix):

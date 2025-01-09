@@ -45,14 +45,20 @@ subject_prompter = curator.LLM(
 subject_dataset = subject_prompter()
 subsubject_prompter = curator.LLM(
     prompt_func=lambda subject: f"For the given subject {subject}. Generate 3 diverse subsubjects. No explanation.",
-    parse_func=lambda subject, subsubjects: [{"subject": subject["subject"], "subsubject": subsubject.subject} for subsubject in subsubjects.subjects],
+    parse_func=lambda subject, subsubjects: [
+        {"subject": subject["subject"], "subsubject": subsubject.subject}
+        for subsubject in subsubjects.subjects
+    ],
     model_name="gpt-4o-mini",
     response_format=Subjects,
 )
 subsubject_dataset = subsubject_prompter(subject_dataset)
 
 qa_prompter = curator.LLM(
-    prompt_func=lambda subsubject: (f"For the given subsubject {subsubject}. " "Generate 3 diverse questions and answers. No explanation."),
+    prompt_func=lambda subsubject: (
+        f"For the given subsubject {subsubject}. "
+        "Generate 3 diverse questions and answers. No explanation."
+    ),
     model_name="gpt-4o-mini",
     response_format=QAs,
     parse_func=lambda subsubject, qas: [
@@ -70,7 +76,9 @@ qa_prompter = curator.LLM(
 def main():
     """Main function to generate a dataset of questions and answers."""
     qa_dataset = qa_prompter(subsubject_dataset)
-    qa_dataset = qa_dataset.map(lambda row: {"answer": row["answer"].strip()}, num_proc=2)
+    qa_dataset = qa_dataset.map(
+        lambda row: {"answer": row["answer"].strip()}, num_proc=2
+    )
     print(qa_dataset.to_pandas())
 
 

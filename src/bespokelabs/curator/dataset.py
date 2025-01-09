@@ -79,9 +79,13 @@ class Dataset:
             for line in open(response_file, "r"):
                 response = GenericResponse.model_validate_json(line)
                 if self.prompt_formatter.response_format:
-                    response.response = self.prompt_formatter.response_format(**response.response)
+                    response.response = self.prompt_formatter.response_format(
+                        **response.response
+                    )
                 if self.prompt_formatter.parse_func:
-                    response = self.prompt_formatter.parse_func(response.row, response.response)
+                    response = self.prompt_formatter.parse_func(
+                        response.row, response.response
+                    )
                 else:
                     response = [response.response]
 
@@ -122,7 +126,9 @@ class Dataset:
         dataset_file = os.path.join(self.working_dir, "dataset.arrow")
         responses_files = glob.glob(os.path.join(self.working_dir, "responses_*.jsonl"))
         if len(responses_files) == 0:
-            raise ValueError(f"No responses files found in {self.working_dir}, can't construct dataset")
+            raise ValueError(
+                f"No responses files found in {self.working_dir}, can't construct dataset"
+            )
 
         # Process all response files
         with ArrowWriter(path=dataset_file) as writer:
@@ -132,14 +138,18 @@ class Dataset:
                         total_responses_count += 1
                         response = GenericResponse.model_validate_json(line)
                         if self.prompt_formatter.response_format:
-                            response.response = self.prompt_formatter.response_format(**response.response)
+                            response.response = self.prompt_formatter.response_format(
+                                **response.response
+                            )
 
                         if response is None:
                             failed_responses_count += 1
                             continue
 
                         if self.prompt_formatter.parse_func:
-                            dataset_rows = self.prompt_formatter.parse_func(response.row, response.response)
+                            dataset_rows = self.prompt_formatter.parse_func(
+                                response.row, response.response
+                            )
                         else:
                             dataset_rows = [response.response]
 
@@ -148,7 +158,9 @@ class Dataset:
                                 row = row.model_dump()
                             writer.write(row)
 
-            logging.info(f"Read {total_responses_count} responses, {failed_responses_count} failed")
+            logging.info(
+                f"Read {total_responses_count} responses, {failed_responses_count} failed"
+            )
             logging.info("Finalizing writer")
 
             if failed_responses_count == total_responses_count:

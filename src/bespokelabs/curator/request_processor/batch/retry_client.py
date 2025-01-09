@@ -29,7 +29,9 @@ class RetryableClient:
 
     def _wrap_with_retry(self, func):
         @retry(
-            retry=retry_if_exception_type((OpenAIAPIConnectionError, AnthropicAPIConnectionError)),
+            retry=retry_if_exception_type(
+                (OpenAIAPIConnectionError, AnthropicAPIConnectionError)
+            ),
             wait=wait_exponential(multiplier=1, min=1, max=60),
             stop=stop_after_attempt(lambda: self.max_retries + 1),
             before_sleep=before_sleep_log(logger, logging.WARNING),
@@ -42,7 +44,8 @@ class RetryableClient:
                     "4. DNS resolution problems\n"
                     f"Original error: {str(retry_state.outcome.exception())}"
                 )
-                if retry_state.attempt_number > retry_state.retry_object.stop.max_attempt_number
+                if retry_state.attempt_number
+                > retry_state.retry_object.stop.max_attempt_number
                 else None
             ),
         )

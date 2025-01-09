@@ -53,8 +53,13 @@ class TestLiteLLMModels:
             pytest.param("gpt-3.5-turbo-1106", id="gpt-3.5"),
             pytest.param("gemini/gemini-1.5-flash", id="gemini-flash"),
             pytest.param("gemini/gemini-1.5-pro", id="gemini-pro"),
-            pytest.param("together_ai/meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", id="llama-8b"),
-            pytest.param("together_ai/meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo", id="llama-70b"),
+            pytest.param(
+                "together_ai/meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", id="llama-8b"
+            ),
+            pytest.param(
+                "together_ai/meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+                id="llama-70b",
+            ),
         ],
     )
     def test_model(self, model):
