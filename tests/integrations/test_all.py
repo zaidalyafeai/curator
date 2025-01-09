@@ -132,21 +132,36 @@ def test_basic_batch(temp_working_dir, mock_dataset):
         assert _hash_string(recipes) == hash_book[backend]
 
 
-@pytest.mark.skip
 @pytest.mark.parametrize("temp_working_dir", (_BATCH_BACKENDS), indirect=True)
 def test_batch_resume(caplog, temp_working_dir, mock_dataset):
     temp_working_dir, _, vcr_config = temp_working_dir
     with vcr_config.use_cassette("basic_batch_resume.yaml"):
         from unittest.mock import patch
 
-        with patch("tqdm.tqdm") as MockTqdm:
-            mock_tqdm_instance = MockTqdm.return_value
-            progress = []
+        from bespokelabs.curator.request_processor.event_loop import run_in_event_loop as original_looper
 
-            def _progress(value):
-                nonlocal progress
-                progress.append(value)
+        with patch("bespokelabs.curator.request_processor.event_loop.run_in_event_loop") as mocked_run_loop:
 
-            mock_tqdm_instance.update = _progress
+            def _run_loop(func):
+                if "poll_and_process_batches" in str(func):
+                    return
+                return original_looper(func)
 
-            helper.create_basic(temp_working_dir, mock_dataset, batch=True)
+            mocked_run_loop.side_effect = _run_loop
+            with pytest.raises(ValueError):
+                helper.create_basic(temp_working_dir, mock_dataset, batch=True)
+        mocked_run_loop.side_effect = original_looper
+        from bespokelabs.curator.status_tracker.batch_status_tracker import BatchStatusTracker
+
+        tracker_batch_file_path = temp_working_dir + "/testing_hash_123/batch_objects.jsonl"
+        with open(tracker_batch_file_path, "r") as f:
+            tracker = BatchStatusTracker.model_validate_json(f.read())
+        assert tracker.n_total_requests == 3
+        assert len(tracker.submitted_batches) == 1
+        assert len(tracker.downloaded_batches) == 0
+
+        helper.create_basic(temp_working_dir, mock_dataset, batch=True)
+        with open(tracker_batch_file_path, "r") as f:
+            tracker = BatchStatusTracker.model_validate_json(f.read())
+        assert len(tracker.submitted_batches) == 0
+        assert len(tracker.downloaded_batches) == 1

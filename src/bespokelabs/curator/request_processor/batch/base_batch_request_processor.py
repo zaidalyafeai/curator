@@ -538,7 +538,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             await self.update_batch_objects_file()
 
             # update progress bar
-            self.request_pbar.update(self.tracker.n_finished_or_downloaded_requests)
+            self.request_pbar.n = self.tracker.n_finished_or_downloaded_requests
             self.request_pbar.refresh()
 
             download_tasks = [self.download_batch_to_response_file(batch) for batch in self.tracker.finished_batches.values()]

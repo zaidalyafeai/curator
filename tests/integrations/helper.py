@@ -72,7 +72,14 @@ def parse_func(row, response):
 
 
 def create_basic(
-    temp_working_dir, mock_dataset, llm_params: t.Optional[t.Dict] = None, batch: bool = False, backend: str = "openai", mocking=None, batch_cancel=False
+    temp_working_dir,
+    mock_dataset,
+    llm_params: t.Optional[t.Dict] = None,
+    batch: bool = False,
+    backend: str = "openai",
+    mocking=None,
+    batch_cancel=False,
+    return_prompter=False,
 ):
     llm_params = llm_params or {}
     prompter = curator.LLM(
@@ -89,6 +96,8 @@ def create_basic(
     if batch:
         prompter._hash_fingerprint = lambda x: "testing_hash_123"
     dataset = prompter(mock_dataset, working_dir=temp_working_dir, batch_cancel=batch_cancel)
+    if return_prompter:
+        return dataset, prompter
     return dataset
 
 
