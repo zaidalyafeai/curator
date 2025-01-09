@@ -237,9 +237,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
                     response_model=request.prompt_formatter.response_format,
                     timeout=self.config.request_timeout,
                 )
-                response_message = (
-                    response.model_dump() if hasattr(response, "model_dump") else response
-                )
+                response_message = response.model_dump() if hasattr(response, "model_dump") else response
                 response_message = response.model_dump() if hasattr(response, "model_dump") else response
             else:
                 completion_obj = await litellm.acompletion(**request.api_specific_request, timeout=self.config.request_timeout)

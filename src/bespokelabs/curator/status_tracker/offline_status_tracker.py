@@ -3,9 +3,13 @@ import logging
 import platform
 from dataclasses import dataclass, field
 
-import torch
 
 logger = logging.getLogger(__name__)
+
+try:
+    import torch
+except ImportError:
+    pass
 
 
 @dataclass

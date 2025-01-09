@@ -19,7 +19,7 @@ class OnlineStatusTracker:
     num_api_errors: int = 0
     num_other_errors: int = 0
     num_rate_limit_errors: int = 0
-    available_request_capacity: float = 0
+    available_request_capacity: float = 1.0
     available_token_capacity: float = 0
     last_update_time: float = field(default_factory=time.time)
     max_requests_per_minute: int = 0

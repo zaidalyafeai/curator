@@ -450,8 +450,6 @@ interactions:
       - Wed, 08 Jan 2025 11:27:20 GMT
       Server:
       - cloudflare
-      Transfer-Encoding:
-      - chunked
       X-Content-Type-Options:
       - nosniff
       alt-svc:
@@ -546,8 +544,6 @@ interactions:
       - Wed, 08 Jan 2025 11:27:20 GMT
       Server:
       - cloudflare
-      Transfer-Encoding:
-      - chunked
       X-Content-Type-Options:
       - nosniff
       alt-svc:
@@ -1107,6 +1103,364 @@ interactions:
       - Origin
       x-request-id:
       - req_ddaa880b5f361e5458e37acbcdd2aa9b
+    status:
+      code: 401
+      message: Unauthorized
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer sk-mocked-**
+      Cookie:
+      - __cf_bm=TMA..2UjzP9mrFTbr2xJO8GJpaSKCCj1H582rq4aARQ-1736341940-1.0.1.1-wn8cHCzqtRebhjjp6aS5qjPlmVkVOR4x8elDHZjrDvAs8MJrwBqYb84X4wHz0onSxMQVl1H3fby0Jh.vHoOl1g;
+        _cfuvid=F.ianikH_ZJfYhU1RBzQ8PFFApMtFnVa3OrC4s1mJEg-1736341940749-0.0.1.1-604800000
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n    \"error\": {\n        \"message\": \"Incorrect API key provided:
+        sk-mocked-**. You can find your API key at https://platform.openai.com/account/api-keys.\",\n
+        \       \"type\": \"invalid_request_error\",\n        \"param\": null,\n        \"code\":
+        \"invalid_api_key\"\n    }\n}\n"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8ff24d14be6780c4-BOM
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '262'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 09 Jan 2025 06:16:53 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=RGCx86ewaHgKLyUZk6p4dl0h15KIgoyMlvqPFqNOj6E-1736403413-1.0.1.1-ehuuq6GNC9a2V.0YspELBJleLtin7B0T_xG23Qp1vuBtVtGYkJPpQVBwuIIK8LG.jedDzQd3H72H076p6IfRzQ;
+        path=/; expires=Thu, 09-Jan-25 06:46:53 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=IWRwNAjG7fiPmJuxdHkuQjWqsycqeOboII4A3RvZnds-1736403413504-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Vary:
+      - Origin
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-request-id:
+      - req_1458e65032d58b35a6e92b415bd98845
+    status:
+      code: 401
+      message: Unauthorized
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer sk-mocked-**
+      Cookie:
+      - __cf_bm=RGCx86ewaHgKLyUZk6p4dl0h15KIgoyMlvqPFqNOj6E-1736403413-1.0.1.1-ehuuq6GNC9a2V.0YspELBJleLtin7B0T_xG23Qp1vuBtVtGYkJPpQVBwuIIK8LG.jedDzQd3H72H076p6IfRzQ;
+        _cfuvid=IWRwNAjG7fiPmJuxdHkuQjWqsycqeOboII4A3RvZnds-1736403413504-0.0.1.1-604800000
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n    \"error\": {\n        \"message\": \"Incorrect API key provided:
+        sk-mocked-**. You can find your API key at https://platform.openai.com/account/api-keys.\",\n
+        \       \"type\": \"invalid_request_error\",\n        \"param\": null,\n        \"code\":
+        \"invalid_api_key\"\n    }\n}\n"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8ff24d195aa880c4-BOM
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '262'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 09 Jan 2025 06:16:54 GMT
+      Server:
+      - cloudflare
+      Vary:
+      - Origin
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-request-id:
+      - req_0895af7d21846daa22eb134cede79b73
+    status:
+      code: 401
+      message: Unauthorized
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer sk-mocked-**
+      Cookie:
+      - __cf_bm=RGCx86ewaHgKLyUZk6p4dl0h15KIgoyMlvqPFqNOj6E-1736403413-1.0.1.1-ehuuq6GNC9a2V.0YspELBJleLtin7B0T_xG23Qp1vuBtVtGYkJPpQVBwuIIK8LG.jedDzQd3H72H076p6IfRzQ;
+        _cfuvid=IWRwNAjG7fiPmJuxdHkuQjWqsycqeOboII4A3RvZnds-1736403413504-0.0.1.1-604800000
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n    \"error\": {\n        \"message\": \"Incorrect API key provided:
+        sk-mocked-**. You can find your API key at https://platform.openai.com/account/api-keys.\",\n
+        \       \"type\": \"invalid_request_error\",\n        \"param\": null,\n        \"code\":
+        \"invalid_api_key\"\n    }\n}\n"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8ff24d1e1f6480c4-BOM
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '262'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 09 Jan 2025 06:16:54 GMT
+      Server:
+      - cloudflare
+      Vary:
+      - Origin
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-request-id:
+      - req_85422df47ef71c7da214303131ded8bb
+    status:
+      code: 401
+      message: Unauthorized
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer sk-mocked-**
+      Cookie:
+      - __cf_bm=RGCx86ewaHgKLyUZk6p4dl0h15KIgoyMlvqPFqNOj6E-1736403413-1.0.1.1-ehuuq6GNC9a2V.0YspELBJleLtin7B0T_xG23Qp1vuBtVtGYkJPpQVBwuIIK8LG.jedDzQd3H72H076p6IfRzQ;
+        _cfuvid=IWRwNAjG7fiPmJuxdHkuQjWqsycqeOboII4A3RvZnds-1736403413504-0.0.1.1-604800000
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n    \"error\": {\n        \"message\": \"Incorrect API key provided:
+        sk-mocked-**. You can find your API key at https://platform.openai.com/account/api-keys.\",\n
+        \       \"type\": \"invalid_request_error\",\n        \"param\": null,\n        \"code\":
+        \"invalid_api_key\"\n    }\n}\n"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8ff24d226c0080c4-BOM
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '262'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 09 Jan 2025 06:16:55 GMT
+      Server:
+      - cloudflare
+      Vary:
+      - Origin
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-request-id:
+      - req_bf8887b0bfe0f2f0d8e0049a445e4f3e
+    status:
+      code: 401
+      message: Unauthorized
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer sk-mocked-**
+      Cookie:
+      - __cf_bm=RGCx86ewaHgKLyUZk6p4dl0h15KIgoyMlvqPFqNOj6E-1736403413-1.0.1.1-ehuuq6GNC9a2V.0YspELBJleLtin7B0T_xG23Qp1vuBtVtGYkJPpQVBwuIIK8LG.jedDzQd3H72H076p6IfRzQ;
+        _cfuvid=IWRwNAjG7fiPmJuxdHkuQjWqsycqeOboII4A3RvZnds-1736403413504-0.0.1.1-604800000
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n    \"error\": {\n        \"message\": \"Incorrect API key provided:
+        sk-mocked-**. You can find your API key at https://platform.openai.com/account/api-keys.\",\n
+        \       \"type\": \"invalid_request_error\",\n        \"param\": null,\n        \"code\":
+        \"invalid_api_key\"\n    }\n}\n"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8ff24d26e94a80c4-BOM
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '262'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 09 Jan 2025 06:16:56 GMT
+      Server:
+      - cloudflare
+      Vary:
+      - Origin
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-request-id:
+      - req_ba93f52e17ea43c6f3776ad680119658
+    status:
+      code: 401
+      message: Unauthorized
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer sk-mocked-**
+      Cookie:
+      - __cf_bm=RGCx86ewaHgKLyUZk6p4dl0h15KIgoyMlvqPFqNOj6E-1736403413-1.0.1.1-ehuuq6GNC9a2V.0YspELBJleLtin7B0T_xG23Qp1vuBtVtGYkJPpQVBwuIIK8LG.jedDzQd3H72H076p6IfRzQ;
+        _cfuvid=IWRwNAjG7fiPmJuxdHkuQjWqsycqeOboII4A3RvZnds-1736403413504-0.0.1.1-604800000
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n    \"error\": {\n        \"message\": \"Incorrect API key provided:
+        sk-mocked-**. You can find your API key at https://platform.openai.com/account/api-keys.\",\n
+        \       \"type\": \"invalid_request_error\",\n        \"param\": null,\n        \"code\":
+        \"invalid_api_key\"\n    }\n}\n"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8ff24fb4e8053c8e-BOM
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '262'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 09 Jan 2025 06:18:41 GMT
+      Server:
+      - cloudflare
+      Vary:
+      - Origin
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-request-id:
+      - req_88861a378b8b1750e2bf2e3333e8e582
+    status:
+      code: 401
+      message: Unauthorized
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer sk-mocked-**
+      Cookie:
+      - __cf_bm=RGCx86ewaHgKLyUZk6p4dl0h15KIgoyMlvqPFqNOj6E-1736403413-1.0.1.1-ehuuq6GNC9a2V.0YspELBJleLtin7B0T_xG23Qp1vuBtVtGYkJPpQVBwuIIK8LG.jedDzQd3H72H076p6IfRzQ;
+        _cfuvid=IWRwNAjG7fiPmJuxdHkuQjWqsycqeOboII4A3RvZnds-1736403413504-0.0.1.1-604800000
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n    \"error\": {\n        \"message\": \"Incorrect API key provided:
+        sk-mocked-**. You can find your API key at https://platform.openai.com/account/api-keys.\",\n
+        \       \"type\": \"invalid_request_error\",\n        \"param\": null,\n        \"code\":
+        \"invalid_api_key\"\n    }\n}\n"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8ff24fb92c653c8e-BOM
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '262'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 09 Jan 2025 06:18:41 GMT
+      Server:
+      - cloudflare
+      Vary:
+      - Origin
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-request-id:
+      - req_8d50324c20cf9d6d1e23f9f100e7b839
+    status:
+      code: 401
+      message: Unauthorized
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer sk-mocked-**
+      Cookie:
+      - __cf_bm=RGCx86ewaHgKLyUZk6p4dl0h15KIgoyMlvqPFqNOj6E-1736403413-1.0.1.1-ehuuq6GNC9a2V.0YspELBJleLtin7B0T_xG23Qp1vuBtVtGYkJPpQVBwuIIK8LG.jedDzQd3H72H076p6IfRzQ;
+        _cfuvid=IWRwNAjG7fiPmJuxdHkuQjWqsycqeOboII4A3RvZnds-1736403413504-0.0.1.1-604800000
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n    \"error\": {\n        \"message\": \"Incorrect API key provided:
+        sk-mocked-**. You can find your API key at https://platform.openai.com/account/api-keys.\",\n
+        \       \"type\": \"invalid_request_error\",\n        \"param\": null,\n        \"code\":
+        \"invalid_api_key\"\n    }\n}\n"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8ff24fbd88b23c8e-BOM
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '262'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 09 Jan 2025 06:18:42 GMT
+      Server:
+      - cloudflare
+      Vary:
+      - Origin
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-request-id:
+      - req_8eea6d5f056e439c689dcd478c7c0b90
     status:
       code: 401
       message: Unauthorized
