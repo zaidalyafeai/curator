@@ -1,6 +1,6 @@
 import typing as t
-from pydantic import BaseModel, Field
 
+from pydantic import BaseModel, Field
 
 from bespokelabs import curator
 
@@ -27,17 +27,14 @@ class QAs(BaseModel):
 def create_camel(temp_working_dir, batch=False):
     subject_prompter = curator.LLM(
         prompt_func=lambda: "Generate a diverse list of 3 subjects. Keep it high-level (e.g. Math, Science).",
-        parse_func=lambda _, subjects: [subject for subject in subjects.subjects],
+        parse_func=lambda _, subjects: list(subjects.subjects),  # [subject for subject in subjects.subjects],
         model_name="gpt-4o-mini",
         response_format=Subjects,
         batch_check_interval=batch_check_interval,
     )
     subsubject_prompter = curator.LLM(
         prompt_func=lambda subject: f"For the given subject {subject}. Generate 3 diverse subsubjects. No explanation.",
-        parse_func=lambda subject, subsubjects: [
-            {"subject": subject["subject"], "subsubject": subsubject.subject}
-            for subsubject in subsubjects.subjects
-        ],
+        parse_func=lambda subject, subsubjects: [{"subject": subject["subject"], "subsubject": subsubject.subject} for subsubject in subsubjects.subjects],
         model_name="gpt-4o-mini",
         response_format=Subjects,
         batch_check_interval=batch_check_interval,
@@ -75,13 +72,15 @@ def parse_func(row, response):
     return {"instruction": instruction, "new_response": response}
 
 
-def create_basic(temp_working_dir, mock_dataset, batch=False, llm_params={}):
+def create_basic(temp_working_dir, mock_dataset, llm_params: t.Optional[t.Dict] = None, batch: bool = False):
+    llm_params = llm_params or {}
     prompter = curator.LLM(
         prompt_func=prompt_func,
         parse_func=parse_func,
         model_name="gpt-3.5-turbo",
         backend="openai",
         batch_check_interval=batch_check_interval,
+        batch=batch,
         **llm_params,
     )
     distilled_dataset = prompter(mock_dataset, working_dir=temp_working_dir)

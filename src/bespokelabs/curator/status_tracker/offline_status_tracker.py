@@ -3,7 +3,6 @@ import logging
 import platform
 from dataclasses import dataclass, field
 
-
 logger = logging.getLogger(__name__)
 
 try:

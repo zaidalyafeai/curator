@@ -1,7 +1,8 @@
-from datasets import Dataset
 import os
-import pytest
 import shutil
+
+import pytest
+from datasets import Dataset
 
 _KEY_MAP = {"openai": "OPENAI_API_KEY"}
 
@@ -22,9 +23,31 @@ def temp_working_dir(request):
 
 @pytest.fixture
 def mock_dataset():
-    dataset = Dataset.from_parquet(f"tests/integrations/common_fixtures/dataset.parquet")
+    dataset = Dataset.from_parquet("tests/integrations/common_fixtures/dataset.parquet")
     try:
         yield dataset
     finally:
         # TODO: cleanup?
         pass
+
+
+@pytest.fixture
+def basic_gt_dataset():
+    dataset = Dataset.from_parquet("tests/integrations/common_fixtures/basic_gt_dataset.parquet")
+    try:
+        yield dataset
+    finally:
+        # TODO: cleanup?
+        pass
+
+
+@pytest.fixture
+def camel_gt_dataset():
+    dataset = Dataset.from_parquet("tests/integrations/common_fixtures/camel_gt_dataset.parquet")
+    yield dataset
+
+
+@pytest.fixture
+def batch_gt_dataset():
+    dataset = Dataset.from_parquet("tests/integrations/common_fixtures/basic_batch_gt_dataset.parquet")
+    yield dataset

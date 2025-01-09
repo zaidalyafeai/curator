@@ -21,6 +21,12 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Set Locale
+        run: |
+          sudo locale-gen "en_US.UTF-8"
+          export LC_ALL=en_US.UTF-8
+          export LANG=en_US.UTF-8
+
       - name: Install dependencies
         run: |
           pip install poetry
@@ -33,4 +39,4 @@ jobs:
 
       - name: Run integrations tests
         run: |
-          pytest tests/integrations/
+          poetry run pytest tests/integrations/
