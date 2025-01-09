@@ -1,22 +1,20 @@
 import datetime
 import logging
 import os
-import re
+import time
 from typing import TypeVar
 
 import aiohttp
+import litellm
 import requests
 import tiktoken
-import litellm
-import time
 
-from bespokelabs.curator.request_processor import APIRequest
-from bespokelabs.curator.request_processor import BaseOnlineRequestProcessor
+from bespokelabs.curator.request_processor import APIRequest, BaseOnlineRequestProcessor
+from bespokelabs.curator.request_processor.config import OnlineRequestProcessorConfig
+from bespokelabs.curator.request_processor.openai_request_mixin import OpenAIRequestMixin
 from bespokelabs.curator.status_tracker import OnlineStatusTracker
 from bespokelabs.curator.types.generic_request import GenericRequest
-from bespokelabs.curator.types.generic_response import TokenUsage, GenericResponse
-from bespokelabs.curator.request_processor.openai_request_mixin import OpenAIRequestMixin
-from bespokelabs.curator.request_processor.config import OnlineRequestProcessorConfig
+from bespokelabs.curator.types.generic_response import GenericResponse, TokenUsage
 
 T = TypeVar("T")
 logger = logger = logging.getLogger(__name__)
@@ -36,6 +34,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
     """
 
     def __init__(self, config: OnlineRequestProcessorConfig):
+        """Initialize the OpenAIOnlineRequestProcessor."""
         super().__init__(config)
         if self.config.base_url is None:
             self.url = "https://api.openai.com/v1/chat/completions"
@@ -43,9 +42,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
             self.url = self.config.base_url + "/chat/completions"
         self.api_key = os.getenv("OPENAI_API_KEY")
         self.token_encoding = self.get_token_encoding()
-        self.header_based_max_requests_per_minute, self.header_based_max_tokens_per_minute = (
-            self.get_header_based_rate_limits()
-        )
+        self.header_based_max_requests_per_minute, self.header_based_max_tokens_per_minute = self.get_header_based_rate_limits()
 
     def get_header_based_rate_limits(self) -> tuple[int, int]:
         """Get rate limits from OpenAI API headers.
@@ -57,9 +54,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
             - Makes a dummy request to get actual rate limits
         """
         if not self.api_key:
-            raise ValueError(
-                "Missing OpenAI API Key - Please set OPENAI_API_KEY in your environment vars"
-            )
+            raise ValueError("Missing OpenAI API Key - Please set OPENAI_API_KEY in your environment vars")
 
         response = requests.post(
             self.url,
@@ -107,11 +102,9 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
             num_tokens += 4  # every message follows <im_start>{role/name}\n{content}<im_end>\n
             for key, value in message.items():
                 try:
-                    num_tokens += len(self.token_encoding.encode(str(value)))
+                    num_tokens += len(self.token_encoding.encode(str(value), disallowed_special=()))
                 except TypeError:
-                    logger.warning(
-                        f"Failed to encode value {value} with tiktoken. Assuming 1 token per 4 chars."
-                    )
+                    logger.warning(f"Failed to encode value {value} with tiktoken. Assuming 1 token per 4 chars.")
                     num_tokens += len(str(value)) // 4
                 if key == "name":  # if there's a name, the role is omitted
                     num_tokens -= 1  # role is always required and always 1 token
@@ -150,9 +143,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
                 return True
         if "o1-" in model_name:
             base_date = datetime.datetime.strptime(model_name.split("o1-")[1], "%Y-%m-%d")
-            if base_date >= datetime.datetime(
-                2024, 12, 17
-            ):  # Support o1 dated versions from 2024-12-17
+            if base_date >= datetime.datetime(2024, 12, 17):  # Support o1 dated versions from 2024-12-17
                 return True
 
         return False

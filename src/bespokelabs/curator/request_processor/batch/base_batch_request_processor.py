@@ -1,50 +1,78 @@
-import datetime
+import asyncio
 import json
 import logging
 import os
-import asyncio
-
-from typing import Optional
-from tqdm import tqdm
 from abc import abstractmethod
+from typing import Optional
 
-from bespokelabs.curator.dataset import Dataset
+from tqdm import tqdm
+
 from bespokelabs.curator.request_processor.base_request_processor import BaseRequestProcessor
-from bespokelabs.curator.types.generic_batch import GenericBatch, GenericBatchStatus
-from bespokelabs.curator.types.generic_batch import GenericBatchRequestCounts
+from bespokelabs.curator.request_processor.config import BatchRequestProcessorConfig
+from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
+from bespokelabs.curator.status_tracker.batch_status_tracker import BatchStatusTracker
+from bespokelabs.curator.types.generic_batch import GenericBatch, GenericBatchRequestCounts, GenericBatchStatus
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
-from bespokelabs.curator.status_tracker.batch_status_tracker import BatchStatusTracker
-from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
-from bespokelabs.curator.request_processor.config import BatchRequestProcessorConfig
-
 
 logger = logging.getLogger(__name__)
 
 
 class BaseBatchRequestProcessor(BaseRequestProcessor):
+    """Abstract base class for processing batched API requests.
+
+    This class provides the core functionality for submitting, tracking, and managing
+    batch requests across different LLM API providers. It handles file operations,
+    request tracking, batch status management, and response processing.
+
+    The batch processing workflow:
+    1. Load or initialize batch status tracker
+    2. Submit requests in batches to API
+    3. Monitor batch processing status
+    4. Download and process completed batches
+    5. Handle failures and retries
+
+    Attributes:
+        working_dir (str): Directory for storing batch-related files.
+        prompt_formatter (PromptFormatter): Formatter for structuring prompts.
+        tracker (BatchStatusTracker): Tracks status of submitted batches.
+        batch_objects_file (str): Path to file storing batch objects.
+        batch_submit_pbar (tqdm | None): Progress bar for batch submission.
+        semaphore (asyncio.Semaphore): Controls concurrent batch operations.
+
+    Note:
+        Subclasses must implement abstract methods to provide API-specific
+        functionality while maintaining consistent batch processing behavior.
+    """
+
     def __init__(self, config: BatchRequestProcessorConfig):
+        """Initialize the batch request processor.
+
+        Args:
+            config: Configuration object containing batch processing parameters.
+        """
         super().__init__(config)
 
     def requests_to_responses(self, generic_request_files: list[str]) -> None:
-        """
-        Processes a list of request files using a batch API.
+        """Process multiple request files using batch API operations.
 
-        This function orchestrates the complete batch processing workflow:
-        1. Validates batch size configuration
-        2. Initializes processing resources (semaphore, file locks, progress bars)
-        3. Submits requests as batches
-        4. Polls and processes batch results
+        Orchestrates the complete batch processing workflow:
+        1. Validates batch size limits
+        2. Initializes concurrent operation controls
+        3. Submits requests in batches
+        4. Monitors and processes batch results
 
         Args:
-            generic_request_files (list[str]): List of paths to files containing generic requests in JSONL format.
-
-        Returns:
-            None
+            generic_request_files: List of paths to files containing requests.
 
         Raises:
-            ValueError: If batch_size exceeds the maximum allowed requests per batch
-            RuntimeError: If batch processing fails or no successful responses are received
+            ValueError: If batch size exceeds API limits.
+            RuntimeError: If batch processing fails or no successful responses.
+
+        Side Effects:
+            - Creates batch tracking files in working directory
+            - Updates progress bars for batch submission and processing
+            - Generates response files for completed batches
         """
         if self.config.batch_size > self.max_requests_per_batch:
             raise ValueError(
@@ -60,53 +88,116 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         self.request_pbar: tqdm | None = None
 
         run_in_event_loop(self.submit_batches_from_request_files(generic_request_files))
-        logger.info(
-            f"Submitted batches. These can be viewed in the web dashboard: {self.web_dashboard}"
-        )
+        logger.info(f"Submitted batches. These can be viewed in the web dashboard: {self.web_dashboard}")
         run_in_event_loop(self.poll_and_process_batches())
-
-    def cancel_batches(self) -> Dataset:
-        run_in_event_loop(self.cancel_batches())
-        logger.warning("Exiting program after batch cancellation.")
-        os._exit(1)
 
     @property
     @abstractmethod
     def max_requests_per_batch(self) -> int:
-        """Maximum number of requests allowed in a single batch."""
+        """Maximum number of requests allowed in a single batch.
+
+        This property must be implemented by subclasses to specify their
+        API-specific batch size limits.
+
+        Returns:
+            int: Maximum number of requests that can be included in one batch.
+
+        Note:
+            This limit is enforced during batch creation to prevent API errors.
+        """
         pass
 
     @property
     @abstractmethod
     def max_bytes_per_batch(self) -> int:
-        """Maximum size in bytes allowed for a single batch."""
+        """Maximum size in bytes allowed for a single batch.
+
+        This property must be implemented by subclasses to specify their
+        API-specific batch size limits in bytes.
+
+        Returns:
+            int: Maximum allowed size of a batch in bytes.
+
+        Note:
+            This limit is enforced during batch file creation to prevent API errors.
+        """
         pass
 
     @property
     @abstractmethod
     def max_concurrent_batch_operations(self) -> int:
-        """Maximum number of concurrent batch operations allowed."""
+        """Maximum number of concurrent batch operations allowed.
+
+        This property must be implemented by subclasses to specify their
+        API-specific concurrency limits for batch operations.
+
+        Returns:
+            int: Maximum number of batch operations that can run concurrently.
+
+        Note:
+            This limit is enforced via semaphore during batch operations.
+        """
         pass
 
     @abstractmethod
-    async def submit_batch(
-        self, requests: list[dict], metadata: Optional[dict] = None
-    ) -> GenericBatch:
-        """Needs to use self.semaphore. Used in submit_batch_from_request_file --> submit_batches_from_request_files"""
+    async def submit_batch(self, requests: list[dict], metadata: Optional[dict] = None) -> GenericBatch:
+        """Submit a batch of requests to the API provider.
+
+        Args:
+            requests: List of API-specific request dictionaries.
+            metadata: Optional metadata to associate with the batch.
+
+        Returns:
+            GenericBatch: Standardized batch object with submission details.
+
+        Note:
+            Implementation must use self.semaphore for concurrency control.
+        """
         pass
 
     @abstractmethod
     async def retrieve_batch(self, batch: GenericBatch) -> GenericBatch:
-        """Needs to use self.semaphore. Used in track_already_submitted_batches --> submit_batches_from_request_files"""
+        """Retrieve current status of a submitted batch.
+
+        Args:
+            batch: The batch object to check status for.
+
+        Returns:
+            GenericBatch: Updated batch object with current status.
+
+        Note:
+            Implementation must use self.semaphore for concurrency control.
+        """
         pass
 
     @abstractmethod
     async def cancel_batch(self, batch: GenericBatch) -> GenericBatch:
-        """Needs to use self.semaphore. Used in cancel_batches."""
+        """Cancel a running batch job.
+
+        Args:
+            batch: The batch object to cancel.
+
+        Returns:
+            GenericBatch: Updated batch object after cancellation attempt.
+
+        Note:
+            Implementation must use self.semaphore for concurrency control.
+        """
         pass
 
     @abstractmethod
     async def download_batch(self, batch: GenericBatch) -> str | None:
+        """Download results of a completed batch.
+
+        Args:
+            batch: The completed batch object to download.
+
+        Returns:
+            str | None: Raw response content if successful, None if failed.
+
+        Note:
+            Implementation should handle API-specific result formats.
+        """
         pass
 
     @abstractmethod
@@ -116,27 +207,72 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         generic_request: GenericRequest,
         batch: GenericBatch,
     ) -> GenericResponse:
-        """Used in generic_response_file_from_responses --> download_batch_to_response_file --> poll_and_process_batches"""
+        """Parse API-specific response into standardized format.
+
+        Args:
+            raw_response: Raw response dictionary from API.
+            generic_request: Original generic request object.
+            batch: Batch object containing context information.
+
+        Returns:
+            GenericResponse: Standardized response object.
+
+        Note:
+            Should handle both successful and failed responses.
+        """
         pass
 
     @abstractmethod
     def create_api_specific_request_batch(self, generic_request: GenericRequest) -> dict:
-        """Used in requests_from_generic_request_file --> submit_batch_from_request_file --> submit_batches_from_request_files"""
+        """Convert generic request to API-specific format.
+
+        Args:
+            generic_request: Standardized request object.
+
+        Returns:
+            dict: API-specific request dictionary.
+
+        Note:
+            Must format request according to API provider requirements.
+        """
         pass
 
     @abstractmethod
-    def parse_api_specific_batch_object(
-        self, batch: object, request_file: str | None = None
-    ) -> GenericBatch:
+    def parse_api_specific_batch_object(self, batch: object, request_file: str | None = None) -> GenericBatch:
+        """Convert API-specific batch object to generic format.
+
+        Args:
+            batch: API-specific batch object.
+            request_file: Optional path to associated request file.
+
+        Returns:
+            GenericBatch: Standardized batch object.
+        """
         pass
 
     @abstractmethod
-    def parse_api_specific_request_counts(
-        self, request_counts: object
-    ) -> GenericBatchRequestCounts:
+    def parse_api_specific_request_counts(self, request_counts: object) -> GenericBatchRequestCounts:
+        """Convert API-specific request counts to generic format.
+
+        Args:
+            request_counts: API-specific request count object.
+
+        Returns:
+            GenericBatchRequestCounts: Standardized request count object.
+        """
         pass
 
     def _attempt_loading_batch_status_tracker(self, request_files: set[str]):
+        """Load existing batch status tracker or create new one.
+
+        Args:
+            request_files: Set of paths to request files to track.
+
+        Side Effects:
+            - Loads tracker from batch_objects_file if it exists
+            - Creates new tracker if file doesn't exist
+            - Sets self.tracker with loaded/created tracker
+        """
         if os.path.exists(self.batch_objects_file):
             with open(self.batch_objects_file, "r") as f:
                 self.tracker = BatchStatusTracker.model_validate_json(f.read())
@@ -145,23 +281,33 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             self.tracker = BatchStatusTracker(unsubmitted_request_files=set(request_files))
 
     async def update_batch_objects_file(self):
-        """Updates the batch objects file with the current tracker state."""
+        """Update batch objects file with current tracker state.
+
+        Side Effects:
+            - Writes current tracker state to batch_objects_file
+            - Uses file lock to prevent concurrent writes
+        """
         async with self._batch_objects_file_lock:
             with open(self.batch_objects_file, "w") as f:
                 f.write(self.tracker.model_dump_json())
 
     def create_batch_file(self, api_specific_requests: list[dict]) -> str:
-        """
-        Creates a batch file from a list of API-specific requests.
+        """Create a batch file from API-specific requests.
+
+        Validates request count and file size against API limits before creating
+        the batch file content.
 
         Args:
-            api_specific_requests (list[dict]): List of API-specific request bodies
+            api_specific_requests: List of API-specific request dictionaries.
 
         Returns:
-            str: The encoded file content ready for upload
+            str: Encoded file content ready for API upload.
 
         Raises:
-            ValueError: If the batch file contains more requests than OpenAI supports
+            ValueError: If batch exceeds request count or size limits.
+
+        Side Effects:
+            - Logs debug information about batch file size
         """
         n_requests = len(api_specific_requests)
         if n_requests > self.max_requests_per_batch:
@@ -174,9 +320,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         # Join requests with newlines and encode to bytes for upload
         file_content = "\n".join(json.dumps(r) for r in api_specific_requests).encode()
         file_content_size = len(file_content)
-        logger.debug(
-            f"Batch file content size: {file_content_size / (1024*1024):.2f} MB ({file_content_size:,} bytes)"
-        )
+        logger.debug(f"Batch file content size: {file_content_size / (1024*1024):.2f} MB ({file_content_size:,} bytes)")
         if file_content_size > self.max_bytes_per_batch:
             raise ValueError(
                 f"Batch file content size {file_content_size:,} bytes "
@@ -190,15 +334,19 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         request_file: str,
         completed_request_ids: set[int],
     ):
-        """
-        Submits a batch from a request file.
+        """Submit a batch of requests from a file.
+
+        Reads requests from file, converts them to API-specific format,
+        and submits them as a batch.
 
         Args:
-            request_file (str): Path to the file containing requests
+            request_file: Path to file containing request data.
 
         Side Effects:
             - Updates batch submission progress bar
             - Updates tracker with submitted batch status
+            - Creates batch metadata with request file path
+            - Updates batch objects file
         """
         metadata = {"request_file": request_file}
         requests = self.requests_from_generic_request_file(request_file, completed_request_ids)
@@ -217,7 +365,10 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             request_file (str): Path to the file containing generic requests in JSONL format.
             completed_request_ids (set[int]): Set of request IDs that already have responses, these will be skipped
         Returns:
-            list[dict]: List of API-specific request bodies ready for batch submission.
+            list[dict]: API-specific request bodies ready for submission.
+
+        Side Effects:
+            - Reads from request file on disk
         """
         api_specific_requests = []
 
@@ -231,28 +382,31 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
 
         return api_specific_requests
 
-    def generic_response_file_from_responses(
-        self, responses: list[dict], batch: GenericBatch
-    ) -> str | None:
-        """Processes API-specific responses and creates a generic response file.
+    def generic_response_file_from_responses(self, responses: list[dict], batch: GenericBatch) -> str | None:
+        """Process API responses and create generic response file.
 
-        Takes raw API responses from a batch request and converts them into GenericResponse objects,
-        writing them to a response file. Handles both successful and failed responses.
+        Converts API-specific responses to GenericResponse objects and writes them
+        to a response file. Handles successful and failed responses, including
+        token usage tracking and cost calculation.
 
         Args:
-            responses (list[dict]): List of API-specific response dictionaries.
-            batch (GenericBatch): The batch object containing metadata about the request batch.
+            responses: List of raw API response dictionaries.
+            batch: Batch object containing request metadata.
 
         Returns:
-            str | None: Path to the created response file, or None if creation failed.
+            str | None: Path to created response file, or None if creation failed.
 
-        Note:
-            The response file will contain one GenericResponse per line in JSONL format.
-            The response file path is derived from the batch's request file path by replacing
-            'requests_' with 'responses_' in the filename.
+        Side Effects:
+            - Creates response file from request file name
+            - Writes GenericResponse objects in JSONL format
+            - Calculates costs with batch discount
+            - Handles failed requests with error details
         """
         request_file = batch.request_file
-        response_file = request_file.replace("requests_", "responses_")
+        request_dir = os.path.dirname(request_file)
+        request_filename = os.path.basename(request_file)
+        response_filename = request_filename.replace("requests_", "responses_")
+        response_file = os.path.join(request_dir, response_filename)
         generic_request_map = {}
         with open(request_file, "r") as f:
             for line in f:
@@ -264,9 +418,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             for raw_response in responses:
                 request_idx = int(raw_response["custom_id"])
                 generic_request = generic_request_map[request_idx]
-                generic_response = self.parse_api_specific_response(
-                    raw_response, generic_request, batch
-                )
+                generic_response = self.parse_api_specific_response(raw_response, generic_request, batch)
                 json.dump(generic_response.model_dump(), f, default=str)
                 f.write("\n")
 
@@ -274,15 +426,20 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         self,
         request_files: set[str],
     ):
-        """
-        Manages the submission of multiple request files as batches.
+        """Submit multiple request files as batches to API.
+
+        Manages the complete batch submission workflow including tracking,
+        progress monitoring, and concurrent submission of multiple files.
 
         Args:
-            request_files (set[str]): Set of paths to request files to process
+            request_files: Set of paths to request files to process.
 
         Side Effects:
+            - Loads or creates batch status tracker
             - Updates tracker with batch statuses
             - Creates and updates batch submission progress bar
+            - Submits batches concurrently using asyncio
+            - Updates batch objects file
         """
         self._attempt_loading_batch_status_tracker(request_files)
 
@@ -327,18 +484,22 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         assert self.tracker.unsubmitted_request_files == set()
 
     async def check_batch_status(self, batch: GenericBatch) -> GenericBatch | None:
-        """
-        Checks the current status of a batch job.
+        """Check current status of a batch job.
+
+        Retrieves current batch status from API and updates tracking information.
+        Handles batch completion detection and request count updates.
 
         Args:
-            batch_id (str): The ID of the batch to check
+            batch: The batch object to check status for.
 
         Returns:
-            Batch | None: The batch object if found, None if not found
+            GenericBatch | None: Updated batch object if found, None if not found.
 
         Side Effects:
             - Updates tracker with current batch status
             - Updates request completion counts
+            - Logs batch status and request counts
+            - Marks completed batches as finished
         """
         async with self.semaphore:
             batch = await self.retrieve_batch(batch)
@@ -360,22 +521,24 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
                     self.tracker.mark_as_finished(batch)
 
     async def poll_and_process_batches(self) -> None:
-        """Monitors and processes batches until all are completed.
+        """Monitor and process batches until completion.
 
-        Continuously polls the status of submitted batches and downloads their results
-        when complete. Handles successful completions, failures, expirations, and
-        cancellations. Progress is tracked via a progress bar showing completed requests.
+        Continuously polls batch status and downloads results when complete.
+        Manages batch lifecycle including status checks, downloads, and error handling.
 
         Returns:
             None
 
         Raises:
-            RuntimeError: If none of the submitted batches complete successfully.
+            RuntimeError: If no batches complete successfully.
 
         Side Effects:
-            - Updates the batch tracker state
+            - Creates and updates request progress bar
+            - Updates batch tracker state
+            - Downloads and processes completed batches
             - Creates response files for completed batches
-            - Creates and updates requests progress bar
+            - Logs progress and status information
+            - Sleeps between status checks
         """
         # progress bar for finished requests
         self.request_pbar = tqdm(
@@ -389,9 +552,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         all_response_files = []
         while self.tracker.n_submitted_batches + self.tracker.n_finished_batches > 0:
             # check batch status also updates the tracker
-            status_tasks = [
-                self.check_batch_status(batch) for batch in self.tracker.submitted_batches.values()
-            ]
+            status_tasks = [self.check_batch_status(batch) for batch in self.tracker.submitted_batches.values()]
             await asyncio.gather(*status_tasks)
             await self.update_batch_objects_file()
 
@@ -399,10 +560,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             self.request_pbar.n = self.tracker.n_finished_or_downloaded_succeeded_requests
             self.request_pbar.refresh()
 
-            download_tasks = [
-                self.download_batch_to_response_file(batch)
-                for batch in self.tracker.finished_batches.values()
-            ]
+            download_tasks = [self.download_batch_to_response_file(batch) for batch in self.tracker.finished_batches.values()]
             # Failed downloads return None and print any errors that occurred
             all_response_files.extend(await asyncio.gather(*download_tasks))
 
@@ -418,29 +576,27 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         self.request_pbar.close()
         response_files = filter(None, all_response_files)
         if self.tracker.n_downloaded_batches == 0 or not response_files:
-            raise RuntimeError(
-                "None of the submitted batches completed successfully. "
-                f"Please check the logs above and {self.web_dashboard} for errors."
-            )
+            raise RuntimeError("None of the submitted batches completed successfully. " f"Please check the logs above and {self.web_dashboard} for errors.")
 
     async def download_batch_to_response_file(self, batch: GenericBatch) -> str | None:
-        """
-        Downloads and processes the results of a completed batch.
+        """Download and process completed batch results.
 
-        Handles successful completions, failures, and error cases. Converts API-specific
-        responses to generic responses and calculates costs.
+        Downloads batch results, converts responses to generic format, and handles
+        cleanup of completed batches including file deletion if configured.
 
         Args:
-            batch (Batch): The completed batch object to process
+            batch: The completed batch object to process.
 
         Returns:
-            str | None: Path to the response file if successful, None if batch failed
+            str | None: Path to response file if successful, None if failed.
 
         Side Effects:
+            - Downloads batch results from API
             - Creates response file with processed results
             - Updates batch tracking state
-            - Appends batch object to downloaded batch objects file
-            - Optionally deletes batch files from OpenAI
+            - Updates batch objects file
+            - Optionally deletes API provider's batch files
+            - Logs download progress and completion
         """
         file_content = await self.download_batch(batch)
 
@@ -448,7 +604,10 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             return None
 
         request_file = batch.request_file
-        response_file = request_file.replace("requests_", "responses_")
+        request_dir = os.path.dirname(request_file)
+        request_filename = os.path.basename(request_file)
+        response_filename = request_filename.replace("requests_", "responses_")
+        response_file = os.path.join(request_dir, response_filename)
         self.generic_response_file_from_responses(file_content, batch)
 
         logger.debug(f"Batch {batch.id} written to {response_file}")
@@ -462,8 +621,18 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         return response_file
 
     async def cancel_batches(self):
+        """Cancel all currently submitted batches.
+
+        Attempts to cancel all batches that are currently in submitted state.
+        Handles cases where no batches are submitted.
+
+        Side Effects:
+            - Attempts to cancel all submitted batches concurrently
+            - Logs warning if no batches to cancel
+            - Updates batch status through cancel_batch calls
+        """
         if self.tracker.n_submitted_batches == 0:
             logger.warning("No batches to be cancelled, but cancel_batches=True.")
             return
         tasks = [self.cancel_batch(batch) for batch in self.tracker.submitted_batches.values()]
-        results = await asyncio.gather(*tasks)
+        await asyncio.gather(*tasks)
