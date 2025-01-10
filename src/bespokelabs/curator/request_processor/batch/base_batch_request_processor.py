@@ -537,7 +537,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             await asyncio.gather(*status_tasks)
             await self.update_batch_objects_file()
 
-            # update progress bari
+            # update progress bar
             self.request_pbar.n = self.tracker.n_finished_or_downloaded_requests
             self.request_pbar.refresh()
 
