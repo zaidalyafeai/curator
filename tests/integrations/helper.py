@@ -27,7 +27,7 @@ class QAs(BaseModel):
 def create_camel(temp_working_dir, batch=False):
     subject_prompter = curator.LLM(
         prompt_func=lambda: "Generate a diverse list of 3 subjects. Keep it high-level (e.g. Math, Science).",
-        parse_func=lambda _, subjects: list(subjects.subjects),  # [subject for subject in subjects.subjects],
+        parse_func=lambda _, subjects: list(subjects.subjects),
         model_name="gpt-4o-mini",
         response_format=Subjects,
         batch_check_interval=batch_check_interval,
@@ -64,29 +64,30 @@ def create_camel(temp_working_dir, batch=False):
 
 
 def prompt_func(row):
-    return row["conversation"][0]["content"]
+    return row["dish"]
 
 
 def parse_func(row, response):
-    instruction = row["conversation"][0]["content"]
-    return {"instruction": instruction, "new_response": response}
+    return {"recipe": response}
 
 
-def create_basic(temp_working_dir, mock_dataset, llm_params: t.Optional[t.Dict] = None, batch: bool = False):
+def create_basic(temp_working_dir, mock_dataset, llm_params=None, batch=False, backend="openai", mocking=None, batch_cancel=False):
     llm_params = llm_params or {}
     prompter = curator.LLM(
         prompt_func=prompt_func,
         parse_func=parse_func,
         model_name="gpt-3.5-turbo",
-        backend="openai",
+        backend=backend,
         batch_check_interval=batch_check_interval,
         batch=batch,
         **llm_params,
     )
+    if mocking:
+        prompter = mocking(prompter)
     if batch:
         prompter._hash_fingerprint = lambda x: "testing_hash_123"
-    distilled_dataset = prompter(mock_dataset, working_dir=temp_working_dir)
-    return distilled_dataset
+    dataset = prompter(mock_dataset, working_dir=temp_working_dir, batch_cancel=batch_cancel)
+    return dataset
 
 
 def create_llm(batch=False):

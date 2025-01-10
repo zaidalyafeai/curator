@@ -156,7 +156,6 @@ class BaseRequestProcessor(ABC):
                 if num_jobs != expected_num_jobs:
                     logger.warning(f"Request file {req_f} has {num_jobs} jobs, but metadata file {meta_f} has {expected_num_jobs} jobs")
                     incomplete_files.append(i)
-
             return incomplete_files
 
         except Exception as e:
