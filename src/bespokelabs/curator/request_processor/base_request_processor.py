@@ -425,26 +425,3 @@ class BaseRequestProcessor(ABC):
         d = d.sort("__original_row_idx")
         d = d.remove_columns("__original_row_idx")
         return d
-
-
-def parse_response_message(response_message: str, response_format: Optional[BaseModel]) -> tuple[Optional[dict | str], Optional[list[str]]]:
-    """Parse a response message into the expected format.
-
-    Args:
-        response_message: Raw response string from LLM
-        response_format: Expected format for structured responses
-
-    Returns:
-        Tuple containing:
-        - Parsed response (dict or str) or None if parsing failed
-        - List of error messages if parsing failed, None otherwise
-    """
-    response_errors = None
-    if response_format:
-        try:
-            response_message = json.loads(response_message)
-        except json.JSONDecodeError:
-            logger.warning(f"Failed to parse response as JSON: {response_message}, skipping this response.")
-            response_message = None
-            response_errors = [f"Failed to parse response as JSON: {response_message}"]
-    return response_message, response_errors

@@ -225,61 +225,32 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         # Track completed requests for resume functionality
         completed_request_ids = set()
         if os.path.exists(save_filepath):
-            if resume:
-                logger.info(f"Resuming progress by reading existing file: {save_filepath}")
-                logger.debug(f"Removing all failed requests from {save_filepath} so they can be retried")
-                temp_filepath = save_filepath + ".temp"  # This is a file extension, not a path join
-                num_previously_failed_requests = 0
+            logger.info(f"Resuming progress by reading existing file: {save_filepath}")
+            logger.debug(f"Removing all failed requests from {save_filepath} so they can be retried")
+            temp_filepath = save_filepath + ".temp"  # This is a file extension, not a path join
+            num_previously_failed_requests = 0
 
-                with open(save_filepath, "r") as input_file, open(temp_filepath, "w") as output_file:
-                    for line in input_file:
-                        response = GenericResponse.model_validate_json(line)
-                        if response.response_errors:
-                            logger.debug(
-                                f"Request {response.generic_request.original_row_idx} previously failed due to errors: "
-                                f"{response.response_errors}, removing from output and will retry"
-                            )
-                            num_previously_failed_requests += 1
-                        if response.response_message is None:
-                            logger.debug(
-                                f"Request {response.generic_request.original_row_idx} previously failed due to no response, removing from output and will retry"
-                            )
-                            num_previously_failed_requests += 1
-                        else:
-                            completed_request_ids.add(response.generic_request.original_row_idx)
-                            output_file.write(line)
-
-                logger.info(f"Found {len(completed_request_ids)} completed requests and " f"{num_previously_failed_requests} previously failed requests")
-                logger.info("Failed requests and remaining requests will now be processed.")
-                os.replace(temp_filepath, save_filepath)
-
-            elif resume_no_retry:
-                logger.warning(f"Resuming progress from existing file: {save_filepath}, without retrying failed requests")
-                num_previously_failed_requests = 0
-
-                with open(save_filepath, "r") as input_file:
-                    for line in input_file:
-                        response = GenericResponse.model_validate_json(line)
-                        if response.response_errors:
-                            logger.debug(
-                                f"Request {response.generic_request.original_row_idx} previously failed due to errors: "
-                                f"{response.response_errors}, will NOT retry"
-                            )
-                            num_previously_failed_requests += 1
+            with open(save_filepath, "r") as input_file, open(temp_filepath, "w") as output_file:
+                for line in input_file:
+                    response = GenericResponse.model_validate_json(line)
+                    if response.response_errors:
+                        logger.debug(
+                            f"Request {response.generic_request.original_row_idx} previously failed due to errors: "
+                            f"{response.response_errors}, removing from output and will retry"
+                        )
+                        num_previously_failed_requests += 1
+                    if response.response_message is None:
+                        logger.debug(
+                            f"Request {response.generic_request.original_row_idx} previously failed due to no response, removing from output and will retry"
+                        )
+                        num_previously_failed_requests += 1
+                    else:
                         completed_request_ids.add(response.generic_request.original_row_idx)
+                        output_file.write(line)
 
-                logger.info(f"Found {len(completed_request_ids)} total requests and " f"{num_previously_failed_requests} previously failed requests")
-                logger.info("Remaining requests will now be processed.")
-
-            else:
-                user_input = input(
-                    f"File {save_filepath} already exists.\n"
-                    f"To resume if there are remaining requests without responses, run with --resume flag.\n"
-                    f"Overwrite? (Y/n): "
-                )
-                if user_input.lower() not in ["y", ""]:
-                    logger.info("Aborting operation.")
-                    return
+            logger.info(f"Found {len(completed_request_ids)} completed requests and " f"{num_previously_failed_requests} previously failed requests")
+            logger.info("Failed requests and remaining requests will now be processed.")
+            os.replace(temp_filepath, save_filepath)
 
         # Count total requests
         total_requests = sum(1 for _ in open(generic_request_filepath))
