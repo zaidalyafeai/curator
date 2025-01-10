@@ -111,27 +111,26 @@ class LLM:
         self._request_processor = _RequestProcessorFactory.create(backend_params, batch=batch, response_format=response_format, backend=backend)
 
     def _hash_fingerprint(self, dataset_hash, disable_cache):
-        prompt_func_hash = _get_function_hash(self.prompt_formatter.prompt_func)
-
-        fingerprint_str = "_".join(
-            [
-                str(dataset_hash),
-                str(prompt_func_hash),
-                str(self.prompt_formatter.model_name),
-                str(self.prompt_formatter.response_format.model_json_schema() if self.prompt_formatter.response_format else "text"),
-                str(self.batch_mode),
-                str(self._request_processor.backend),
-            ]
-        )
-
-        if self.prompt_formatter.generation_params:
-            generation_params_str = str(sorted(self.prompt_formatter.generation_params.items()))
-            fingerprint_str += f"_{generation_params_str}"
-
         if disable_cache:
             fingerprint = xxh64(os.urandom(8)).hexdigest()
         else:
-            fingerprint_str = self._get_fingerprint_str(dataset_hash)
+            prompt_func_hash = _get_function_hash(self.prompt_formatter.prompt_func)
+
+            fingerprint_str = "_".join(
+                [
+                    str(dataset_hash),
+                    str(prompt_func_hash),
+                    str(self.prompt_formatter.model_name),
+                    str(self.prompt_formatter.response_format.model_json_schema() if self.prompt_formatter.response_format else "text"),
+                    str(self.batch_mode),
+                    str(self._request_processor.backend),
+                ]
+            )
+
+            if self.prompt_formatter.generation_params:
+                generation_params_str = str(sorted(self.prompt_formatter.generation_params.items()))
+                fingerprint_str += f"_{generation_params_str}"
+
             fingerprint = xxh64(fingerprint_str.encode("utf-8")).hexdigest()
             logger.debug(f"Curator Cache Fingerprint String: {fingerprint_str}")
             logger.debug(f"Curator Cache Fingerprint: {fingerprint}")
