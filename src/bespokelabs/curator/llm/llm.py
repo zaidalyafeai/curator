@@ -158,7 +158,7 @@ class LLM:
             curator_cache_dir = working_dir
 
         dataset_hash = dataset._fingerprint if dataset is not None else xxh64("").hexdigest()
-        print(f"dataset_hash: {dataset_hash}")
+
         disable_cache = os.getenv("CURATOR_DISABLE_CACHE", "").lower() in ["true", "1"]
         if disable_cache:
             fingerprint = xxh64(os.urandom(8)).hexdigest()
