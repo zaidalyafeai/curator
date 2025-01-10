@@ -110,8 +110,32 @@ class LLM:
 
         self._request_processor = _RequestProcessorFactory.create(backend_params, batch=batch, response_format=response_format, backend=backend)
 
-    def _hash_fingerprint(self, fingerprint_str):
-        return xxh64(fingerprint_str.encode("utf-8")).hexdigest()
+    def _hash_fingerprint(self, dataset_hash, disable_cache):
+        if disable_cache:
+            fingerprint = xxh64(os.urandom(8)).hexdigest()
+        else:
+            prompt_func_hash = _get_function_hash(self.prompt_formatter.prompt_func)
+
+            fingerprint_str = "_".join(
+                [
+                    str(dataset_hash),
+                    str(prompt_func_hash),
+                    str(self.prompt_formatter.model_name),
+                    str(self.prompt_formatter.response_format.model_json_schema() if self.prompt_formatter.response_format else "text"),
+                    str(self.batch_mode),
+                    str(self._request_processor.backend),
+                ]
+            )
+
+            if self.prompt_formatter.generation_params:
+                generation_params_str = str(sorted(self.prompt_formatter.generation_params.items()))
+                fingerprint_str += f"_{generation_params_str}"
+
+            fingerprint = xxh64(fingerprint_str.encode("utf-8")).hexdigest()
+            logger.debug(f"Curator Cache Fingerprint String: {fingerprint_str}")
+            logger.debug(f"Curator Cache Fingerprint: {fingerprint}")
+
+        return fingerprint
 
     def __call__(
         self,
@@ -142,30 +166,8 @@ class LLM:
 
         dataset_hash = dataset._fingerprint if dataset is not None else xxh64("").hexdigest()
 
-        prompt_func_hash = _get_function_hash(self.prompt_formatter.prompt_func)
-
-        # Used to name the dataset .arrow file, but not the cache directory name
-        # Modifying `parse_func` creates a new dataset file from cached responses
-        parse_func_hash = _get_function_hash(self.prompt_formatter.parse_func)
-
-        fingerprint_str = "_".join(
-            [
-                str(dataset_hash),
-                str(prompt_func_hash),
-                str(self.prompt_formatter.model_name),
-                str(self.prompt_formatter.response_format.model_json_schema() if self.prompt_formatter.response_format else "text"),
-                str(self.batch_mode),
-                str(self._request_processor.backend),
-            ]
-        )
-
-        if self.prompt_formatter.generation_params:
-            generation_params_str = str(sorted(self.prompt_formatter.generation_params.items()))
-            fingerprint_str += f"_{generation_params_str}"
-
-        fingerprint = self._hash_fingerprint(fingerprint_str)
-        logger.debug(f"Curator Cache Fingerprint String: {fingerprint_str}")
-        logger.debug(f"Curator Cache Fingerprint: {fingerprint}")
+        disable_cache = os.getenv("CURATOR_DISABLE_CACHE", "").lower() in ["true", "1"]
+        fingerprint = self._hash_fingerprint(dataset_hash, disable_cache)
 
         metadata_db_path = os.path.join(curator_cache_dir, "metadata.db")
         metadata_db = MetadataDB(metadata_db_path)
@@ -201,6 +203,7 @@ class LLM:
                 working_dir=run_cache_dir,
             )
         else:
+            parse_func_hash = _get_function_hash(self.prompt_formatter.parse_func)
             dataset = self._request_processor.run(
                 dataset=dataset,
                 working_dir=run_cache_dir,

@@ -85,7 +85,7 @@ def create_basic(temp_working_dir, mock_dataset, llm_params=None, batch=False, b
     if mocking:
         prompter = mocking(prompter)
     if batch:
-        prompter._hash_fingerprint = lambda x: "testing_hash_123"
+        prompter._hash_fingerprint = lambda x, y: "testing_hash_123"
     dataset = prompter(mock_dataset, working_dir=temp_working_dir, batch_cancel=batch_cancel)
     return dataset
 
