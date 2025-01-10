@@ -199,15 +199,21 @@ def test_func():
         assert hash1 == hash2, "Identical functions should produce the same hash"
 
 
-def test_disable_cache(tmp_path):
+@pytest.mark.parametrize("temp_working_dir", (_ONLINE_BACKENDS), indirect=True)
+def test_disable_cache(tmp_path, temp_working_dir):
     """Test that disabling cache creates different directories for each run."""
+    _, _, vcr_config = temp_working_dir
+
     os.environ["CURATOR_DISABLE_CACHE"] = "true"
 
     llm = curator.LLM(prompt_func=lambda x: "Say '1'. Do not explain.", model_name="gpt-4o-mini")
 
     # Run twice and store results
-    result1 = llm(working_dir=str(tmp_path))
-    result2 = llm(working_dir=str(tmp_path))
+    with vcr_config.use_cassette("basic_diff_cache.yaml"):
+        result1 = llm(working_dir=str(tmp_path))
+
+    with vcr_config.use_cassette("basic_diff_cache.yaml"):
+        result2 = llm(working_dir=str(tmp_path))
 
     # Verify both runs produced the expected output
     assert result1.to_pandas().iloc[0]["response"] == "1"
