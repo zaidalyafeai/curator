@@ -3,7 +3,9 @@ CLEANUP_DIRS = ~/.cache/curator __pycache__ .pytest_cache .tox .coverage .nox *.
 
 lint: 
 	@echo "Running Linter (black)..."
-	black src/ tests/
+	isort tests/ src/
+	poetry run ruff format src/
+	poetry run ruff format tests/
 
 test:
 	@echo "Running tests with pytest..."
