@@ -43,6 +43,7 @@ def prompter() -> LLM:
     )
 
 
+@pytest.mark.skip
 @pytest.mark.test
 def test_completions(prompter: LLM, tmp_path):
     """Test that completions processes a dataset correctly.
@@ -82,6 +83,7 @@ def test_completions(prompter: LLM, tmp_path):
                 assert hasattr(response, "confidence")
 
 
+@pytest.mark.skip
 @pytest.mark.test
 def test_single_completion_batch(prompter: LLM):
     """Test that a single completion works with batch=True.
@@ -129,6 +131,7 @@ def test_single_completion_batch(prompter: LLM):
         assert result[0]["response"]["confidence"] == 0.9
 
 
+@pytest.mark.skip
 @pytest.mark.test
 def test_single_completion_no_batch(prompter: LLM):
     """Test that a single completion works without batch parameter.

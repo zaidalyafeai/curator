@@ -1,0 +1,75 @@
+interactions:
+- request:
+    body: '{"requests": [{"custom_id": "0", "params": {"model": "gpt-3.5-turbo", "max_tokens":
+      4096, "messages": [{"role": "user", "content": "Spagetti"}]}}, {"custom_id":
+      "1", "params": {"model": "gpt-3.5-turbo", "max_tokens": 4096, "messages": [{"role":
+      "user", "content": "Sushi"}]}}, {"custom_id": "2", "params": {"model": "gpt-3.5-turbo",
+      "max_tokens": 4096, "messages": [{"role": "user", "content": "Ramen"}]}}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      anthropic-version:
+      - '2023-06-01'
+      connection:
+      - keep-alive
+      content-length:
+      - '407'
+      content-type:
+      - application/json
+      host:
+      - api.anthropic.com
+      user-agent:
+      - AsyncAnthropic/Python 0.42.0
+      x-api-key:
+      - sk-mocked-**
+      x-stainless-arch:
+      - arm64
+      x-stainless-async:
+      - async:asyncio
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - MacOS
+      x-stainless-package-version:
+      - 0.42.0
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.11.7
+    method: POST
+    uri: https://api.anthropic.com/v1/messages/batches
+  response:
+    body:
+      string: '{"type":"error","error":{"type":"authentication_error","message":"invalid
+        x-api-key"}}'
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8ffc722ad8b33afe-BOM
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '86'
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 10 Jan 2025 11:49:50 GMT
+      Server:
+      - cloudflare
+      X-Robots-Tag:
+      - none
+      request-id:
+      - req_01KN94Hmj62EzeYhPuxpD2Gy
+      via:
+      - 1.1 google
+      x-should-retry:
+      - 'false'
+    status:
+      code: 401
+      message: Unauthorized
+version: 1
