@@ -84,7 +84,7 @@ def create_basic(temp_working_dir, mock_dataset, llm_params: t.Optional[t.Dict] 
         **llm_params,
     )
     if batch:
-        prompter._hash_fingerprint = lambda x: "testing_hash_123"
+        prompter._hash_fingerprint = lambda x, y: "testing_hash_123"
     distilled_dataset = prompter(mock_dataset, working_dir=temp_working_dir)
     return distilled_dataset
 
