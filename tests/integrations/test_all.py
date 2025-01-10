@@ -6,6 +6,7 @@ import time
 import numpy as np
 import pytest
 
+from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from tests.integrations import helper
 
 ##############################
@@ -123,34 +124,22 @@ def test_resume(caplog, temp_working_dir, mock_dataset):
 
 
 @pytest.mark.parametrize("temp_working_dir", (_BATCH_BACKENDS), indirect=True)
-def test_basic_batch(temp_working_dir, mock_dataset):
-    temp_working_dir, backend, vcr_config = temp_working_dir
-    hash_book = {"openai": "5a2519c2052fe41b71bc864a2386643ed84f62c41866c3e3f3f5066fab9ea346"}
-    with vcr_config.use_cassette("basic_batch_completion.yaml"):
-        dataset = helper.create_basic(temp_working_dir, mock_dataset, batch=True)
-        recipes = "".join([recipe[0] for recipe in dataset.to_pandas().values.tolist()])
-        assert _hash_string(recipes) == hash_book[backend]
-
-
-@pytest.mark.parametrize("temp_working_dir", (_BATCH_BACKENDS), indirect=True)
-def test_batch_resume(caplog, temp_working_dir, mock_dataset):
+def test_batch_resume(temp_working_dir, mock_dataset):
     temp_working_dir, _, vcr_config = temp_working_dir
     with vcr_config.use_cassette("basic_batch_resume.yaml"):
         from unittest.mock import patch
-
-        from bespokelabs.curator.request_processor.event_loop import run_in_event_loop as original_looper
 
         with patch("bespokelabs.curator.request_processor.event_loop.run_in_event_loop") as mocked_run_loop:
 
             def _run_loop(func):
                 if "poll_and_process_batches" in str(func):
                     return
-                return original_looper(func)
+                return run_in_event_loop(func)
 
             mocked_run_loop.side_effect = _run_loop
             with pytest.raises(ValueError):
                 helper.create_basic(temp_working_dir, mock_dataset, batch=True)
-        mocked_run_loop.side_effect = original_looper
+        mocked_run_loop.side_effect = run_in_event_loop
         from bespokelabs.curator.status_tracker.batch_status_tracker import BatchStatusTracker
 
         tracker_batch_file_path = temp_working_dir + "/testing_hash_123/batch_objects.jsonl"
@@ -165,3 +154,13 @@ def test_batch_resume(caplog, temp_working_dir, mock_dataset):
             tracker = BatchStatusTracker.model_validate_json(f.read())
         assert len(tracker.submitted_batches) == 0
         assert len(tracker.downloaded_batches) == 1
+
+
+@pytest.mark.parametrize("temp_working_dir", (_BATCH_BACKENDS), indirect=True)
+def test_basic_batch(temp_working_dir, mock_dataset):
+    temp_working_dir, backend, vcr_config = temp_working_dir
+    hash_book = {"openai": "47127d9dcb428c18e5103dffcb0406ba2f9acab2f1ea974606962caf747b0ad5"}
+    with vcr_config.use_cassette("basic_batch_completion.yaml"):
+        dataset = helper.create_basic(temp_working_dir, mock_dataset, batch=True)
+        recipes = "".join([recipe[0] for recipe in dataset.to_pandas().values.tolist()])
+        assert _hash_string(recipes) == hash_book[backend]
