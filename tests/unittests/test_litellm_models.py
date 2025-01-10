@@ -2,6 +2,7 @@ import logging
 import os
 
 import pytest
+from datasets import Dataset
 
 from bespokelabs.curator import LLM
 
@@ -69,8 +70,6 @@ class TestLiteLLMModels:
         print(f"\n\n========== TESTING {model} ==========\n\n")
         logger = logging.getLogger("bespokelabs.curator")
         logger.setLevel(logging.DEBUG)
-
-        from bespokelabs.curator.dataset import Dataset
 
         dataset = Dataset.from_dict({"prompt": ["just say 'hi'"]})
 
