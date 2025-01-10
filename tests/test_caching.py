@@ -34,6 +34,7 @@ def test_different_values_caching(tmp_path):
 
     # Test with different values
     for x in [1, 2, 3]:
+
         def prompt_func():
             return f"Say '{x}'. Do not explain."  # noqa: B023
 
