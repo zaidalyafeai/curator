@@ -1,3 +1,5 @@
+import os
+
 from datasets import Dataset
 
 from bespokelabs import curator
@@ -32,11 +34,8 @@ def test_different_values_caching(tmp_path):
 
     # Test with different values
     for x in [1, 2, 3]:
-        # Bind x to avoid late binding closure issue
-        x_val = x
-
-        def prompt_func(x=x_val):
-            return f"Say '{x}'. Do not explain."
+        def prompt_func():
+            return f"Say '{x}'. Do not explain."  # noqa: B023
 
         prompter = curator.LLM(
             prompt_func=prompt_func,
@@ -48,7 +47,7 @@ def test_different_values_caching(tmp_path):
     # Count cache directories, excluding metadata.db
     cache_dirs = [d for d in tmp_path.glob("*") if d.name != "metadata.db"]
     assert len(cache_dirs) == 3, f"Expected 3 cache directories but found {len(cache_dirs)}"
-    assert values == ["1", "2", "3"], "Different values should produce different results"
+    assert values == ["1", "2", "3"], f"Different values should produce different results, but got {values}"
 
 
 def test_same_dataset_caching(tmp_path):
@@ -203,3 +202,26 @@ def test_func():
         logger.debug(f"  hash2: {hash2}")
 
         assert hash1 == hash2, "Identical functions should produce the same hash"
+
+
+def test_disable_cache(tmp_path):
+    """Test that disabling cache creates different directories for each run."""
+    os.environ["CURATOR_DISABLE_CACHE"] = "true"
+
+    llm = curator.LLM(prompt_func=lambda x: "Say '1'. Do not explain.", model_name="gpt-4o-mini")
+
+    # Run twice and store results
+    result1 = llm(working_dir=str(tmp_path))
+    result2 = llm(working_dir=str(tmp_path))
+
+    # Verify both runs produced the expected output
+    assert result1.to_pandas().iloc[0]["response"] == "1"
+    assert result2.to_pandas().iloc[0]["response"] == "1"
+
+    # Check cache directory, excluding metadata.db
+    cache_dirs = [d for d in tmp_path.glob("*") if d.name != "metadata.db"]
+
+    # Should have exactly 2 different cache directories
+    assert len(cache_dirs) == 2
+    # All directories should be different (no duplicates)
+    assert len({str(d) for d in cache_dirs}) == 2

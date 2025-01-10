@@ -158,15 +158,15 @@ class LLM:
             curator_cache_dir = working_dir
 
         dataset_hash = dataset._fingerprint if dataset is not None else xxh64("").hexdigest()
-
+        print(f"dataset_hash: {dataset_hash}")
         disable_cache = os.getenv("CURATOR_DISABLE_CACHE", "").lower() in ["true", "1"]
-        if not disable_cache:
-            fingerprint_str = self._get_fingerprint_str(dataset)
+        if disable_cache:
+            fingerprint = xxh64(os.urandom(8)).hexdigest()
+        else:
+            fingerprint_str = self._get_fingerprint_str(dataset_hash)
             fingerprint = xxh64(fingerprint_str.encode("utf-8")).hexdigest()
             logger.debug(f"Curator Cache Fingerprint String: {fingerprint_str}")
             logger.debug(f"Curator Cache Fingerprint: {fingerprint}")
-        else:
-            fingerprint = xxh64(os.urandom(8)).hexdigest()
 
         metadata_db_path = os.path.join(curator_cache_dir, "metadata.db")
         metadata_db = MetadataDB(metadata_db_path)
