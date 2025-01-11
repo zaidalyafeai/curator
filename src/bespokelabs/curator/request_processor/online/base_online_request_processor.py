@@ -15,7 +15,6 @@ from dataclasses import dataclass, field
 import aiofiles
 import aiohttp
 import litellm
-from tqdm import tqdm
 
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import BaseRequestProcessor
@@ -23,7 +22,7 @@ from bespokelabs.curator.request_processor.config import OnlineRequestProcessorC
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.status_tracker.online_status_tracker import OnlineStatusTracker
 from bespokelabs.curator.types.generic_request import GenericRequest
-from bespokelabs.curator.types.generic_response import GenericResponse
+from bespokelabs.curator.types.generic_response import GenericResponse, TokenUsage
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -221,13 +220,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
 
         # Count total requests
         total_requests = sum(1 for _ in open(generic_request_filepath))
-
-        # Create progress bar
-        status_tracker.pbar = tqdm(
-            initial=len(completed_request_ids),
-            total=total_requests,
-            desc=f"Processing {self.__class__.__name__} requests",
-        )
+        status_tracker.initialize_display(total_requests, self.prompt_formatter.model_name)
 
         # Use higher connector limit for better throughput
         connector = aiohttp.TCPConnector(limit=10 * status_tracker.max_requests_per_minute)
@@ -316,14 +309,14 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 if pending_retries:
                     done, pending_retries = await asyncio.wait(pending_retries, timeout=0.1)
 
-        status_tracker.pbar.close()
+        status_tracker.stop_display()
 
         # Log final status
         logger.info(f"Processing complete. Results saved to {response_file}")
         logger.info(f"Status tracker: {status_tracker}")
 
         if status_tracker.num_tasks_failed > 0:
-            logger.warning(f"{status_tracker.num_tasks_failed} / {status_tracker.num_tasks_started} " f"requests failed. Errors logged to {response_file}.")
+            logger.warning(f"{status_tracker.num_tasks_failed} / {status_tracker.num_tasks_started} requests failed. Errors logged to {response_file}.")
 
     async def handle_single_request_with_retries(
         self,
@@ -351,6 +344,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 session=session,
                 status_tracker=status_tracker,
             )
+            self.update_stats(status_tracker, generic_response.token_usage, generic_response.response_cost)
 
             # Allows us to retry on responses that don't match the response format
             self.prompt_formatter.response_to_response_format(generic_response.response_message)
@@ -360,7 +354,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
 
             status_tracker.num_tasks_in_progress -= 1
             status_tracker.num_tasks_succeeded += 1
-            status_tracker.pbar.update(1)
 
         except Exception as e:
             status_tracker.num_other_errors += 1
@@ -425,3 +418,13 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         async with aiofiles.open(filename, "a") as f:
             await f.write(json_string + "\n")
         logger.debug(f"Successfully appended response to {filename}")
+
+    def update_stats(self, status_tracker: OnlineStatusTracker, token_usage: TokenUsage, cost: float):
+        """Update token and cost statistics."""
+        if token_usage:
+            status_tracker.total_prompt_tokens += token_usage.prompt_tokens
+            status_tracker.total_completion_tokens += token_usage.completion_tokens
+            status_tracker.total_tokens += token_usage.total_tokens
+        if cost:
+            status_tracker.total_cost += cost
+        status_tracker.update_display()
