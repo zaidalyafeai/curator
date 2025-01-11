@@ -38,11 +38,7 @@ def test_batch_call() -> None:
     test_prompts: List[str] = ["What is 2+2?", "What is 3+3?", "What is 4+4?"]
 
     # Expected answers for our test prompts
-    expected_answers: Dict[str, int] = {
-        "What is 2+2?": 4,
-        "What is 3+3?": 6,
-        "What is 4+4?": 8,
-    }
+    expected_answers: Dict[str, int] = {"What is 2+2?": 4, "What is 3+3?": 6, "What is 4+4?": 8}
 
     # Call the batch processing function
     result = batch_call("gpt-4o-mini", test_prompts)
