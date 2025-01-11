@@ -9,7 +9,7 @@ lint:
 
 test:
 	@echo "Running tests with pytest..."
-	poertry run pytest tests/ --maxfail=1 --disable-warnings -q
+	poetry run pytest tests/ --maxfail=1 --disable-warnings -q
 
 test_integration:
 	@read integration_name && \
@@ -26,6 +26,6 @@ clean:
 
 install:
 	@echo "Installing dependencies..."
-	poertry install
+	poetry install
 
 all: lint test clean

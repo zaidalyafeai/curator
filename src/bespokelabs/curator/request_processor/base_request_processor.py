@@ -427,3 +427,72 @@ class BaseRequestProcessor(ABC):
         d = d.sort("__original_row_idx")
         d = d.remove_columns("__original_row_idx")
         return d
+
+    def validate_existing_response_file(self, response_file: str) -> set[int]:
+        """Parse an existing response file to identify completed requests and removes failed requests.
+
+        Args:
+            response_file: Path to the response file to parse
+
+        Returns:
+            set[int]: Set of completed request IDs that were already successfully processed
+        """
+        completed_request_ids = set()
+        failed_request_ids = set()
+
+        if os.path.exists(response_file):
+            logger.info(f"Resuming progress by reading existing file: {response_file}")
+            logger.debug(f"Removing all failed requests from {response_file} so they can be retried")
+            temp_filepath = response_file + ".temp"
+
+            parsing_error_responses = 0
+            with open(response_file, "r") as input_file, open(temp_filepath, "w") as output_file:
+                for line in input_file:
+                    try:
+                        response = GenericResponse.model_validate_json(line)
+                    except (json.JSONDecodeError, ValidationError):
+                        logger.warning("Skipping response due to error parsing line")
+                        parsing_error_responses += 1
+                        continue
+                    row_id = response.generic_request.original_row_idx
+                    if response.response_errors:
+                        logger.debug(f"Request {row_id} previously failed due to errors: {response.response_errors}, removing from output and will retry")
+                        failed_request_ids.add(row_id)
+                    elif response.response_message is None:
+                        logger.debug(f"Request {row_id} previously failed due to no response. Removing from output and will retry.")
+                        failed_request_ids.add(row_id)
+                    else:
+                        completed_request_ids.add(row_id)
+                        output_file.write(line)
+
+            logger.info(
+                f"Found {len(completed_request_ids)} successful requests and {len(failed_request_ids)} "
+                f"previously failed requests and {parsing_error_responses} parsing errors in {response_file}"
+            )
+            os.replace(temp_filepath, response_file)
+
+        return completed_request_ids
+
+    def read_metadata_file(self, request_file: str) -> int:
+        """Read the number of jobs from the metadata file.
+
+        Args:
+            request_file: Path to the request file to get metadata for
+
+        Returns:
+            int: Number of total batch requests
+
+        Raises:
+            ValueError: If metadata file is missing or invalid
+        """
+        metadata_file = request_file.replace("requests_", "metadata_").replace(".jsonl", ".json")
+
+        if not os.path.exists(metadata_file):
+            raise ValueError(f"Metadata file not found: {metadata_file}")
+
+        try:
+            with open(metadata_file, "r") as f:
+                metadata = json.load(f)
+                return metadata
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in metadata file: {metadata_file}. Delete cache directory 'rm -rf {self.working_dir}' and try again.") from e

@@ -49,21 +49,53 @@ class BatchStatusTracker(BaseModel):
         return len(self.downloaded_batches)
 
     @property
-    def n_finished_requests(self) -> int:
-        """Get the total number of finished requests across submitted and finished batches."""
+    def n_finished_succeeded_requests(self) -> int:
+        """Get the number of succeeded requests in submitted and finished batches.
+
+        Returns:
+            int: Total count of succeeded requests across submitted and finished batches.
+        """
         batches = list(self.submitted_batches.values()) + list(self.finished_batches.values())
-        return sum(b.request_counts.succeeded + b.request_counts.failed for b in batches)
+        return sum(b.request_counts.succeeded for b in batches)
 
     @property
-    def n_downloaded_requests(self) -> int:
-        """Get the total number of downloaded requests."""
+    def n_finished_failed_requests(self) -> int:
+        """Get the number of failed requests in finished batches.
+
+        Returns:
+            int: Total count of failed requests in finished batches.
+        """
+        batches = list(self.finished_batches.values())
+        return sum(b.request_counts.failed for b in batches)
+
+    @property
+    def n_downloaded_succeeded_requests(self) -> int:
+        """Get the number of succeeded requests in downloaded batches.
+
+        Returns:
+            int: Total count of succeeded requests in downloaded batches.
+        """
         batches = list(self.downloaded_batches.values())
-        return sum(b.request_counts.succeeded + b.request_counts.failed for b in batches)
+        return sum(b.request_counts.succeeded for b in batches)
 
     @property
-    def n_finished_or_downloaded_requests(self) -> int:
-        """Get the total number of requests that are either finished or downloaded."""
-        return self.n_finished_requests + self.n_downloaded_requests
+    def n_downloaded_failed_requests(self) -> int:
+        """Get the number of failed requests in downloaded batches.
+
+        Returns:
+            int: Total count of failed requests in downloaded batches.
+        """
+        batches = list(self.downloaded_batches.values())
+        return sum(b.request_counts.failed for b in batches)
+
+    @property
+    def n_finished_or_downloaded_succeeded_requests(self) -> int:
+        """Get the total number of succeeded requests across finished and downloaded batches.
+
+        Returns:
+            int: Combined count of succeeded requests from both finished and downloaded batches.
+        """
+        return self.n_finished_succeeded_requests + self.n_downloaded_succeeded_requests
 
     @property
     def n_submitted_finished_or_downloaded_batches(self) -> int:
@@ -88,7 +120,7 @@ class BatchStatusTracker(BaseModel):
             self.unsubmitted_request_files.remove(batch.request_file)
             self.n_total_requests += n_requests
         else:
-            logger.warning(f"Request file {batch.request_file} has already been submitted.")
+            logger.warning(f"Request file {batch.request_file} is being re-submitted.")
         self.submitted_batches[batch.id] = batch
         logger.debug(f"Marked {batch.request_file} as submitted with batch {batch.id}")
 
@@ -136,7 +168,9 @@ class BatchStatusTracker(BaseModel):
             f"Downloaded batches: {self.n_downloaded_batches}",
             "",
             f"Total requests: {self.n_total_requests}",
-            f"Finished requests: {self.n_finished_requests}",
-            f"Downloaded requests: {self.n_downloaded_requests}",
+            f"Finished failed requests: {self.n_finished_failed_requests}",
+            f"Finished succeeded requests: {self.n_finished_succeeded_requests}",
+            f"Downloaded failed requests: {self.n_downloaded_failed_requests}",
+            f"Downloaded succeeded requests: {self.n_downloaded_succeeded_requests}",
         ]
         return "\n".join(status_lines)

@@ -8,7 +8,6 @@ import asyncio
 import datetime
 import json
 import logging
-import os
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -181,8 +180,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             run_in_event_loop(
                 self.process_requests_from_file(
                     generic_request_filepath=request_file,
-                    save_filepath=response_file,
-                    resume=True,
+                    response_file=response_file,
                 )
             )
 
@@ -202,17 +200,13 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
     async def process_requests_from_file(
         self,
         generic_request_filepath: str,
-        save_filepath: str,
-        resume: bool,
-        resume_no_retry: bool = False,
+        response_file: str,
     ) -> None:
         """Processes API requests in parallel, throttling to stay under rate limits.
 
         Args:
             generic_request_filepath: Path to file containing requests
-            save_filepath: Path to save responses
-            resume: Whether to resume from previous progress
-            resume_no_retry: Whether to skip retrying failed requests when resuming
+            response_file: Path where the response data will be saved
         """
         # Initialize trackers
         queue_of_requests_to_retry: asyncio.Queue[APIRequest] = asyncio.Queue()
@@ -222,35 +216,8 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         status_tracker.max_requests_per_minute = self.max_requests_per_minute
         status_tracker.max_tokens_per_minute = self.max_tokens_per_minute
 
-        # Track completed requests for resume functionality
-        completed_request_ids = set()
-        if os.path.exists(save_filepath):
-            logger.info(f"Resuming progress by reading existing file: {save_filepath}")
-            logger.debug(f"Removing all failed requests from {save_filepath} so they can be retried")
-            temp_filepath = save_filepath + ".temp"  # This is a file extension, not a path join
-            num_previously_failed_requests = 0
-
-            with open(save_filepath, "r") as input_file, open(temp_filepath, "w") as output_file:
-                for line in input_file:
-                    response = GenericResponse.model_validate_json(line)
-                    if response.response_errors:
-                        logger.debug(
-                            f"Request {response.generic_request.original_row_idx} previously failed due to errors: "
-                            f"{response.response_errors}, removing from output and will retry"
-                        )
-                        num_previously_failed_requests += 1
-                    if response.response_message is None:
-                        logger.debug(
-                            f"Request {response.generic_request.original_row_idx} previously failed due to no response, removing from output and will retry"
-                        )
-                        num_previously_failed_requests += 1
-                    else:
-                        completed_request_ids.add(response.generic_request.original_row_idx)
-                        output_file.write(line)
-
-            logger.info(f"Found {len(completed_request_ids)} completed requests and " f"{num_previously_failed_requests} previously failed requests")
-            logger.info("Failed requests and remaining requests will now be processed.")
-            os.replace(temp_filepath, save_filepath)
+        # Resume if a response file exists
+        completed_request_ids = self.validate_existing_response_file(response_file)
 
         # Count total requests
         total_requests = sum(1 for _ in open(generic_request_filepath))
@@ -271,7 +238,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 async for line in file:
                     generic_request = GenericRequest.model_validate_json(line)
 
-                    if resume and generic_request.original_row_idx in completed_request_ids:
+                    if generic_request.original_row_idx in completed_request_ids:
                         status_tracker.num_tasks_already_completed += 1
                         continue
 
@@ -300,7 +267,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                             request=request,
                             session=session,
                             retry_queue=queue_of_requests_to_retry,
-                            save_filepath=save_filepath,
+                            response_file=response_file,
                             status_tracker=status_tracker,
                         )
                     )
@@ -339,7 +306,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                             request=retry_request,
                             session=session,
                             retry_queue=queue_of_requests_to_retry,
-                            save_filepath=save_filepath,
+                            response_file=response_file,
                             status_tracker=status_tracker,
                         )
                     )
@@ -352,18 +319,18 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         status_tracker.pbar.close()
 
         # Log final status
-        logger.info(f"Processing complete. Results saved to {save_filepath}")
+        logger.info(f"Processing complete. Results saved to {response_file}")
         logger.info(f"Status tracker: {status_tracker}")
 
         if status_tracker.num_tasks_failed > 0:
-            logger.warning(f"{status_tracker.num_tasks_failed} / {status_tracker.num_tasks_started} " f"requests failed. Errors logged to {save_filepath}.")
+            logger.warning(f"{status_tracker.num_tasks_failed} / {status_tracker.num_tasks_started} " f"requests failed. Errors logged to {response_file}.")
 
     async def handle_single_request_with_retries(
         self,
         request: APIRequest,
         session: aiohttp.ClientSession,
         retry_queue: asyncio.Queue,
-        save_filepath: str,
+        response_file: str,
         status_tracker: OnlineStatusTracker,
     ) -> None:
         """Common wrapper for handling a single request with error handling and retries.
@@ -375,7 +342,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             request: The request to process
             session: Async HTTP session
             retry_queue: Queue for failed requests
-            save_filepath: Path to save responses
+            response_file: Path where the response data will be saved
             status_tracker: Tracks request status
         """
         try:
@@ -389,7 +356,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             self.prompt_formatter.response_to_response_format(generic_response.response_message)
 
             # Save response in the base class
-            await self.append_generic_response(generic_response, save_filepath)
+            await self.append_generic_response(generic_response, response_file)
 
             status_tracker.num_tasks_in_progress -= 1
             status_tracker.num_tasks_succeeded += 1
@@ -421,7 +388,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     created_at=request.created_at,
                     finished_at=datetime.datetime.now(),
                 )
-                await self.append_generic_response(generic_response, save_filepath)
+                await self.append_generic_response(generic_response, response_file)
                 status_tracker.num_tasks_in_progress -= 1
                 status_tracker.num_tasks_failed += 1
 
