@@ -190,12 +190,12 @@ class OnlineStatusTracker:
         # Token Statistics
         table.add_row("Tokens", "", style="bold magenta")
         table.add_row("Total Tokens Used", f"{self.total_tokens:,}")
-        table.add_row("Total Prompt Tokens", f"{self.total_prompt_tokens:,}")
-        table.add_row("Total Completion Tokens", f"{self.total_completion_tokens:,}")
+        table.add_row("Total Input Tokens", f"{self.total_prompt_tokens:,}")
+        table.add_row("Total Output Tokens", f"{self.total_completion_tokens:,}")
         if self.num_tasks_succeeded > 0:
             table.add_row("Average Tokens per Request", f"{int(self.total_tokens / self.num_tasks_succeeded)}")
-            table.add_row("Average Prompt Tokens", f"{int(self.total_prompt_tokens / self.num_tasks_succeeded)}")
-            table.add_row("Average Completion Tokens", f"{int(self.total_completion_tokens / self.num_tasks_succeeded)}")
+            table.add_row("Average Input Tokens", f"{int(self.total_prompt_tokens / self.num_tasks_succeeded)}")
+            table.add_row("Average Output Tokens", f"{int(self.total_completion_tokens / self.num_tasks_succeeded)}")
         # Cost Statistics
         table.add_row("Costs", "", style="bold magenta")
         table.add_row("Total Cost", f"[red]${self.total_cost:.4f}[/red]")
