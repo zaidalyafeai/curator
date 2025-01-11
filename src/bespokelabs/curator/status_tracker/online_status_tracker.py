@@ -58,8 +58,8 @@ class OnlineStatusTracker:
         self._progress = Progress(
             TextColumn(
                 "[cyan]{task.description}[/cyan]\n"
-                "{task.fields[status_text]}\n"
-                "{task.fields[token_text]}\n"
+                "{task.fields[requests_text]}\n"
+                "{task.fields[tokens_text]}\n"
                 "{task.fields[cost_text]}\n"
                 "{task.fields[rate_limit_text]}\n"
                 "{task.fields[price_text]}",
@@ -74,19 +74,20 @@ class OnlineStatusTracker:
             TimeRemainingColumn(),
         )
         self._task_id = self._progress.add_task(
-            description=f"[cyan]Generating data for model {model}",
+            description=f"[cyan]Generating data using {model}",
             total=total_requests,
             completed=0,
-            status_text="[bold white]Status:[/bold white] [dim]Initializing...[/dim]",
-            token_text="[bold white]Tokens:[/bold white] --",
-            cost_text="[bold white]Cost:[/bold white] --",
-            model_name_text="[bold white]Model:[/bold white] --",
-            rate_limit_text="[bold white]Rate Limits:[/bold white] --",
-            price_text="[bold white]Model Pricing:[/bold white] --",
+            requests_text="[bold white]Requests:[/bold white] [dim]--[/dim]",
+            tokens_text="[bold white]Tokens:[/bold white] [dim]--[/dim]",
+            cost_text="[bold white]Cost:[/bold white] [dim]--[/dim]",
+            model_name_text="[bold white]Model:[/bold white] [dim]--[/dim]",
+            rate_limit_text="[bold white]Rate Limits:[/bold white] [dim]--[/dim]",
+            price_text="[bold white]Model Pricing:[/bold white] [dim]--[/dim]",
         )
         if model in model_cost:
             self.input_cost_per_million = model_cost[model]["input_cost_per_token"] * 1_000_000
             self.output_cost_per_million = model_cost[model]["output_cost_per_token"] * 1_000_000
+        self._progress.start()
 
     def update_display(self):
         """Updates the progress display."""
@@ -97,47 +98,75 @@ class OnlineStatusTracker:
 
         # Calculate current rpm
         elapsed_minutes = (time.time() - self.start_time) / 60
-        current_rpm = self.num_tasks_succeeded / elapsed_minutes if elapsed_minutes > 0 else 0
+        current_rpm = self.num_tasks_succeeded / max(0.001, elapsed_minutes)
 
-        # Format the text for each line
-        status_text = (
-            "[bold white]Status:[/bold white] Processing "
-            f"[dim]([green]✓{self.num_tasks_succeeded}[/green] "
-            f"[red]✗{self.num_tasks_failed}[/red] "
-            f"[yellow]⋯{self.num_tasks_in_progress}[/yellow] "
-            f"[dim]({current_rpm:.1f} rpm)[/dim]"
+        # Format the text for each line with properly closed tags
+        requests_text = (
+            "[bold white]Requests:[/bold white] [white]Processing[/white] "
+            f"[white]Success:[/white] [green]{self.num_tasks_succeeded}✓[/green] "
+            f"[white]•[/white] "
+            f"[white]Failed:[/white] [red]{self.num_tasks_failed}✗[/red] "
+            f"[white]•[/white] "
+            f"[white]In Progress:[/white] [yellow]{self.num_tasks_in_progress}⋯[/yellow] "
+            f"[white]•[/white] "
+            f"[white]RPM:[/white] [blue]{current_rpm:.1f}[/blue]"
         )
 
-        token_text = f"[bold white]Tokens:[/bold white] Avg Input: [blue]{avg_prompt:.0f}[/blue] • Avg Output: [blue]{avg_completion:.0f}[/blue]"
+        input_tpm = self.total_prompt_tokens / max(0.001, elapsed_minutes)
+        output_tpm = self.total_completion_tokens / max(0.001, elapsed_minutes)
+
+        tokens_text = (
+            "[bold white]Tokens:[/bold white] "
+            f"[white]Avg Input:[/white] [blue]{avg_prompt:.0f}[/blue] "
+            f"[white]•[/white] "
+            f"[white]Input TPM:[/white] [blue]{input_tpm:.0f}[/blue] "
+            f"[white]•[/white] "
+            f"[white]Avg Output:[/white] [blue]{avg_completion:.0f}[/blue] "
+            f"[white]•[/white] "
+            f"[white]Output TPM:[/white] [blue]{output_tpm:.0f}[/blue]"
+        )
 
         cost_text = (
             "[bold white]Cost:[/bold white] "
-            f"Current: [magenta]${self.total_cost:.3f}[/magenta] • "
-            f"Projected: [magenta]${projected_cost:.3f}[/magenta] • "
-            f"Rate: [magenta]${self.total_cost / max(1, self.num_tasks_succeeded):.3f}/min[/magenta]"
+            f"[white]Current:[/white] [magenta]${self.total_cost:.3f}[/magenta] "
+            f"[white]•[/white] "
+            f"[white]Projected:[/white] [magenta]${projected_cost:.3f}[/magenta] "
+            f"[white]•[/white] "
+            f"[white]Rate:[/white] [magenta]${self.total_cost / max(1, self.num_tasks_succeeded):.3f}/min[/magenta]"
         )
+
         model_name_text = f"[bold white]Model:[/bold white] [blue]{self.model}[/blue]"
+
         rate_limit_text = (
-            f"[bold white]Rate Limits:[/bold white] rpm: [blue]{self.max_requests_per_minute}[/blue] • tpm: [blue]{self.max_tokens_per_minute}[/blue]"
+            "[bold white]Rate Limits:[/bold white] "
+            f"[white]RPM:[/white] [blue]{self.max_requests_per_minute}[/blue] "
+            f"[white]•[/white] "
+            f"[white]TPM:[/white] [blue]{self.max_tokens_per_minute}[/blue]"
         )
+
         input_cost_str = f"${self.input_cost_per_million:.3f}" if isinstance(self.input_cost_per_million, float) else "N/A"
         output_cost_str = f"${self.output_cost_per_million:.3f}" if isinstance(self.output_cost_per_million, float) else "N/A"
 
-        price_text = f"[bold white]Model Pricing:[/bold white] Per 1M tokens: Input: [red]{input_cost_str}[/red] • Output: [red]{output_cost_str}[/red]"
+        price_text = (
+            "[bold white]Model Pricing:[/bold white] "
+            f"[white]Per 1M tokens:[/white] "
+            f"[white]Input:[/white] [red]{input_cost_str}[/red] "
+            f"[white]•[/white] "
+            f"[white]Output:[/white] [red]{output_cost_str}[/red]"
+        )
 
         # Update the progress display
         self._progress.update(
             self._task_id,
             advance=1,
             completed=self.num_tasks_succeeded,
-            status_text=status_text,
-            token_text=token_text,
+            requests_text=requests_text,
+            tokens_text=tokens_text,
             cost_text=cost_text,
             model_name_text=model_name_text,
             rate_limit_text=rate_limit_text,
             price_text=price_text,
         )
-        self._progress.start()
 
     def stop_display(self):
         """Stop the progress display."""
@@ -179,9 +208,15 @@ class OnlineStatusTracker:
         elapsed_time = time.time() - self.start_time
         elapsed_minutes = elapsed_time / 60
         rpm = self.num_tasks_succeeded / max(0.001, elapsed_minutes)
+        input_tpm = self.total_prompt_tokens / max(0.001, elapsed_minutes)
+        output_tpm = self.total_completion_tokens / max(0.001, elapsed_minutes)
+
         table.add_row("Total Time", f"{elapsed_time:.2f}s")
         table.add_row("Average Time per Request", f"{elapsed_time / max(1, self.num_tasks_succeeded):.2f}s")
         table.add_row("Requests per Minute", f"{rpm:.1f}")
+        table.add_row("Input Tokens per Minute", f"{input_tpm:.1f}")
+        table.add_row("Output Tokens per Minute", f"{output_tpm:.1f}")
+
         console = Console()
         console.print(table)
 
