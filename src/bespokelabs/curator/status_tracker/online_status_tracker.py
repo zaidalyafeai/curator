@@ -50,8 +50,9 @@ class OnlineStatusTracker:
     # Add model name field
     model: str = ""
 
-    def start_display(self):
+    def start_display(self, console: Optional[Console] = None):
         """Start status display."""
+        self._console = Console() if console is None else console
         self._progress = Progress(
             TextColumn(
                 "[cyan]{task.description}[/cyan]\n"
@@ -69,6 +70,7 @@ class OnlineStatusTracker:
             TimeElapsedColumn(),
             TextColumn("[bold white]•[/bold white]"),
             TimeRemainingColumn(),
+            console=self._console,
         )
         self._task_id = self._progress.add_task(
             description=f"[cyan]Generating data using {self.model}",
@@ -201,8 +203,13 @@ class OnlineStatusTracker:
         table.add_row("Costs", "", style="bold magenta")
         table.add_row("Total Cost", f"[red]${self.total_cost:.4f}[/red]")
         table.add_row("Average Cost per Request", f"[red]${self.total_cost / max(1, self.num_tasks_succeeded):.4f}[/red]")
-        table.add_row("Input Cost per 1M Tokens", f"[red]${self.input_cost_per_million:.4f}[/red]")
-        table.add_row("Output Cost per 1M Tokens", f"[red]${self.output_cost_per_million:.4f}[/red]")
+
+        # Handle None values for cost per million tokens
+        input_cost_str = f"[red]${self.input_cost_per_million:.4f}[/red]" if self.input_cost_per_million is not None else "[dim]N/A[/dim]"
+        output_cost_str = f"[red]${self.output_cost_per_million:.4f}[/red]" if self.output_cost_per_million is not None else "[dim]N/A[/dim]"
+
+        table.add_row("Input Cost per 1M Tokens", input_cost_str)
+        table.add_row("Output Cost per 1M Tokens", output_cost_str)
 
         # Performance Statistics
         table.add_row("Performance", "", style="bold magenta")
@@ -218,8 +225,7 @@ class OnlineStatusTracker:
         table.add_row("Input Tokens per Minute", f"{input_tpm:.1f}")
         table.add_row("Output Tokens per Minute", f"{output_tpm:.1f}")
 
-        console = Console()
-        console.print(table)
+        self._console.print(table)
 
     def __str__(self):
         """String representation of the status tracker."""

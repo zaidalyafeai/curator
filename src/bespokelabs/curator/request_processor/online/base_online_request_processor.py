@@ -71,6 +71,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         self.header_based_max_requests_per_minute = None
         self.header_based_max_tokens_per_minute = None
 
+        # The rich.Console used for the status tracker, only set for testing
+        self._tracker_console = None
+
     @property
     def backend(self) -> str:
         """Backend property."""
@@ -223,7 +226,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         status_tracker.num_tasks_already_completed = len(completed_request_ids)
         status_tracker.total_requests = total_requests
         status_tracker.model = self.prompt_formatter.model_name
-        status_tracker.start_display()
+        status_tracker.start_display(self._tracker_console)
 
         # Use higher connector limit for better throughput
         connector = aiohttp.TCPConnector(limit=10 * status_tracker.max_requests_per_minute)
