@@ -10,6 +10,8 @@ from rich.console import Console
 from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.table import Table
 
+from bespokelabs.curator.types.generic_response import TokenUsage
+
 logger = logging.getLogger(__name__)
 
 
@@ -50,8 +52,8 @@ class OnlineStatusTracker:
     # Add model name field
     model: str = ""
 
-    def start_display(self, console: Optional[Console] = None):
-        """Start status display."""
+    def start_tracker(self, console: Optional[Console] = None):
+        """Start the tracker."""
         self._console = Console() if console is None else console
         self._progress = Progress(
             TextColumn(
@@ -88,8 +90,15 @@ class OnlineStatusTracker:
             self.output_cost_per_million = model_cost[self.model]["output_cost_per_token"] * 1_000_000
         self._progress.start()
 
-    def update_display(self):
-        """Updates the progress display."""
+    def update_stats(self, token_usage: TokenUsage, cost: float):
+        """Update statistics in the tracker with token usage and cost."""
+        if token_usage:
+            self.total_prompt_tokens += token_usage.prompt_tokens
+            self.total_completion_tokens += token_usage.completion_tokens
+            self.total_tokens += token_usage.total_tokens
+        if cost:
+            self.total_cost += cost
+
         avg_prompt = self.total_prompt_tokens / max(1, self.num_tasks_succeeded)
         avg_completion = self.total_completion_tokens / max(1, self.num_tasks_succeeded)
         avg_cost = self.total_cost / max(1, self.num_tasks_succeeded)
@@ -171,8 +180,8 @@ class OnlineStatusTracker:
             price_text=price_text,
         )
 
-    def stop_display(self):
-        """Stop the progress display."""
+    def stop_tracker(self):
+        """Stop the tracker."""
         self._progress.stop()
         table = Table(title="Final Curator Statistics", box=box.ROUNDED)
         table.add_column("Section/Metric", style="cyan")

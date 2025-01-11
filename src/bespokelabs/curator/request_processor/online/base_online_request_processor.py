@@ -22,7 +22,7 @@ from bespokelabs.curator.request_processor.config import OnlineRequestProcessorC
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.status_tracker.online_status_tracker import OnlineStatusTracker
 from bespokelabs.curator.types.generic_request import GenericRequest
-from bespokelabs.curator.types.generic_response import GenericResponse, TokenUsage
+from bespokelabs.curator.types.generic_response import GenericResponse
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -226,7 +226,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         status_tracker.num_tasks_already_completed = len(completed_request_ids)
         status_tracker.total_requests = total_requests
         status_tracker.model = self.prompt_formatter.model_name
-        status_tracker.start_display(self._tracker_console)
+        status_tracker.start_tracker(self._tracker_console)
 
         # Use higher connector limit for better throughput
         connector = aiohttp.TCPConnector(limit=10 * status_tracker.max_requests_per_minute)
@@ -314,7 +314,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 if pending_retries:
                     done, pending_retries = await asyncio.wait(pending_retries, timeout=0.1)
 
-        status_tracker.stop_display()
+        status_tracker.stop_tracker()
 
         # Log final status
         logger.info(f"Processing complete. Results saved to {response_file}")
@@ -349,7 +349,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 session=session,
                 status_tracker=status_tracker,
             )
-            self.update_stats(status_tracker, generic_response.token_usage, generic_response.response_cost)
+            status_tracker.update_stats(generic_response.token_usage, generic_response.response_cost)
 
             # Allows us to retry on responses that don't match the response format
             self.prompt_formatter.response_to_response_format(generic_response.response_message)
@@ -423,13 +423,3 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         async with aiofiles.open(filename, "a") as f:
             await f.write(json_string + "\n")
         logger.debug(f"Successfully appended response to {filename}")
-
-    def update_stats(self, status_tracker: OnlineStatusTracker, token_usage: TokenUsage, cost: float):
-        """Update token and cost statistics."""
-        if token_usage:
-            status_tracker.total_prompt_tokens += token_usage.prompt_tokens
-            status_tracker.total_completion_tokens += token_usage.completion_tokens
-            status_tracker.total_tokens += token_usage.total_tokens
-        if cost:
-            status_tracker.total_cost += cost
-        status_tracker.update_display()

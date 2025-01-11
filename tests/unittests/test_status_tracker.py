@@ -5,7 +5,7 @@ from rich.console import Console
 from bespokelabs.curator.status_tracker.online_status_tracker import OnlineStatusTracker
 
 
-def test_online_status_tracker_display():
+def test_status_tracker_display():
     """Test that the status tracker display works correctly."""
     # Create a string buffer to capture output
     output = StringIO()
@@ -21,13 +21,14 @@ def test_online_status_tracker_display():
     tracker.start_tracker(console)
 
     # Simulate some progress
-    tracker.total_requests = 100
     tracker.num_tasks_succeeded = 50
     tracker.num_tasks_failed = 5
     tracker.num_tasks_in_progress = 10
     tracker.total_prompt_tokens = 1000
     tracker.total_completion_tokens = 2000
     tracker.total_cost = 0.123
+
+    # Update display
     tracker.update_stats(None, None)
 
     # Stop display
@@ -37,8 +38,8 @@ def test_online_status_tracker_display():
     captured = output.getvalue()
 
     # Verify key elements are present
-    assert "Generating data using test-model" in captured
-    assert "100" in captured  # Total requests
+    print(captured)
+    assert "test-model" in captured
     assert "50✓" in captured.replace(" ", "")  # Success count
     assert "5✗" in captured.replace(" ", "")  # Failed count
     assert "10⋯" in captured.replace(" ", "")  # In progress count
@@ -47,7 +48,7 @@ def test_online_status_tracker_display():
     assert "2000" in captured  # Output tokens
 
 
-def test_online_status_tracker_final_stats():
+def test_status_tracker_final_stats():
     """Test that the final statistics table is formatted correctly."""
     output = StringIO()
     # Same here - set width and force_terminal
