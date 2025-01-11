@@ -114,7 +114,7 @@ def test_resume(caplog, temp_working_dir, mock_dataset):
         logger = "bespokelabs.curator.request_processor.online.base_online_request_processor"
         with caplog.at_level(logging.INFO, logger=logger):
             helper.create_basic(temp_working_dir, mock_dataset)
-            resume_msg = "Resuming progress by reading existing file: tests/integrations/"
+            resume_msg = "Already Completed: 1"
             assert resume_msg in caplog.text
 
 

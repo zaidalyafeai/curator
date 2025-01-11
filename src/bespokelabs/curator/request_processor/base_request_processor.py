@@ -438,7 +438,7 @@ class BaseRequestProcessor(ABC):
             set[int]: Set of completed request IDs that were already successfully processed
         """
         completed_request_ids = set()
-        if not os.path.exists(response_file):
+        if os.path.exists(response_file):
             logger.info(f"Resuming progress by reading existing file: {response_file}")
             logger.debug(f"Removing all failed requests from {response_file} so they can be retried")
             temp_filepath = response_file + ".temp"
