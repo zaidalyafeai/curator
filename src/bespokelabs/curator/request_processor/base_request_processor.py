@@ -485,7 +485,7 @@ class BaseRequestProcessor(ABC):
         Raises:
             ValueError: If metadata file is missing or invalid
         """
-        metadata_file = request_file.replace("responses_", "metadata_").replace(".jsonl", ".json")
+        metadata_file = request_file.replace("requests_", "metadata_").replace(".jsonl", ".json")
 
         if not os.path.exists(metadata_file):
             raise ValueError(f"Metadata file not found: {metadata_file}")
