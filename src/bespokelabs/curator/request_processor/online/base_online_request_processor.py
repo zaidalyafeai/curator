@@ -181,7 +181,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 self.process_requests_from_file(
                     generic_request_filepath=request_file,
                     response_file=response_file,
-                    resume=True,
                 )
             )
 

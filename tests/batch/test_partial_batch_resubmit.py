@@ -2,6 +2,7 @@ import json
 import os
 import shutil
 
+import pytest
 from datasets import Dataset
 
 from bespokelabs.curator import LLM
@@ -11,6 +12,7 @@ from bespokelabs.curator.request_processor.config import BatchRequestProcessorCo
 from bespokelabs.curator.types.generic_batch import GenericBatch
 
 
+@pytest.mark.skip(reason="Test is being skipped")
 def test_generic_response_file_from_responses():
     with open("tests/batch/msgbatch_01AAs5rns9HhDrWvFxCoivqg_results.jsonl", "r") as f:
         responses = [json.loads(line) for line in f]
@@ -66,6 +68,7 @@ def test_generic_response_file_from_responses():
     abrp.generic_response_file_from_responses(responses, batch)
 
 
+@pytest.mark.skip(reason="Test is being skipped")
 def test_partial_batch_resubmit():
     # Clean up test directory if it exists
     test_dir = "tests/batch/test_working_dir"

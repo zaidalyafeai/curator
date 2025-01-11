@@ -114,7 +114,6 @@ class BaseOfflineRequestProcessor(BaseRequestProcessor, ABC):
             self.process_requests_from_file(
                 generic_request_filepath=request_file,
                 save_filepath=response_file,
-                resume=True,
             )
 
     def process_requests_from_file(
