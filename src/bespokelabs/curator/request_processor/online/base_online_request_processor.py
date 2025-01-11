@@ -18,9 +18,7 @@ import litellm
 from tqdm import tqdm
 
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
-from bespokelabs.curator.request_processor.base_request_processor import (
-    BaseRequestProcessor,
-)
+from bespokelabs.curator.request_processor.base_request_processor import BaseRequestProcessor
 from bespokelabs.curator.request_processor.config import OnlineRequestProcessorConfig
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.status_tracker.online_status_tracker import OnlineStatusTracker
