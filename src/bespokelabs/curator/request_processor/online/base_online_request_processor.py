@@ -220,7 +220,10 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
 
         # Count total requests
         total_requests = sum(1 for _ in open(generic_request_filepath))
-        status_tracker.start_display(total_requests, self.prompt_formatter.model_name)
+        status_tracker.num_tasks_already_completed = len(completed_request_ids)
+        status_tracker.total_requests = total_requests
+        status_tracker.model = self.prompt_formatter.model_name
+        status_tracker.start_display()
 
         # Use higher connector limit for better throughput
         connector = aiohttp.TCPConnector(limit=10 * status_tracker.max_requests_per_minute)
@@ -232,7 +235,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     generic_request = GenericRequest.model_validate_json(line)
 
                     if generic_request.original_row_idx in completed_request_ids:
-                        status_tracker.num_tasks_already_completed += 1
                         continue
 
                     request = APIRequest(

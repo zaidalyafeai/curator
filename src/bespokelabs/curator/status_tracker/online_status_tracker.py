@@ -50,11 +50,8 @@ class OnlineStatusTracker:
     # Add model name field
     model: str = ""
 
-    def start_display(self, total_requests: int, model: str):
+    def start_display(self):
         """Start status display."""
-        self.total_requests = total_requests
-        self.model = model  # Store the model name
-
         self._progress = Progress(
             TextColumn(
                 "[cyan]{task.description}[/cyan]\n"
@@ -74,9 +71,9 @@ class OnlineStatusTracker:
             TimeRemainingColumn(),
         )
         self._task_id = self._progress.add_task(
-            description=f"[cyan]Generating data using {model}",
-            total=total_requests,
-            completed=0,
+            description=f"[cyan]Generating data using {self.model}",
+            total=self.total_requests,
+            completed=self.num_tasks_already_completed,
             requests_text="[bold white]Requests:[/bold white] [dim]--[/dim]",
             tokens_text="[bold white]Tokens:[/bold white] [dim]--[/dim]",
             cost_text="[bold white]Cost:[/bold white] [dim]--[/dim]",
@@ -84,9 +81,9 @@ class OnlineStatusTracker:
             rate_limit_text="[bold white]Rate Limits:[/bold white] [dim]--[/dim]",
             price_text="[bold white]Model Pricing:[/bold white] [dim]--[/dim]",
         )
-        if model in model_cost:
-            self.input_cost_per_million = model_cost[model]["input_cost_per_token"] * 1_000_000
-            self.output_cost_per_million = model_cost[model]["output_cost_per_token"] * 1_000_000
+        if self.model in model_cost:
+            self.input_cost_per_million = model_cost[self.model]["input_cost_per_token"] * 1_000_000
+            self.output_cost_per_million = model_cost[self.model]["output_cost_per_token"] * 1_000_000
         self._progress.start()
 
     def update_display(self):
@@ -102,7 +99,12 @@ class OnlineStatusTracker:
 
         # Format the text for each line with properly closed tags
         requests_text = (
-            "[bold white]Requests:[/bold white] [white]Processing[/white] "
+            "[bold white]Requests:[/bold white] "
+            f"[white]•[/white] "
+            f"[white]Total:[/white] [blue]{self.total_requests}[/blue] "
+            f"[white]•[/white] "
+            f"[white]Cached:[/white] [green]{self.num_tasks_already_completed}✓[/green] "
+            f"[white]•[/white] "
             f"[white]Success:[/white] [green]{self.num_tasks_succeeded}✓[/green] "
             f"[white]•[/white] "
             f"[white]Failed:[/white] [red]{self.num_tasks_failed}✗[/red] "
@@ -158,8 +160,7 @@ class OnlineStatusTracker:
         # Update the progress display
         self._progress.update(
             self._task_id,
-            advance=1,
-            completed=self.num_tasks_succeeded,
+            completed=self.num_tasks_succeeded + self.num_tasks_already_completed,
             requests_text=requests_text,
             tokens_text=tokens_text,
             cost_text=cost_text,
