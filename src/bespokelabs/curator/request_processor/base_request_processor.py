@@ -428,16 +428,14 @@ class BaseRequestProcessor(ABC):
         d = d.remove_columns("__original_row_idx")
         return d
 
-    def validate_existing_response_file(self, response_file: str) -> tuple[set[int], set[int]]:
+    def validate_existing_response_file(self, response_file: str) -> set[int]:
         """Parse an existing response file to identify completed requests and removes failed requests.
 
         Args:
             response_file: Path to the response file to parse
 
         Returns:
-            tuple[set[int], set[int]]: Tuple containing two sets:
-                - Set of completed request IDs that were already successfully processed
-                - Set of failed request IDs that will need to be retried
+            set[int]: Set of completed request IDs that were already successfully processed
         """
         completed_request_ids = set()
         failed_request_ids = set()
@@ -473,4 +471,4 @@ class BaseRequestProcessor(ABC):
             )
             os.replace(temp_filepath, response_file)
 
-        return completed_request_ids, failed_request_ids
+        return completed_request_ids
