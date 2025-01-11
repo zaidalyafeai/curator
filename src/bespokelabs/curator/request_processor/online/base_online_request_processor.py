@@ -217,7 +217,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         status_tracker.max_tokens_per_minute = self.max_tokens_per_minute
 
         # Resume if a response file exists
-        completed_request_ids = self.resume_from_existing_response_file(response_file)
+        completed_request_ids = self.validate_existing_response_file(response_file)
 
         # Count total requests
         total_requests = sum(1 for _ in open(generic_request_filepath))
