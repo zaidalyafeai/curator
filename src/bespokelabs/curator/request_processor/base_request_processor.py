@@ -472,3 +472,27 @@ class BaseRequestProcessor(ABC):
             os.replace(temp_filepath, response_file)
 
         return completed_request_ids
+
+    def read_metadata_file(self, request_file: str) -> int:
+        """Read the number of jobs from the metadata file.
+
+        Args:
+            request_file: Path to the request file to get metadata for
+
+        Returns:
+            int: Number of total batch requests
+
+        Raises:
+            ValueError: If metadata file is missing or invalid
+        """
+        metadata_file = request_file.replace("responses_", "metadata_").replace(".jsonl", ".json")
+
+        if not os.path.exists(metadata_file):
+            raise ValueError(f"Metadata file not found: {metadata_file}")
+
+        try:
+            with open(metadata_file, "r") as f:
+                metadata = json.load(f)
+                return metadata
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in metadata file: {metadata_file}") from e

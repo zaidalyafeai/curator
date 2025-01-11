@@ -453,8 +453,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         for batch in self.tracker.downloaded_batches.values():
             response_file = batch.request_file.replace("requests_", "responses_")
             completed_request_ids = self.validate_existing_response_file(response_file)
-            metadata_file = response_file.replace("responses_", "metadata_").replace(".jsonl", ".json")
-            n_total_batch_requests = json.load(open(metadata_file, "r")).get("num_jobs")
+            n_total_batch_requests = self.read_metadata_file(batch.request_file).get("num_jobs")
             if len(completed_request_ids) < n_total_batch_requests:
                 tasks.append(self.submit_batch_from_request_file(batch.request_file, completed_request_ids))
 
