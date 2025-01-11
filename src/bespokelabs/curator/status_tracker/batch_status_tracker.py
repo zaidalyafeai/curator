@@ -120,7 +120,7 @@ class BatchStatusTracker(BaseModel):
             self.unsubmitted_request_files.remove(batch.request_file)
             self.n_total_requests += n_requests
         else:
-            logger.warning(f"Request file {batch.request_file} has already been submitted.")
+            logger.warning(f"Request file {batch.request_file} is being re-submitted.")
         self.submitted_batches[batch.id] = batch
         logger.debug(f"Marked {batch.request_file} as submitted with batch {batch.id}")
 

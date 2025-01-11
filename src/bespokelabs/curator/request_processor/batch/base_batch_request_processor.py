@@ -454,7 +454,6 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             response_file = batch.request_file.replace("requests_", "responses_")
             completed_request_ids, failed_request_ids = self.validate_existing_response_file(response_file)
             if len(failed_request_ids) > 0:
-                logger.info(f"Will resubmit {len(failed_request_ids)} failed requests from {response_file}")
                 tasks.append(self.submit_batch_from_request_file(batch.request_file, completed_request_ids))
 
         # submit full batches of unsubmitted request files
