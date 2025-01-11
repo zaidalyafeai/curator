@@ -1,20 +1,14 @@
-from bespokelabs.curator.request_processor.batch.base_batch_request_processor import (
-    BaseBatchRequestProcessor,
-)
-from bespokelabs.curator.request_processor.batch.openai_batch_request_processor import (
-    OpenAIBatchRequestProcessor,
-)
-from bespokelabs.curator.request_processor.batch.anthropic_batch_request_processor import (
-    AnthropicBatchRequestProcessor,
-)
+import json
+import os
+import shutil
+
+from datasets import Dataset
+
+from bespokelabs.curator import LLM
+from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
+from bespokelabs.curator.request_processor.batch.anthropic_batch_request_processor import AnthropicBatchRequestProcessor
 from bespokelabs.curator.request_processor.config import BatchRequestProcessorConfig
 from bespokelabs.curator.types.generic_batch import GenericBatch
-from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
-import json
-import shutil
-import os
-from bespokelabs.curator import LLM
-from datasets import Dataset
 
 
 def test_generic_response_file_from_responses():
