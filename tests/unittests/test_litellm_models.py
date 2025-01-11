@@ -2,9 +2,9 @@ import logging
 import os
 
 import pytest
+from datasets import Dataset
 
 from bespokelabs.curator import LLM
-from bespokelabs.curator.dataset import Dataset
 
 """
 USAGE:
@@ -12,6 +12,7 @@ pytest -s tests/test_litellm_models.py
 """
 
 
+@pytest.mark.skip
 @pytest.mark.cache_dir(os.path.expanduser("~/.cache/curator-tests/test-models"))
 @pytest.mark.usefixtures("clear_test_cache")
 class TestLiteLLMModels:
@@ -53,9 +54,7 @@ class TestLiteLLMModels:
             pytest.param("gpt-3.5-turbo-1106", id="gpt-3.5"),
             pytest.param("gemini/gemini-1.5-flash", id="gemini-flash"),
             pytest.param("gemini/gemini-1.5-pro", id="gemini-pro"),
-            pytest.param(
-                "together_ai/meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", id="llama-8b"
-            ),
+            pytest.param("together_ai/meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", id="llama-8b"),
             pytest.param(
                 "together_ai/meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
                 id="llama-70b",

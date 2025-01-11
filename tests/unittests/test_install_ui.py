@@ -10,9 +10,7 @@ def import_install_ui():
     """Import just the install_ui module without importing the whole package."""
     # Get the absolute path to install_ui.py
     install_ui_path = os.path.join(
-        os.path.dirname(
-            os.path.dirname(__file__)
-        ),  # Go up one level since we're in tests/
+        os.path.dirname(os.path.dirname(__file__)),  # Go up one level since we're in tests/
         "src/bespokelabs/curator/install_ui.py",
     )
 

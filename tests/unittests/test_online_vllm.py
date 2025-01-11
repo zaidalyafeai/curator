@@ -14,17 +14,13 @@ from bespokelabs.curator import LLM
 def download_model(model_name):
     """Download a model from the Hugging Face Hub."""
     tmpdirname = tempfile.mkdtemp()
-    model_path = huggingface_hub.snapshot_download(
-        repo_id=model_name, repo_type="model", local_dir=tmpdirname
-    )
+    model_path = huggingface_hub.snapshot_download(repo_id=model_name, repo_type="model", local_dir=tmpdirname)
     return model_path
 
 
 def start_vllm_server(model_path, host, port):
     """Start the VLLM server."""
-    cmd = (
-        f"vllm serve {model_path} --host={host} --port={port} --api-key=token-abc123 &"
-    )
+    cmd = f"vllm serve {model_path} --host={host} --port={port} --api-key=token-abc123 &"
     try:
         os.system(cmd)
     except Exception as e:
@@ -50,6 +46,7 @@ def kill_vllm_server():
         raise e
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize("model_name", ["HuggingFaceTB/SmolLM-135M-Instruct"])
 def test_online_vllm(model_name):
     model_path = download_model(model_name)

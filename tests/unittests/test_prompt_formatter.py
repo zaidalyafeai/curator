@@ -1,5 +1,7 @@
+import json
+
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter, _validate_messages
 
@@ -37,12 +39,16 @@ class TestResponse(BaseModel):
 def test_prompt_formatter_create_generic_request():
     """Tests that PromptFormatter correctly creates GenericRequest objects."""
     # Test with string prompt
-    formatter = PromptFormatter(
-        model_name="test-model",
-        prompt_func=lambda x: "Hello",
-        response_format=TestResponse,
-    )
+    formatter = PromptFormatter(model_name="test-model", prompt_func=lambda x: "Hello", response_format=TestResponse)
+    assert formatter.response_to_response_format(json.dumps({"text": "response"})) == TestResponse(text="response")
+    assert formatter.parse_response_message(json.dumps({"text": "response"})) == ({"text": "response"}, None)
+
     request = formatter.create_generic_request({"input": "test"}, 0)
+    with pytest.raises(json.JSONDecodeError):
+        formatter.response_to_response_format("'text': 'response'}")
+    with pytest.raises(ValidationError):
+        formatter.response_to_response_format(json.dumps({"other": "response"}))
+    formatter.parse_response_message("'text': 'response'}")
 
     assert request.model == "test-model"
     assert request.messages == [{"role": "user", "content": "Hello"}]
@@ -58,6 +64,7 @@ def test_prompt_formatter_create_generic_request():
             {"role": "user", "content": "Hi"},
         ],
     )
+
     request = formatter.create_generic_request({"input": "test"}, 1)
 
     assert len(request.messages) == 2
@@ -70,12 +77,8 @@ def test_prompt_formatter_invalid_prompt_func():
     """Tests that PromptFormatter raises errors for invalid prompt functions."""
     # Test prompt function with too many parameters
     with pytest.raises(ValueError, match="must have 0 or 1 arguments"):
-        PromptFormatter(
-            model_name="test", prompt_func=lambda x, y: "test"
-        ).create_generic_request({}, 0)
+        PromptFormatter(model_name="test", prompt_func=lambda x, y: "test").create_generic_request({}, 0)
 
     # Test invalid prompt function return type
     with pytest.raises(ValueError, match="must be a list of dictionaries"):
-        PromptFormatter(
-            model_name="test", prompt_func=lambda x: {"invalid": "format"}
-        ).create_generic_request({}, 0)
+        PromptFormatter(model_name="test", prompt_func=lambda x: {"invalid": "format"}).create_generic_request({}, 0)

@@ -2,8 +2,10 @@ PYTHON = python3
 CLEANUP_DIRS = ~/.cache/curator __pycache__ .pytest_cache .tox .coverage .nox *.egg-info dist build 
 
 lint: 
-	@echo "Running Linter (black)..."
-	black src/ tests/
+	@echo "Running Linter (Ruff)..."
+	isort tests/ src/
+	poetry run ruff format src/
+	poetry run ruff format tests/
 
 test:
 	@echo "Running tests with pytest..."
@@ -15,7 +17,7 @@ test_integration:
 	poetry run pytest tests/integrations/$$integration_name --maxfail=1 --disable-warnings -q
 
 check: 
-	@echo "Checking Linter (black)..."
+	@echo "Checking Linter (Ruff)..."
 	poetry run ruff check src/ --output-format=github
 	poetry run ruff check tests/ --output-format=github
 clean:
