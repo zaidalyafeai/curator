@@ -220,7 +220,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
 
         # Count total requests
         total_requests = sum(1 for _ in open(generic_request_filepath))
-        status_tracker.initialize_display(total_requests, self.prompt_formatter.model_name)
+        status_tracker.start_display(total_requests, self.prompt_formatter.model_name)
 
         # Use higher connector limit for better throughput
         connector = aiohttp.TCPConnector(limit=10 * status_tracker.max_requests_per_minute)

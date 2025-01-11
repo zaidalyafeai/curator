@@ -50,10 +50,11 @@ class OnlineStatusTracker:
     # Add model name field
     model: str = ""
 
-    def initialize_display(self, total_requests: int, model: str):
-        """Initialize status display."""
+    def start_display(self, total_requests: int, model: str):
+        """Start status display."""
         self.total_requests = total_requests
         self.model = model  # Store the model name
+
         self._progress = Progress(
             TextColumn(
                 "[cyan]{task.description}[/cyan]\n"
@@ -71,10 +72,9 @@ class OnlineStatusTracker:
             TimeElapsedColumn(),
             TextColumn("[bold white]•[/bold white]"),
             TimeRemainingColumn(),
-            expand=True,
         )
         self._task_id = self._progress.add_task(
-            description=f"[cyan]{model}",
+            description=f"[cyan]Generating data for model {model}",
             total=total_requests,
             completed=0,
             status_text="[bold white]Status:[/bold white] [dim]Initializing...[/dim]",
@@ -137,6 +137,7 @@ class OnlineStatusTracker:
             rate_limit_text=rate_limit_text,
             price_text=price_text,
         )
+        self._progress.start()
 
     def stop_display(self):
         """Stop the progress display."""
@@ -231,3 +232,8 @@ class OnlineStatusTracker:
         """Consume capacity for a request."""
         self.available_request_capacity -= 1
         self.available_token_capacity -= token_estimate
+
+    def __del__(self):
+        """Ensure progress is stopped on deletion."""
+        if hasattr(self, "_progress"):
+            self._progress.stop()
