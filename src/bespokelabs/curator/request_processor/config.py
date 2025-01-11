@@ -37,14 +37,10 @@ class RequestProcessorConfig(BaseModel):
             ValueError: If an unsupported generation parameter is provided
         """
         self.supported_params = litellm.get_supported_openai_params(model=self.model)
-        logger.debug(
-            f"Automatically detected supported params using litellm for {self.model}: {self.supported_params}"
-        )
+        logger.debug(f"Automatically detected supported params using litellm for {self.model}: {self.supported_params}")
 
         for key in self.generation_params.keys():
-            raise ValueError(
-                f"Generation parameter '{key}' is not supported for model '{self.model}'"
-            )
+            raise ValueError(f"Generation parameter '{key}' is not supported for model '{self.model}'")
 
 
 class BatchRequestProcessorConfig(RequestProcessorConfig):

@@ -61,12 +61,7 @@ class VLLMOfflineRequestProcessor(BaseOfflineRequestProcessor):
         """
         tokenizer = self.model_class.get_tokenizer()
         try:
-            formatted_prompts = [
-                tokenizer.apply_chat_template(
-                    conversation=prompt, tokenize=False, add_generation_prompt=True
-                )
-                for prompt in prompts
-            ]
+            formatted_prompts = [tokenizer.apply_chat_template(conversation=prompt, tokenize=False, add_generation_prompt=True) for prompt in prompts]
         except Exception as e:
             logger.error(f"Error formatting prompts: {e}")
             raise e
@@ -96,9 +91,7 @@ class VLLMOfflineRequestProcessor(BaseOfflineRequestProcessor):
         try:
             json_schema = User.schema()
             guided_decoding_params = GuidedDecodingParams(json=json_schema)
-            sampling_params = vllm.SamplingParams(
-                guided_decoding=guided_decoding_params
-            )
+            sampling_params = vllm.SamplingParams(guided_decoding=guided_decoding_params)
             messages = [[{"role": "user", "content": "Jason is 25 years old."}]]
             formatted_prompts = self.format_prompts(messages)
             response = self.model_class.generate(
@@ -113,15 +106,11 @@ class VLLMOfflineRequestProcessor(BaseOfflineRequestProcessor):
             assert isinstance(response.name, str)
             assert response.name == "Jason"
             assert response.age == 25
-            logger.info(
-                f"Model {self.model} supports structured output via instructor, response: {response}"
-            )
+            logger.info(f"Model {self.model} supports structured output via instructor, response: {response}")
             self.support_structured_output = True
             return True
         except Exception as e:
-            logger.warning(
-                f"Model {self.model} does not support structured output via guided decoding: {e} {type(e)} {e}"
-            )
+            logger.warning(f"Model {self.model} does not support structured output via guided decoding: {e} {type(e)} {e}")
             return False
 
     def create_api_specific_request(self, generic_request: GenericRequest) -> dict:
@@ -176,9 +165,7 @@ class VLLMOfflineRequestProcessor(BaseOfflineRequestProcessor):
             response_message += "}"
         return response_message
 
-    def process_requests(
-        self, requests: list[APIRequest], status_tracker: OfflineStatusTracker
-    ) -> list[GenericResponse]:
+    def process_requests(self, requests: list[APIRequest], status_tracker: OfflineStatusTracker) -> list[GenericResponse]:
         """Process a list of API requests using the VLLM model.
 
         Args:
@@ -194,10 +181,7 @@ class VLLMOfflineRequestProcessor(BaseOfflineRequestProcessor):
             guided_decoding_params = GuidedDecodingParams(json=response_format)
         else:
             if response_format is not None:
-                logger.warning(
-                    f"Model {self.model} does not support structured output via guided decoding, "
-                    f"response_format: {response_format}"
-                )
+                logger.warning(f"Model {self.model} does not support structured output via guided decoding, " f"response_format: {response_format}")
 
         sampling_params = {
             "guided_decoding": guided_decoding_params,
@@ -206,9 +190,7 @@ class VLLMOfflineRequestProcessor(BaseOfflineRequestProcessor):
             **self.generation_params,
         }
 
-        formatted_prompts = self.format_prompts(
-            [request.generic_request.messages for request in requests]
-        )
+        formatted_prompts = self.format_prompts([request.generic_request.messages for request in requests])
 
         completions = self.model_class.generate(
             formatted_prompts,

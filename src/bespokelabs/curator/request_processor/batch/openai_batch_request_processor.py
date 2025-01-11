@@ -32,9 +32,7 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
         if self.config.base_url is None:
             self.client = AsyncOpenAI(max_retries=self.config.max_retries)
         else:
-            self.client = AsyncOpenAI(
-                max_retries=self.config.max_retries, base_url=self.config.base_url
-            )
+            self.client = AsyncOpenAI(max_retries=self.config.max_retries, base_url=self.config.base_url)
         self.web_dashboard = "https://platform.openai.com/batches"
 
     @property
@@ -57,9 +55,7 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
         """The maximum number of concurrent batch operations."""
         return 100
 
-    def parse_api_specific_request_counts(
-        self, request_counts: BatchRequestCounts
-    ) -> GenericBatchRequestCounts:
+    def parse_api_specific_request_counts(self, request_counts: BatchRequestCounts) -> GenericBatchRequestCounts:
         """Convert OpenAI-specific request counts to generic format.
 
         Handles the following OpenAI request count statuses:
@@ -80,9 +76,7 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
             raw_request_counts_object=request_counts.model_dump(),
         )
 
-    def parse_api_specific_batch_object(
-        self, batch: Batch, request_file: str | None = None
-    ) -> GenericBatch:
+    def parse_api_specific_batch_object(self, batch: Batch, request_file: str | None = None) -> GenericBatch:
         """Convert an OpenAI batch object to generic format.
 
         Maps OpenAI-specific batch statuses and timing information to our
@@ -113,12 +107,7 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
         else:
             raise ValueError(f"Unknown batch status: {batch.status}")
 
-        finished_at = (
-            batch.completed_at
-            or batch.failed_at
-            or batch.expired_at
-            or batch.cancelled_at
-        )
+        finished_at = batch.completed_at or batch.failed_at or batch.expired_at or batch.cancelled_at
 
         return GenericBatch(
             request_file=batch.metadata["request_file"],
@@ -177,9 +166,7 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
                 completion_tokens=usage.get("completion_tokens", 0),
                 total_tokens=usage.get("total_tokens", 0),
             )
-            response_message, response_errors = (
-                self.prompt_formatter.parse_response_message(response_message_raw)
-            )
+            response_message, response_errors = self.prompt_formatter.parse_response_message(response_message_raw)
 
             cost = litellm.completion_cost(
                 model=self.config.model,
@@ -200,9 +187,7 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
             response_cost=cost,
         )
 
-    def create_api_specific_request_batch(
-        self, generic_request: GenericRequest
-    ) -> dict:
+    def create_api_specific_request_batch(self, generic_request: GenericRequest) -> dict:
         """Creates an API-specific request body from a generic request body.
 
         This function transforms a GenericRequest into the format expected by OpenAI's batch API.
@@ -238,9 +223,7 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
             str: The uploaded file object from OpenAI
         """
         try:
-            batch_file_upload = await self.client.files.create(
-                file=file_content, purpose="batch"
-            )
+            batch_file_upload = await self.client.files.create(file=file_content, purpose="batch")
         except Exception as e:
             logger.error(f"Error uploading batch file: {e}")
             raise e
@@ -250,9 +233,7 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
         await asyncio.sleep(1)
 
         try:
-            batch_file_upload = await self.client.files.wait_for_processing(
-                batch_file_upload.id
-            )
+            batch_file_upload = await self.client.files.wait_for_processing(batch_file_upload.id)
         except Exception as e:
             logger.error(f"Error waiting for batch file to be processed: {e}")
             raise e
@@ -323,10 +304,7 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
         try:
             batch = await self.client.batches.retrieve(batch.id)
         except NotFoundError:
-            logger.warning(
-                f"batch object {batch.id} not found. "
-                f"Your API key (***{self.client.api_key[-4:]}) might not have access to this batch."
-            )
+            logger.warning(f"batch object {batch.id} not found. " f"Your API key (***{self.client.api_key[-4:]}) might not have access to this batch.")
             return None
         return self.parse_api_specific_batch_object(batch)
 
@@ -374,14 +352,10 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
         async with self.semaphore:
             # Completed batches have an output file
             if openai_batch.output_file_id:
-                output_file_content = await self.client.files.content(
-                    openai_batch.output_file_id
-                )
+                output_file_content = await self.client.files.content(openai_batch.output_file_id)
             if openai_batch.error_file_id:
                 # TODO: Do we need to handle this?
-                error_file_content = await self.client.files.content(
-                    openai_batch.error_file_id
-                )  # noqa: F841
+                error_file_content = await self.client.files.content(openai_batch.error_file_id)  # noqa: F841
 
             if openai_batch.status == "completed" and openai_batch.output_file_id:
                 logger.debug(f"Batch {batch.id} completed and downloaded")
@@ -391,9 +365,7 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
 
             # Failed batches with an error file
             elif openai_batch.status == "failed" and openai_batch.error_file_id:
-                logger.warning(
-                    f"Batch {batch.id} failed\n. Errors will be parsed below."
-                )
+                logger.warning(f"Batch {batch.id} failed\n. Errors will be parsed below.")
                 if self.config.delete_failed_batch_files:
                     await self.delete_file(openai_batch.input_file_id, self.semaphore)
                     await self.delete_file(openai_batch.error_file_id, self.semaphore)

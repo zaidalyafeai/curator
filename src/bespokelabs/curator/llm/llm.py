@@ -30,7 +30,7 @@ class LLM:
         self,
         model_name: str,
         prompt_func: Callable[[_DictOrBaseModel], _DictOrBaseModel],
-        parse_func: (Callable[[_DictOrBaseModel, _DictOrBaseModel], _DictOrBaseModel] | None) = None,
+        parse_func: Callable[[_DictOrBaseModel, _DictOrBaseModel], _DictOrBaseModel] | None = None,
         base_url: str | None = None,
         response_format: Type[BaseModel] | None = None,
         batch: bool = False,

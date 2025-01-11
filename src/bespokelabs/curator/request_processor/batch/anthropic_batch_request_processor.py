@@ -38,12 +38,8 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
         if self.config.base_url is None:
             self.client = AsyncAnthropic(max_retries=self.config.max_retries)
         else:
-            self.client = AsyncAnthropic(
-                max_retries=self.config.max_retries, base_url=self.config.base_url
-            )
-        self.web_dashboard = (
-            "https://console.anthropic.com/settings/workspaces/default/batches"
-        )
+            self.client = AsyncAnthropic(max_retries=self.config.max_retries, base_url=self.config.base_url)
+        self.web_dashboard = "https://console.anthropic.com/settings/workspaces/default/batches"
 
     @property
     def backend(self):
@@ -79,9 +75,7 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
         """
         return 100
 
-    def parse_api_specific_request_counts(
-        self, request_counts: MessageBatchRequestCounts
-    ) -> GenericBatchRequestCounts:
+    def parse_api_specific_request_counts(self, request_counts: MessageBatchRequestCounts) -> GenericBatchRequestCounts:
         """Converts Anthropic-specific request counts to generic format.
 
         Reference implementation:
@@ -100,9 +94,7 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
         Returns:
             GenericBatchRequestCounts: Standardized request count format.
         """
-        failed = (
-            request_counts.canceled + request_counts.errored + request_counts.expired
-        )
+        failed = request_counts.canceled + request_counts.errored + request_counts.expired
         succeeded = request_counts.succeeded
         processing = request_counts.processing
         return GenericBatchRequestCounts(
@@ -112,9 +104,7 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
             raw_request_counts_object=request_counts.model_dump(),
         )
 
-    def parse_api_specific_batch_object(
-        self, batch: MessageBatch, request_file: str | None = None
-    ) -> GenericBatch:
+    def parse_api_specific_batch_object(self, batch: MessageBatch, request_file: str | None = None) -> GenericBatch:
         """Converts an Anthropic batch object to generic format.
 
         Reference implementations:
@@ -165,9 +155,7 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
             raw_status=batch.processing_status,
         )
 
-    def create_api_specific_request_batch(
-        self, generic_request: GenericRequest
-    ) -> dict:
+    def create_api_specific_request_batch(self, generic_request: GenericRequest) -> dict:
         """Creates an API-specific request body from a generic request.
 
         Transforms a GenericRequest into the format expected by Anthropic's batch API.
@@ -183,7 +171,7 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
                 including custom_id and request parameters.
         """
         _, kwargs = instructor.handle_response_model(
-            self.prompt_formatter.response_format,
+            self.prompt_formatter.response_format,  # Use the object instead of the dict
             mode=instructor.Mode.ANTHROPIC_JSON,
             messages=generic_request.messages,
         )
@@ -222,9 +210,7 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
         result_type = raw_response["result"]["type"]
         if result_type != "succeeded":
             error = raw_response["result"]["error"]
-            logger.warning(
-                f"custom_id {raw_response['custom_id']} result was '{result_type}' with error '{error}'"
-            )
+            logger.warning(f"custom_id {raw_response['custom_id']} result was '{result_type}' with error '{error}'")
             response_message = None
             response_errors = [str(error)]
             token_usage = None
@@ -242,12 +228,9 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
             token_usage = TokenUsage(
                 prompt_tokens=usage.get("input_tokens", 0),
                 completion_tokens=usage.get("output_tokens", 0),
-                total_tokens=usage.get("input_tokens", 0)
-                + usage.get("output_tokens", 0),
+                total_tokens=usage.get("input_tokens", 0) + usage.get("output_tokens", 0),
             )
-            response_message, response_errors = (
-                self.prompt_formatter.parse_response_message(response_message_raw)
-            )
+            response_message, response_errors = self.prompt_formatter.parse_response_message(response_message_raw)
 
             cost = litellm.completion_cost(
                 model=self.config.model,
@@ -283,9 +266,7 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
         """
         async with self.semaphore:
             batch = await self.client.messages.batches.create(requests=requests)
-            return self.parse_api_specific_batch_object(
-                batch, request_file=metadata["request_file"]
-            )
+            return self.parse_api_specific_batch_object(batch, request_file=metadata["request_file"])
 
     async def retrieve_batch(self, batch: GenericBatch) -> GenericBatch:
         """Retrieves the current status of a batch from Anthropic's API.
@@ -304,16 +285,11 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
             try:
                 batch = await self.client.messages.batches.retrieve(batch.id)
             except NotFoundError:
-                logger.warning(
-                    f"batch object {batch.id} not found. "
-                    f"Your API key (***{self.client.api_key[-4:]}) might not have access to this batch."
-                )
+                logger.warning(f"batch object {batch.id} not found. " f"Your API key (***{self.client.api_key[-4:]}) might not have access to this batch.")
                 return None
 
             request_file = self.tracker.submitted_batches[batch.id].request_file
-            return self.parse_api_specific_batch_object(
-                batch, request_file=request_file
-            )
+            return self.parse_api_specific_batch_object(batch, request_file=request_file)
 
     async def download_batch(self, batch: GenericBatch) -> list[dict] | None:
         """Downloads the results of a completed batch.
@@ -359,18 +335,12 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
             batch_object = await self.retrieve_batch(batch)
             if batch_object.status == "ended":
                 logger.warning(f"Batch {batch.id} is already ended, cannot cancel")
-                return self.parse_api_specific_batch_object(
-                    batch_object, request_file=request_file
-                )
+                return self.parse_api_specific_batch_object(batch_object, request_file=request_file)
             try:
                 await self.client.messages.batches.cancel(batch.id)
                 logger.info(f"Successfully cancelled batch: {batch.id}")
-                return self.parse_api_specific_batch_object(
-                    batch_object, request_file=request_file
-                )
+                return self.parse_api_specific_batch_object(batch_object, request_file=request_file)
             except Exception as e:
                 error_msg = str(e)
                 logger.error(f"Failed to cancel batch {batch.id}: {error_msg}")
-                return self.parse_api_specific_batch_object(
-                    batch_object, request_file=request_file
-                )
+                return self.parse_api_specific_batch_object(batch_object, request_file=request_file)

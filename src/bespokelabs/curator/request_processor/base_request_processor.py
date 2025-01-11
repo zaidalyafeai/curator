@@ -18,10 +18,7 @@ from pydantic import BaseModel, ValidationError
 
 from bespokelabs.curator.file_utilities import count_lines
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
-from bespokelabs.curator.request_processor.config import (
-    BatchRequestProcessorConfig,
-    RequestProcessorConfig,
-)
+from bespokelabs.curator.request_processor.config import BatchRequestProcessorConfig, RequestProcessorConfig
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.types.generic_response import GenericResponse
 

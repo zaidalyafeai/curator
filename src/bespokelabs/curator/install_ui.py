@@ -73,24 +73,16 @@ class InstallationUI:
         """Create the success message with links."""
         text = Text()
         text.append("✨ Curator installed successfully!\n\n", style="bold green")
-        text.append(
-            "Start building production-ready synthetic data pipelines:\n\n",
-            style="dim white",
-        )
+        text.append("Start building production-ready synthetic data pipelines:\n\n", style="dim white")
         text.append("   📚 ", style="")
-        text.append(
-            "docs.bespokelabs.ai", style="dim cyan link https://docs.bespokelabs.ai"
-        )
+        text.append("docs.bespokelabs.ai", style="dim cyan link https://docs.bespokelabs.ai")
         text.append("\n   📦 ", style="")
         text.append(
             "github.com/bespokelabsai/curator",
             style="dim cyan link https://github.com/bespokelabsai/curator",
         )
         text.append("\n   💬 ", style="")
-        text.append(
-            "discord.gg/KqpXvpzVBS",
-            style="dim cyan link https://discord.com/invite/KqpXvpzVBS",
-        )
+        text.append("discord.gg/KqpXvpzVBS", style="dim cyan link https://discord.com/invite/KqpXvpzVBS")
         return text
 
 
@@ -142,11 +134,7 @@ class PackageInstaller:
 
     def install(self) -> None:
         """Execute the installation with progress tracking and UI updates."""
-        spinner = Spinner(
-            "dots2",
-            text=self.ui.create_loading_text(InstallationStage.PREPARING, 0),
-            style="green",
-        )
+        spinner = Spinner("dots2", text=self.ui.create_loading_text(InstallationStage.PREPARING, 0), style="green")
 
         with Live(spinner, console=self.ui.console, refresh_per_second=30) as live:
             try:
@@ -161,9 +149,7 @@ class PackageInstaller:
                     spinner.text = self.ui.create_loading_text(stage, progress)
 
                 # Show completion
-                spinner.text = self.ui.create_loading_text(
-                    InstallationStage.COMPLETE, 1.0
-                )
+                spinner.text = self.ui.create_loading_text(InstallationStage.COMPLETE, 1.0)
 
                 if process.poll() == 0:
                     live.update(self.ui.create_success_text())

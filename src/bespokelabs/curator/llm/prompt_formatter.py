@@ -31,22 +31,13 @@ def _validate_messages(messages: list[dict]) -> None:
 
     for msg in messages:
         if not isinstance(msg, dict):
-            raise ValueError(
-                "In the return value (a list) of the prompt_func, each "
-                "message must be a dictionary"
-            )
+            raise ValueError("In the return value (a list) of the prompt_func, each " "message must be a dictionary")
 
         if "role" not in msg or "content" not in msg:
-            raise ValueError(
-                "In the return value (a list) of the prompt_func, each "
-                "message must contain 'role' and 'content' keys"
-            )
+            raise ValueError("In the return value (a list) of the prompt_func, each " "message must contain 'role' and 'content' keys")
 
         if msg["role"] not in valid_roles:
-            raise ValueError(
-                f"In the return value (a list) of the prompt_func, "
-                f"each message role must be one of: {', '.join(sorted(valid_roles))}"
-            )
+            raise ValueError(f"In the return value (a list) of the prompt_func, " f"each message role must be one of: {', '.join(sorted(valid_roles))}")
 
 
 @dataclass
@@ -86,9 +77,7 @@ class PromptFormatter:
         elif len(sig.parameters) == 1:
             prompts = self.prompt_func(row)
         else:
-            raise ValueError(
-                f"Prompting function {self.prompt_func} must have 0 or 1 arguments."
-            )
+            raise ValueError(f"Prompting function {self.prompt_func} must have 0 or 1 arguments.")
 
         if isinstance(prompts, str):
             messages = [{"role": "user", "content": prompts}]
@@ -96,9 +85,7 @@ class PromptFormatter:
             _validate_messages(prompts)
             messages = prompts
         else:
-            raise ValueError(
-                "The return value of the prompt_func must be a list of dictionaries."
-            )
+            raise ValueError("The return value of the prompt_func must be a list of dictionaries.")
 
         # Convert BaseModel to dict for serialization
         if isinstance(row, BaseModel):
@@ -109,17 +96,11 @@ class PromptFormatter:
             messages=messages,
             original_row=row,
             original_row_idx=idx,
-            response_format=(
-                self.response_format.model_json_schema()
-                if self.response_format
-                else None
-            ),
+            response_format=(self.response_format.model_json_schema() if self.response_format else None),
             generation_params=self.generation_params,
         )
 
-    def response_to_response_format(
-        self, response_message: str | dict
-    ) -> Optional[dict | str]:
+    def response_to_response_format(self, response_message: str | dict) -> Optional[dict | str]:
         """Converts a response message to a specified Pydantic model format.
 
         This method takes a response message (either as a string or dict) and validates/converts it
@@ -149,10 +130,7 @@ class PromptFormatter:
                 try:
                     response_dict = json.loads(response_message)
                 except json.JSONDecodeError as e:
-                    logger.warning(
-                        f"Failed to parse response message as JSON: {response_message}. "
-                        f"The model likely returned an invalid JSON format."
-                    )
+                    logger.warning(f"Failed to parse response message as JSON: {response_message}. " f"The model likely returned an invalid JSON format.")
                     raise e
             else:
                 response_dict = response_message
@@ -169,9 +147,7 @@ class PromptFormatter:
             )
             raise e
 
-    def parse_response_message(
-        self, response_message: str
-    ) -> tuple[Optional[dict | str], Optional[list[str]]]:
+    def parse_response_message(self, response_message: str) -> tuple[Optional[dict | str], Optional[list[str]]]:
         """Parse a response message from the model.
 
         Args:
@@ -187,11 +163,7 @@ class PromptFormatter:
             try:
                 response_message = json.loads(response_message)
             except json.JSONDecodeError:
-                logger.warning(
-                    f"Failed to parse response as JSON: {response_message}, skipping this response."
-                )
+                logger.warning(f"Failed to parse response as JSON: {response_message}, skipping this response.")
                 response_message = None
-                response_errors = [
-                    f"Failed to parse response as JSON: {response_message}"
-                ]
+                response_errors = [f"Failed to parse response as JSON: {response_message}"]
         return response_message, response_errors

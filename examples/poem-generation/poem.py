@@ -48,9 +48,7 @@ poet = curator.LLM(
     model_name="gpt-4o-mini",
     response_format=Poems,
     # `row` is the input row, and `poems` is the Poems class which is parsed from the structured output from the LLM.
-    parse_func=lambda row, poems: [
-        {"topic": row["topic"], "poem": p} for p in poems.poems_list
-    ],
+    parse_func=lambda row, poems: [{"topic": row["topic"], "poem": p} for p in poems.poems_list],
 )
 
 # We apply the prompter to the topics dataset.
