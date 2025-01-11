@@ -495,4 +495,4 @@ class BaseRequestProcessor(ABC):
                 metadata = json.load(f)
                 return metadata
         except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in metadata file: {metadata_file}") from e
+            raise ValueError(f"Invalid JSON in metadata file: {metadata_file}. Delete cache directory 'rm -rf {self.working_dir}' and try again.") from e

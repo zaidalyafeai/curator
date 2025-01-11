@@ -38,7 +38,6 @@ def temp_working_dir(request):
         yield temp_working_dir, backend, vcr_config
     finally:
         shutil.rmtree(temp_working_dir)
-        pass
 
 
 @pytest.fixture
