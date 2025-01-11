@@ -447,35 +447,31 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         """
         self._attempt_loading_batch_status_tracker(request_files)
 
-        if self.tracker.n_submitted_batches > 0:
-            n_remaining = self.tracker.n_total_batches - self.tracker.n_downloaded_batches
-            n_submitted = self.tracker.n_submitted_batches + self.tracker.n_finished_batches
-            logger.info(f"{n_submitted:,} out of {n_remaining:,} remaining batches previously submitted.")
-
         tasks = []
 
         # check existing response files for resuming
         for batch in self.tracker.downloaded_batches.values():
             response_file = batch.request_file.replace("requests_", "responses_")
-            completed_request_ids = self.resume_from_existing_response_file(response_file)
-            tasks.append(self.submit_batch_from_request_file(batch.request_file, completed_request_ids))
-        n_resubmit_batches = len(tasks)
-        logger.info(f"{n_resubmit_batches} additional batches will need to be partially resubmitted.")
+            completed_request_ids, failed_request_ids = self.validate_existing_response_file(response_file)
+            if len(failed_request_ids) > 0:
+                logger.info(f"Will resubmit {len(failed_request_ids)} failed requests from {response_file}")
+                tasks.append(self.submit_batch_from_request_file(batch.request_file, completed_request_ids))
 
-        # exit early
-        if self.tracker.n_unsubmitted_request_files == 0 and n_resubmit_batches == 0:
+        # submit full batches of unsubmitted request files
+        for request_file in self.tracker.unsubmitted_request_files:
+            tasks.append(self.submit_batch_from_request_file(request_file, set()))
+
+        # exit early if no batches to submit
+        if len(tasks) == 0:
             return
 
         # submit batches
         self.batch_submit_pbar = tqdm(
-            total=self.tracker.n_total_batches,
+            total=len(tasks) + self.tracker.n_submitted_finished_or_downloaded_batches,
             desc="Submitting batches",
             unit="batch",
-            initial=self.tracker.n_submitted_finished_or_downloaded_batches - n_resubmit_batches,
+            initial=self.tracker.n_submitted_finished_or_downloaded_batches,
         )
-
-        for f in self.tracker.unsubmitted_request_files:
-            tasks.append(self.submit_batch_from_request_file(f, set()))
 
         await asyncio.gather(*tasks)
         self.batch_submit_pbar.close()
