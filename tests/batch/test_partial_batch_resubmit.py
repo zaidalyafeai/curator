@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import shutil
 
@@ -98,4 +99,18 @@ def test_partial_batch_resubmit():
 
 
 if __name__ == "__main__":
-    test_partial_batch_resubmit()
+    # test_partial_batch_resubmit()
+    # with open("/Users/ryan/Downloads/39e323a23ac2bff7/requests_15.jsonl", "r") as f:
+    #     responses = [json.loads(line) for line in f]
+    logging.getLogger("bespokelabs.curator").setLevel(logging.DEBUG)
+    config = BatchRequestProcessorConfig(
+        model="claude-3-5-haiku-20241022",
+    )
+    abrp = AnthropicBatchRequestProcessor(config)
+    abrp.prompt_formatter = PromptFormatter(
+        model_name="claude-3-5-haiku-20241022",
+        prompt_func=lambda x: x["instruction"],
+        parse_func=lambda x, y: x,
+    )
+    abrp.validate_existing_response_file("/Users/ryan/Downloads/39e323a23ac2bff7/responses_15.jsonl")
+    # print(len(abrp))

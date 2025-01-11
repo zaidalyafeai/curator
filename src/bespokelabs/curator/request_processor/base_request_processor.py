@@ -447,9 +447,15 @@ class BaseRequestProcessor(ABC):
             logger.debug(f"Removing all failed requests from {response_file} so they can be retried")
             temp_filepath = response_file + ".temp"
 
+            parsing_error_responses = 0
             with open(response_file, "r") as input_file, open(temp_filepath, "w") as output_file:
                 for line in input_file:
-                    response = GenericResponse.model_validate_json(line)
+                    try:
+                        response = GenericResponse.model_validate_json(line)
+                    except (json.JSONDecodeError, ValidationError):
+                        logger.warning("Skipping response due to error parsing line")
+                        parsing_error_responses += 1
+                        continue
                     row_id = response.generic_request.original_row_idx
                     if response.response_errors:
                         logger.debug(f"Request {row_id} previously failed due to errors: {response.response_errors}, removing from output and will retry")
@@ -461,7 +467,10 @@ class BaseRequestProcessor(ABC):
                         completed_request_ids.add(row_id)
                         output_file.write(line)
 
-            logger.info(f"Found {len(completed_request_ids)} successful requests and {len(failed_request_ids)} previously failed requests in {response_file}")
+            logger.info(
+                f"Found {len(completed_request_ids)} successful requests and {len(failed_request_ids)} "
+                f"previously failed requests and {parsing_error_responses} parsing errors in {response_file}"
+            )
             os.replace(temp_filepath, response_file)
 
         return completed_request_ids, failed_request_ids
