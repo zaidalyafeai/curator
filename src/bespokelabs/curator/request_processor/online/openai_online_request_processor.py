@@ -51,11 +51,11 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
             self.url = self.config.base_url + self._DEFAULT_COMPLETION_SUFFIX
 
         if self.config.base_url == "https://api.deepseek.com":
-            self.api_key = os.getenv("DEEPSEEK_API_KEY")
             # DeepSeek does not return rate limits in headers
             # https://api-docs.deepseek.com/quick_start/rate_limit.
             # And sending an empty request for rate limits results in a 400 error like this:
             # {'error': {'message': 'Empty input messages', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_request_error'}}
+            self.api_key = os.getenv("DEEPSEEK_API_KEY")
         else:
             self.api_key = os.getenv("OPENAI_API_KEY")
             self.header_based_max_requests_per_minute, self.header_based_max_tokens_per_minute = self.get_header_based_rate_limits()
@@ -98,9 +98,9 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
             Default implementation returns a conservative estimate.
             Override this method for more accurate model-specific estimates.
         """
-        try:
+        if self.config.model in litellm.model_cost:
             return litellm.get_max_tokens(model=self.config.model) // 4
-        except Exception:
+        else:
             return 0
 
     def estimate_total_tokens(self, messages: list) -> _TokenCount:
