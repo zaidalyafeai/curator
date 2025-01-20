@@ -274,7 +274,10 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
                 response_message = response.model_dump() if hasattr(response, "model_dump") else response
             else:
                 completion_obj = await litellm.acompletion(**request.api_specific_request, timeout=self.config.request_timeout)
-                response_message = completion_obj["choices"][0]["message"]["content"]
+                if self.config.return_completions_object:
+                    response_message = dict(completion_obj)
+                else:
+                    response_message = completion_obj["choices"][0]["message"]["content"]
         except litellm.RateLimitError as e:
             status_tracker.time_of_last_rate_limit_error = time.time()
             status_tracker.num_rate_limit_errors += 1

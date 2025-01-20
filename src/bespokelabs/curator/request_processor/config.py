@@ -26,6 +26,7 @@ class RequestProcessorConfig(BaseModel):
     request_timeout: int = Field(default=10 * 60, gt=0)
     require_all_responses: bool = Field(default=True)
     generation_params: dict = Field(default_factory=dict)
+    return_completions_object: bool = False
 
     class Config:
         """BaseModel Setup class."""

@@ -50,9 +50,16 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
         else:
             self.url = self.config.base_url + self._DEFAULT_COMPLETION_SUFFIX
 
-        self.api_key = os.getenv("OPENAI_API_KEY")
+        if self.config.base_url == "https://api.deepseek.com":
+            self.api_key = os.getenv("DEEPSEEK_API_KEY")
+            # DeepSeek does not return rate limits in headers
+            # https://api-docs.deepseek.com/quick_start/rate_limit.
+            # And sending an empty request for rate limits results in a 400 error like this:
+            # {'error': {'message': 'Empty input messages', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_request_error'}}
+        else:
+            self.api_key = os.getenv("OPENAI_API_KEY")
+            self.header_based_max_requests_per_minute, self.header_based_max_tokens_per_minute = self.get_header_based_rate_limits()
         self.token_encoding = self.get_token_encoding()
-        self.header_based_max_requests_per_minute, self.header_based_max_tokens_per_minute = self.get_header_based_rate_limits()
 
     @property
     def backend(self):
@@ -212,7 +219,10 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
             if response_obj.status != 200:
                 raise Exception(f"API request failed with status {response_obj.status}: {response}")
 
-            response_message = response["choices"][0]["message"]["content"]
+            if self.config.return_completions_object:
+                response_message = dict(response)
+            else:
+                response_message = response["choices"][0]["message"]["content"]
             usage = response["usage"]
             token_usage = TokenUsage(
                 prompt_tokens=usage["prompt_tokens"],

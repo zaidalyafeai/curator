@@ -29,6 +29,7 @@ class LLM:
     """Interface for prompting LLMs."""
 
     response_format: Type[BaseModel] | None = None
+    return_completions_object: bool = False
 
     def prompt(self, input: _DictOrBaseModel) -> _DictOrBaseModel:
         """Prompt the LLM.
@@ -125,7 +126,13 @@ class LLM:
         self.batch_mode = batch
 
         self._request_processor = _RequestProcessorFactory.create(
-            params=backend_params, model_name=model_name, batch=batch, response_format=response_format, backend=backend, generation_params=generation_params
+            params=backend_params,
+            model_name=model_name,
+            batch=batch,
+            response_format=response_format,
+            backend=backend,
+            generation_params=generation_params,
+            return_completions_object=self.return_completions_object,
         )
 
     def _hash_fingerprint(self, dataset_hash, disable_cache):
