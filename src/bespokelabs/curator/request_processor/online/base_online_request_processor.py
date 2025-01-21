@@ -166,7 +166,10 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         """
         # Calculate cost using litellm
         try:
-            cost = litellm.completion_cost(completion_response=response)
+            if self.config.model in litellm.model_cost:
+                cost = litellm.completion_cost(completion_response=response)
+            else:
+                cost = 0
         except Exception:
             # We should ideally not catch a catch-all exception here. But litellm is not throwing any specific error.
             cost = 0
