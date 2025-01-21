@@ -356,6 +356,15 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 session=session,
                 status_tracker=status_tracker,
             )
+
+            if generic_response.finish_reason in self.config.invalid_finish_reasons:
+                logger.debug(
+                    f"Invalid finish_reason {generic_response.finish_reason}."
+                    " Raw response {generic_response.raw_response} "
+                    "for request {generic_response.raw_request}"
+                )
+                raise ValueError(f"finish_reason was {generic_response.finish_reason}")
+
             status_tracker.update_stats(generic_response.token_usage, generic_response.response_cost)
 
             # Allows us to retry on responses that don't match the response format
