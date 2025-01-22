@@ -19,27 +19,53 @@ Our final dataset contains the following subsets:
 
 Run the following scripts to generate reasoning traces and filter out incorrect reasoning traces:
 
-### Numina
-
 ```bash
+# Numina Math
 python generate_numina_data.py
-```
 
-### APPS
-
-```bash
+# APPS
 python generate_apps_data.py --split test
-```
 
-### TACO
-
-```bash
+# TACO
 python generate_taco_data.py --split train
 python generate_taco_data.py --split test
 ```
 
-### Combine the datasets
+Run the following to combine datasets:
 
 ```bash
 python combine_data.py
+```
+
+
+## Training and Evaluation
+
+We trained Bespoke-Stratos-32B, our reasoning model distilled from DeepSeek-R1 and using Berkeley NovaSky’s Sky-T1 data pipeline. The model outperforms Sky-T1 and o1-preview in reasoning (Math and Code) benchmarks, and almost reaches the performance of DeepSeek-R1-Distill-Qwen-32B while being trained on 47x fewer examples:
+
+| Benchmark | Bespoke-Stratos-32B | Sky-T1-32B | o1-preview | DeepSeek-R1 (reported) | DeepSeek-R1-Distill-Qwen-32B (ours / reported) |
+|-----------|--------------------:|------------:|-----------:|----------------------:|--------------------------------------------:|
+| AIME2024 | 63.3 | 43.3 | 40.0 | 79.8 | 66.7 / 72.6 |
+| MATH500 | 93.0 | 82.4 | 81.4 | 97.3 | 89.8 / 94.3 |
+| GPQA-Diamond | 58.1 | 56.8 | 75.2 | 71.5 | 61.1 / 62.1 |
+| LiveCodeBench v2 Easy | 96.7 | 86.3 | 92.9 | - | 91.2 / - |
+| LiveCodeBench v2 Medium | 75.2 | 56.8 | 54.9 | - | 75.7 / - |
+| LiveCodeBench v2 Hard | 26.2 | 17.9 | 16.3 | - | 38.2 / - |
+| LiveCodeBench v2 All | 71.1 | 57.93 | 59.13 | - | 72.2 / - |
+
+
+We open-source everything to continue experimenting together with the community!
+
+- [32B Model](https://huggingface.co/bespokelabs/Bespoke-Stratos-32B) and [7B Model](https://huggingface.co/bespokelabs/Bespoke-Stratos-7B)
+- [Reasoning Dataset](https://huggingface.co/datasets/bespokelabs/stratos-r1)
+- [Blog](https://www.bespokelabs.ai/blog/bespoke-stratos-the-unreasonable-effectiveness-of-reasoning-distillation)
+
+```
+@misc{
+  bespoke_stratos, 
+  author       = {Bespoke Labs},  
+  title        = {Bespoke-Stratos: The unreasonable effectiveness of reasoning distillation},  
+  howpublished = {https://www.bespokelabs.ai/blog/the-unreasonable-effectiveness-of-reasoning-distillation},  
+  note         = {Accessed: 2025-01-22},  
+  year         = {2025}
+}
 ```
