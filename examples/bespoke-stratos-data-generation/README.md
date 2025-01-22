@@ -64,7 +64,7 @@ We open-source everything to continue experimenting together with the community!
   bespoke_stratos, 
   author       = {Bespoke Labs},  
   title        = {Bespoke-Stratos: The unreasonable effectiveness of reasoning distillation},  
-  howpublished = {https://www.bespokelabs.ai/blog/the-unreasonable-effectiveness-of-reasoning-distillation},  
+  howpublished = {https://www.bespokelabs.ai/blog/bespoke-stratos-the-unreasonable-effectiveness-of-reasoning-distillation},  
   note         = {Accessed: 2025-01-22},  
   year         = {2025}
 }
