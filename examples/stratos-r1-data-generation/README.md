@@ -10,7 +10,7 @@ pip install -r requirements.txt
 
 ## Generate reasoning traces from DeepSeek-R1 using Curator
 
-Our final dataset [Bespoke-stratos 17k](https://huggingface.co/datasets/bespokelabs/Bespoke-Stratos-17k) contains the following subsets:
+Our final dataset [Bespoke-Stratos-17k](https://huggingface.co/datasets/bespokelabs/Bespoke-Stratos-17k) contains the following subsets:
 
 * Numina: 10.5k samples from the `math`, `olympiads`, and `amc_aime` subset of the [difficulty-labeled Numina dataset](https://huggingface.co/datasets/NovaSky-AI/labeled_numina_difficulty_162K).
 * APPS: ~2.5k samples from the [APPS dataset](https://huggingface.co/datasets/codeparrot/apps).
