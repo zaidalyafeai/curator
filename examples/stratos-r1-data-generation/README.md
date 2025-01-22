@@ -10,7 +10,7 @@ pip install -r requirements.txt
 
 ## Generate reasoning traces from DeepSeek-R1 using Curator
 
-Our final dataset contains the following subsets:
+Our final dataset [Bespoke-stratos 17k](https://huggingface.co/datasets/bespokelabs/Bespoke-Stratos-17k) contains the following subsets:
 
 * Numina: 10.5k samples from the `math`, `olympiads`, and `amc_aime` subset of the [difficulty-labeled Numina dataset](https://huggingface.co/datasets/NovaSky-AI/labeled_numina_difficulty_162K).
 * APPS: ~2.5k samples from the [APPS dataset](https://huggingface.co/datasets/codeparrot/apps).
@@ -37,10 +37,9 @@ Run the following to combine datasets:
 python combine_data.py
 ```
 
-
 ## Training and Evaluation
 
-We trained Bespoke-Stratos-32B, our reasoning model distilled from DeepSeek-R1 and using Berkeley NovaSky’s Sky-T1 data pipeline. The model outperforms Sky-T1 and o1-preview in reasoning (Math and Code) benchmarks, and almost reaches the performance of DeepSeek-R1-Distill-Qwen-32B while being trained on 47x fewer examples:
+Using the dataset generated above, we trained Bespoke-Stratos-32B, our reasoning model distilled from DeepSeek-R1 and using Berkeley NovaSky’s Sky-T1 data pipeline. The model outperforms Sky-T1 and o1-preview in reasoning (Math and Code) benchmarks, and almost reaches the performance of DeepSeek-R1-Distill-Qwen-32B while being trained on 47x fewer examples:
 
 | Benchmark | Bespoke-Stratos-32B | Sky-T1-32B | o1-preview | DeepSeek-R1 (reported) | DeepSeek-R1-Distill-Qwen-32B (ours / reported) |
 |-----------|--------------------:|------------:|-----------:|----------------------:|--------------------------------------------:|
@@ -52,12 +51,13 @@ We trained Bespoke-Stratos-32B, our reasoning model distilled from DeepSeek-R1 a
 | LiveCodeBench v2 Hard | 26.2 | 17.9 | 16.3 | - | 38.2 / - |
 | LiveCodeBench v2 All | 71.1 | 57.93 | 59.13 | - | 72.2 / - |
 
-
 We open-source everything to continue experimenting together with the community!
 
 - [32B Model](https://huggingface.co/bespokelabs/Bespoke-Stratos-32B) and [7B Model](https://huggingface.co/bespokelabs/Bespoke-Stratos-7B)
-- [Reasoning Dataset](https://huggingface.co/datasets/bespokelabs/stratos-r1)
+- [Reasoning Dataset](https://huggingface.co/datasets/bespokelabs/Bespoke-Stratos-17k)
 - [Blog](https://www.bespokelabs.ai/blog/bespoke-stratos-the-unreasonable-effectiveness-of-reasoning-distillation)
+
+## Citation
 
 ```
 @misc{
