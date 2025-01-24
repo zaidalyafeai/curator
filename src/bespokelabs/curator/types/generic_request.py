@@ -23,3 +23,5 @@ class GenericRequest(BaseModel):
     original_row: Dict[str, Any]
     original_row_idx: int
     generation_params: Dict[str, Any] = Field(default_factory=dict)
+
+

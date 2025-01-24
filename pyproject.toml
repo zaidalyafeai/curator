@@ -46,6 +46,7 @@ pre-commit = "^4.0.1"
 pytest-dependency = "^0.6.0"
 pytest-timeout = "^2.3.1"
 pytest-cov = "^6.0.0"
+ipykernel = "^6.29.5"
 
 [build-system]
 requires = ["poetry-core"]
