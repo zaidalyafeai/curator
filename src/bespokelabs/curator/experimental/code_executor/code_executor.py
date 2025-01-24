@@ -1,11 +1,12 @@
 import logging
+import os
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, TypeVar
+
 from pydantic import BaseModel
 from xxhash import xxh64
-import os
-from typing import TYPE_CHECKING, Any, Dict, TypeVar, Optional, Iterable, Callable
+
 from bespokelabs.curator.experimental.code_executor.code_formatter import CodeFormatter
-from io import BytesIO
-from datetime import datetime
 
 if TYPE_CHECKING:
     from datasets import Dataset
@@ -18,8 +19,8 @@ logger = logging.getLogger(__name__)
 
 from bespokelabs.curator.db import MetadataDB
 from bespokelabs.curator.experimental.code_execution_backend._factory import _CodeExecutionBackendFactory
-from bespokelabs.curator.llm.llm import _convert_to_dataset
-from bespokelabs.curator.llm.llm import _get_function_hash, _get_function_source
+from bespokelabs.curator.llm.llm import _convert_to_dataset, _get_function_hash, _get_function_source
+
 
 class CodeExecutionResult(BaseModel):
     stdout: str
@@ -31,8 +32,8 @@ class TestCase(BaseModel):
     input: str
     expected_output: str
 
+
 class CodeExecutor:
-    
     def function_name(self, row: dict):
         pass
 
@@ -46,7 +47,7 @@ class CodeExecutor:
         pass
 
     def __init__(
-        self, 
+        self,
         backend: str,
         backend_params: dict,
     ):
@@ -72,20 +73,17 @@ class CodeExecutor:
                 ]
             )
 
-
             fingerprint = xxh64(fingerprint_str.encode("utf-8")).hexdigest()
             logger.debug(f"Curator Cache Fingerprint String: {fingerprint_str}")
             logger.debug(f"Curator Cache Fingerprint: {fingerprint}")
 
         return fingerprint
-    
 
     def __call__(
         self,
         dataset: Optional[Iterable] = None,
         working_dir: str = None,
     ) -> "Dataset":
-        
         dataset = _convert_to_dataset(dataset)
 
         if working_dir is None:

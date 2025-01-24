@@ -15,7 +15,7 @@
 
 # class CodeVerifier(Verifier):
 #     """Verifier for code generation tasks.
-    
+
 #     Executes generated code against test cases and verifies outputs match expected results.
 #     """
 
@@ -29,24 +29,24 @@
 
 #     def execute(self, code: str, timeout: int = 10) -> str:
 #         """Execute code with given input and return output.
-        
+
 #         Args:
 #             code: Python code to execute
 #             input: Input string to pass to code's stdin
-            
+
 #         Returns:
 #             str: Output from code execution
 #         """
 #         return self.backend.execute(code, timeout)
-    
+
 #     @abstractmethod
 #     def verify(self, code: str, row: Optional[Dict[str, Any]] = None) -> bool:
 #         """Verify if generated code is correct.
-        
+
 #         Args:
 #             code: Python code to execute
 #             row: Row from dataset
-            
+
 #         Returns:
 #             bool: True if all test cases pass, False otherwise
 #         """

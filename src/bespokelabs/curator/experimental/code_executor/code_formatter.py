@@ -1,8 +1,8 @@
-from typing import Callable
-from datasets import Dataset
 from dataclasses import dataclass
-from bespokelabs.curator.llm.prompt_formatter import GenericRequest
+from typing import Callable
+
 from bespokelabs.curator.experimental.types import CODE_REQUEST_TYPE
+from bespokelabs.curator.llm.prompt_formatter import GenericRequest
 
 
 @dataclass
@@ -11,7 +11,6 @@ class CodeFormatter:
     preprocess: Callable
     test_cases: Callable
     parse_results: Callable
-
 
     def create_code_execution_request(self, row: dict, idx: int) -> GenericRequest:
         """Format the request object based off of `LLM` attributes.
@@ -26,13 +25,12 @@ class CodeFormatter:
         Raises:
             ValueError: If prompt_func has invalid number of arguments or returns invalid format
         """
-
         # Convert BaseModel to dict for serialization
         code = self.preprocess(row)
         fn_name = self.function_name(code)
         test_case_list = self.test_cases(code)
 
-        # if function name is None, request_type is 
+        # if function name is None, request_type is
 
         if fn_name is None:
             self.code_request_type = CODE_REQUEST_TYPE.standard_input
@@ -46,14 +44,12 @@ class CodeFormatter:
         else:
             add_code = self.synthesize_cb_code(code)
 
-        base_code += '\n' + add_code
+        base_code += "\n" + add_code
 
         return base_code
 
-
     def base_imports(self):
         return "import sys\nimport time\nimport itertools\nfrom itertools import accumulate, product, permutations, combinations\nimport collections\nfrom collections import Counter, OrderedDict, deque, defaultdict, ChainMap\nfrom functools import lru_cache\nimport math\nfrom math import sqrt, sin, cos, tan, ceil, fabs, floor, gcd, exp, log, log2\nimport fractions\nfrom typing import List, Tuple\nimport numpy as np\nimport random\nimport heapq\nfrom heapq import *\n"
-
 
     def synthesize_cb_code(self, raw_code, debug=False):
         sol = "import sys\nimport time\nimport itertools\nfrom itertools import accumulate, product, permutations, combinations\nimport collections\nfrom collections import Counter, OrderedDict, deque, defaultdict, ChainMap\nfrom functools import lru_cache\nimport math\nfrom math import sqrt, sin, cos, tan, ceil, fabs, floor, gcd, exp, log, log2\nimport fractions\nfrom typing import List, Tuple\nimport numpy as np\nimport random\nimport heapq\nfrom heapq import *\n"
@@ -62,26 +58,25 @@ class CodeFormatter:
 
     def synthesize_std_code(self, raw_code, debug=False):
         normal_import_lines = "import sys\nimport time\nimport itertools\nfrom itertools import accumulate, product, permutations, combinations\nimport collections\nfrom collections import Counter, OrderedDict, deque, defaultdict, ChainMap\nfrom functools import lru_cache\nimport math\nfrom math import sqrt, sin, cos, tan, ceil, fabs, floor, gcd, exp, log, log2\nimport fractions\nfrom typing import List, Tuple\nimport numpy as np\nimport random\nimport heapq\nfrom heapq import *\n"
-        
-        sol2 = "" # code for execute
+
+        sol2 = ""  # code for execute
 
         tmp_test = raw_code.split("\n")
         # define the code line type, 1 for import lines, 2 for import * lines with indent, 0 for normal codes
-        code_types = [] 
-
+        code_types = []
 
         for x in tmp_test:
-            if 'import *' in x:
+            if "import *" in x:
                 code_types.append(2)
             elif x.startswith("from ") or x.startswith("import "):
-                code_types.append(1) 
+                code_types.append(1)
             else:
                 code_types.append(0)
-        
+
         started = False
 
-        special_import_lines = [i.lstrip('\t') for idx, i in enumerate(tmp_test) if code_types[idx]==2]
-        special_import_lines = '\n'.join(special_import_lines)
+        special_import_lines = [i.lstrip("\t") for idx, i in enumerate(tmp_test) if code_types[idx] == 2]
+        special_import_lines = "\n".join(special_import_lines)
 
         for idx, i in enumerate(tmp_test):
             code_type = code_types[idx]
@@ -100,7 +95,7 @@ class CodeFormatter:
                 sol2 += f"{i}\n"
                 if code_type < 2:
                     if started:
-                        sol += '\t'
+                        sol += "\t"
                     sol += f"{i}\n"
 
-        return sol + '\n' + sol2
+        return sol + "\n" + sol2

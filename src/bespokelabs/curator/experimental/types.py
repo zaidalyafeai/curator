@@ -1,17 +1,19 @@
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
 import time
-from tqdm import tqdm
-from dataclasses import field, dataclass
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel
 from rich import box
 from rich.console import Console
-from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn, TimeRemainingColumn
+from rich.progress import BarColumn, Progress, TextColumn
 from rich.table import Table
-from enum import Enum
+
 
 class CODE_REQUEST_TYPE(Enum):
     call_based = 0
     standard_input = 1
+
 
 class CodeExecutionRequest(BaseModel):
     code: str
@@ -27,6 +29,7 @@ class CodeExecutionResponse(BaseModel):
     raw_request: Optional[Dict[str, Any]] = None
     code_execution_request: CodeExecutionRequest
 
+
 @dataclass
 class CodeExecutionStatusTracker:
     num_tasks_started: int = 0
@@ -36,21 +39,18 @@ class CodeExecutionStatusTracker:
     num_tasks_already_completed: int = 0
     num_execution_errors: int = 0
     num_other_errors: int = 0
-    
+
     # Stats tracking
     total_requests: int = 0
 
     start_time: float = field(default_factory=time.time, init=False)
-
 
     def start_tracker(self, console: Optional[Console] = None):
         """Start the tracker."""
         self._console = Console() if console is None else console
         self._progress = Progress(
             TextColumn(
-                "[cyan]{task.description}[/cyan]\n"
-                "{task.fields[requests_text]}\n"
-                "{task.fields[time_text]}",
+                "[cyan]{task.description}[/cyan]\n" "{task.fields[requests_text]}\n" "{task.fields[time_text]}",
                 justify="left",
             ),
             TextColumn("\n\n\n"),  # Spacer
@@ -114,7 +114,7 @@ class CodeExecutionStatusTracker:
         table.add_row("Successful Tasks", f"[green]{self.num_tasks_succeeded}[/green]")
         table.add_row("Failed Tasks", f"[red]{self.num_tasks_failed}[/red]")
         table.add_row("Already Completed", str(self.num_tasks_already_completed))
-        
+
         # Error Statistics
         table.add_row("Execution Errors", f"[red]{self.num_execution_errors}[/red]")
         table.add_row("Other Errors", f"[red]{self.num_other_errors}[/red]")

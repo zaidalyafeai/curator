@@ -2,15 +2,14 @@
 
 import asyncio
 import datetime
-import platform
 import faulthandler
 import glob
 import json
 import logging
 import os
+import platform
 import resource
-from abc import ABC, abstractmethod
-from math import ceil
+from abc import abstractmethod
 from typing import TYPE_CHECKING, List, Optional
 
 import aiofiles
@@ -18,9 +17,9 @@ import aiohttp
 import pyarrow
 from pydantic import BaseModel, ValidationError
 
-from bespokelabs.curator.file_utilities import count_lines
 from bespokelabs.curator.experimental.code_executor.code_formatter import CodeFormatter
-from bespokelabs.curator.experimental.types import CodeExecutionResponse, CodeExecutionRequest, CodeExecutionStatusTracker
+from bespokelabs.curator.experimental.types import CodeExecutionRequest, CodeExecutionResponse, CodeExecutionStatusTracker
+from bespokelabs.curator.file_utilities import count_lines
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 
 if TYPE_CHECKING:
@@ -62,7 +61,9 @@ class BaseCodeExecutionBackend:
         return "base"
 
     @abstractmethod
-    def execute_request(self, request: CodeExecutionRequest, session: aiohttp.ClientSession, status_tracker: CodeExecutionStatusTracker) -> CodeExecutionResponse:
+    def execute_request(
+        self, request: CodeExecutionRequest, session: aiohttp.ClientSession, status_tracker: CodeExecutionStatusTracker
+    ) -> CodeExecutionResponse:
         """Execute a single request."""
         pass
 
@@ -73,7 +74,6 @@ class BaseCodeExecutionBackend:
         Args:
             generic_request_files: List of paths to request files to process
         """
-
         for request_file in generic_request_files:
             response_file = request_file.replace("requests_", "responses_")
             run_in_event_loop(
@@ -322,7 +322,6 @@ class BaseCodeExecutionBackend:
         Returns:
             List of indices for request files that need to be regenerated
         """
-
         expected_num_files = 1
 
         try:
@@ -422,7 +421,6 @@ class BaseCodeExecutionBackend:
             metadata_file: Path to save metadata file
             start_idx: Starting index in dataset for this batch
         """
-
         end_idx = len(dataset)
 
         async with aiofiles.open(request_file, "w") as f:
@@ -661,19 +659,17 @@ class BaseCodeExecutionBackend:
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in metadata file: {metadata_file}. Delete cache directory 'rm -rf {self.working_dir}' and try again.") from e
 
-
     def reliability_guard(self, maximum_memory_bytes=None):
-        """
-        This disables various destructive functions and prevents the generated code
+        """This disables various destructive functions and prevents the generated code
         from interfering with the test (e.g. fork bomb, killing other processes,
         removing filesystem files, etc.)
-        WARNING
+
+        Warning:
         This function is NOT a security sandbox. Untrusted code, including, model-
         generated code, should not be blindly executed outside of one. See the
         Codex paper for more information about OpenAI's code sandbox, and proceed
         with caution.
         """
-
         if maximum_memory_bytes is not None:
             import resource
 
