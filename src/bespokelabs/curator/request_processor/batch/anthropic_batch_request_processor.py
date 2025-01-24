@@ -215,7 +215,10 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
 
         if result_type == "succeeded":
             response_body = raw_response["result"]["message"]
-            response_message_raw = response_body["content"][0]["text"]
+            if self.config.return_completions_object:
+                response_message_raw = response_body
+            else:
+                response_message_raw = response_body["content"][0]["text"]
             usage = response_body.get("usage", {})
 
             token_usage = TokenUsage(

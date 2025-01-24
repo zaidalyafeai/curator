@@ -32,6 +32,20 @@ class BasicLLM(curator.LLM):
         return {"recipe": response}
 
 
+class Poems(BaseModel):
+    poems_list: t.List[str] = Field(description="A list of poems.")
+
+
+class Poet(curator.LLM):
+    response_format = Poems
+
+    def prompt(self, input: dict) -> str:
+        return "Write two simple poems."
+
+    def parse(self, input: dict, response: Poems) -> dict:
+        return [{"poem": p} for p in response.poems_list]
+
+
 class SubjectLLM(curator.LLM):
     response_format = Subjects
 
@@ -105,23 +119,36 @@ _DEFAULT_MODEL_MAP = {
 }
 
 
-def create_basic(temp_working_dir, mock_dataset, llm_params=None, batch=False, backend="openai", mocking=None, batch_cancel=False, tracker_console=None):
+def create_basic(
+    temp_working_dir, mock_dataset, llm_params=None, batch=False, backend="openai", mocking=None, batch_cancel=False, tracker_console=None, model=None
+):
     llm_params = llm_params or {}
     if batch:
         llm_params["batch_check_interval"] = batch_check_interval
 
-    prompter = BasicLLM(
-        model_name=_DEFAULT_MODEL_MAP[backend],
-        backend=backend,
-        batch=batch,
-        backend_params=llm_params,
-    )
+    if mock_dataset is None:
+        prompter = Poet(
+            model_name=model or _DEFAULT_MODEL_MAP[backend],
+            backend=backend,
+            batch=batch,
+            backend_params=llm_params,
+        )
+    else:
+        prompter = BasicLLM(
+            model_name=model or _DEFAULT_MODEL_MAP[backend],
+            backend=backend,
+            batch=batch,
+            backend_params=llm_params,
+        )
     prompter._request_processor._tracker_console = tracker_console
     if mocking:
         prompter = mocking(prompter)
     if batch:
         prompter._hash_fingerprint = lambda x, y: "testing_hash_123"
-    dataset = prompter(mock_dataset, working_dir=temp_working_dir, batch_cancel=batch_cancel)
+    if mock_dataset:
+        dataset = prompter(mock_dataset, working_dir=temp_working_dir, batch_cancel=batch_cancel)
+    else:
+        dataset = prompter(working_dir=temp_working_dir, batch_cancel=batch_cancel)
     return dataset
 
 

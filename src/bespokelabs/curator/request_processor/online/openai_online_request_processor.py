@@ -12,7 +12,7 @@ import tiktoken
 from bespokelabs.curator.request_processor.config import OnlineRequestProcessorConfig
 from bespokelabs.curator.request_processor.online.base_online_request_processor import APIRequest, BaseOnlineRequestProcessor
 from bespokelabs.curator.request_processor.openai_request_mixin import OpenAIRequestMixin
-from bespokelabs.curator.status_tracker.online_status_tracker import OnlineStatusTracker
+from bespokelabs.curator.status_tracker.online_status_tracker import OnlineStatusTracker, _TokenCount
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse, TokenUsage
 
@@ -50,9 +50,16 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
         else:
             self.url = self.config.base_url + self._DEFAULT_COMPLETION_SUFFIX
 
-        self.api_key = os.getenv("OPENAI_API_KEY")
+        if self.config.base_url == "https://api.deepseek.com":
+            # DeepSeek does not return rate limits in headers
+            # https://api-docs.deepseek.com/quick_start/rate_limit.
+            # And sending an empty request for rate limits results in a 400 error like this:
+            # {'error': {'message': 'Empty input messages', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_request_error'}}
+            self.api_key = os.getenv("DEEPSEEK_API_KEY")
+        else:
+            self.api_key = os.getenv("OPENAI_API_KEY")
+            self.header_based_max_requests_per_minute, self.header_based_max_tokens_per_minute = self.get_header_based_rate_limits()
         self.token_encoding = self.get_token_encoding()
-        self.header_based_max_requests_per_minute, self.header_based_max_tokens_per_minute = self.get_header_based_rate_limits()
 
     @property
     def backend(self):
@@ -91,19 +98,19 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
             Default implementation returns a conservative estimate.
             Override this method for more accurate model-specific estimates.
         """
-        try:
+        if self.config.model in litellm.model_cost:
             return litellm.get_max_tokens(model=self.config.model) // 4
-        except Exception:
+        else:
             return 0
 
-    def estimate_total_tokens(self, messages: list) -> int:
+    def estimate_total_tokens(self, messages: list) -> _TokenCount:
         """Estimate total tokens for a request using OpenAI's token counting rules.
 
         Args:
             messages (list): List of message dictionaries with role and content
 
         Returns:
-            int: Estimated total tokens including message formatting tokens
+            _TokenCount: Estimated input and output tokens including message formatting tokens
 
         Note:
             Includes:
@@ -126,7 +133,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
 
         num_tokens += 2  # every reply is primed with <im_start>assistant
         output_tokens = self.estimate_output_tokens()
-        return num_tokens + output_tokens
+        return _TokenCount(input=num_tokens, output=output_tokens)
 
     def check_structured_output_support(self) -> bool:
         """Check if the model supports structured output based on model name and date.
@@ -212,7 +219,11 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
             if response_obj.status != 200:
                 raise Exception(f"API request failed with status {response_obj.status}: {response}")
 
-            response_message = response["choices"][0]["message"]["content"]
+            if self.config.return_completions_object:
+                response_message = dict(response)
+            else:
+                response_message = response["choices"][0]["message"]["content"]
+            finish_reason = response["choices"][0].get("finish_reason", "unkown")
             usage = response["usage"]
             token_usage = TokenUsage(
                 prompt_tokens=usage["prompt_tokens"],
@@ -233,6 +244,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
                 finished_at=datetime.datetime.now(),
                 token_usage=token_usage,
                 response_cost=cost,
+                finish_reason=finish_reason,
             )
 
     def get_token_encoding(self) -> str:

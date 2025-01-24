@@ -1,3 +1,4 @@
+import datetime
 import hashlib
 import importlib
 import logging
@@ -10,6 +11,7 @@ import pytest
 from rich.console import Console
 
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
+from bespokelabs.curator.types.generic_response import GenericRequest, GenericResponse
 from tests.integrations import helper
 
 ##############################
@@ -44,6 +46,31 @@ class Timeout:
     @staticmethod
     def _handle_timeout(signum, frame):
         raise TimeoutError("Function execution exceeded time limit!")
+
+
+@pytest.mark.parametrize("temp_working_dir", (_ONLINE_BACKENDS), indirect=True)
+def test_basic_without_dataset(temp_working_dir):
+    temp_working_dir, backend, vcr_config = temp_working_dir
+    hash_book = {
+        "openai": "d52319f1976f937ff24f9d53e9c773f37f587dc2fa0d4a4da355e41e5c1eb500",
+        "litellm": "6d0d46117661a8c0e725eb83c9299c3cbad38bbfe236715f99d69432423e5787",
+    }
+
+    with vcr_config.use_cassette("basic_completion_without_dataset.yaml"):
+        # Capture the output to verify status tracker
+        output = StringIO()
+        console = Console(file=output, width=300)
+
+        dataset = helper.create_basic(temp_working_dir, mock_dataset=None, backend=backend, tracker_console=console, model="gpt-4o-mini")
+
+        # Verify status tracker output
+        captured = output.getvalue()
+        assert "Generating data using gpt-4o-mini" in captured, captured
+        assert "3" in captured, captured  # Verify total requests processed
+        assert "Final Curator Statistics" in captured, captured
+        # Verify response content
+        recipes = "".join([recipe[0] for recipe in dataset.to_pandas().values.tolist()])
+        assert _hash_string(recipes) == hash_book[backend]
 
 
 @pytest.mark.parametrize("temp_working_dir", (_ONLINE_BACKENDS), indirect=True)
@@ -136,6 +163,51 @@ def test_resume(caplog, temp_working_dir, mock_dataset):
             helper.create_basic(temp_working_dir, mock_dataset)
             resume_msg = "Already Completed: 1"
             assert resume_msg in caplog.text
+
+
+@pytest.mark.parametrize("temp_working_dir", (_ONLINE_BACKENDS), indirect=True)
+def test_invalid_failed_reason(caplog, temp_working_dir, mock_dataset):
+    temp_working_dir, backend, vcr_config = temp_working_dir
+
+    def _invalid_failed_reason(reason):
+        patch.stopall()
+        now = datetime.datetime.now()
+        output = StringIO()
+        console = Console(file=output, width=300)
+        request = GenericRequest(model="", messages=[{}], original_row={}, original_row_idx=0)
+
+        # default invalid reason
+        invalid_reason_response = GenericResponse(
+            finish_reason=reason, generic_request=request, raw_response={"choices": [{"finish_reason": reason}]}, created_at=now, finished_at=now
+        )
+        logger = "bespokelabs.curator.request_processor.online.base_online_request_processor"
+        REASON_MSG = f"Encountered 'ValueError: finish_reason was {reason}' during attempt 1 of 10 while processing request 0"
+        if backend == "openai":
+            patcher = patch("bespokelabs.curator.request_processor.online.openai_online_request_processor.OpenAIOnlineRequestProcessor.call_single_request")
+        else:
+            patcher = patch("bespokelabs.curator.request_processor.online.litellm_online_request_processor.LiteLLMOnlineRequestProcessor.call_single_request")
+
+        mock = patcher.start()
+        mock.return_value = invalid_reason_response
+        try:
+            with pytest.raises(TimeoutError):
+                with Timeout(3):
+                    with caplog.at_level(logging.WARN, logger=logger):
+                        llm_params = {"max_requests_per_minute": 1}
+                        if reason not in ["content_filter", "length"]:
+                            llm_params["invalid_finish_reasons"] = [reason]
+
+                        helper.create_basic(temp_working_dir, mock_dataset, llm_params=llm_params, tracker_console=console, backend=backend)
+        finally:
+            patcher.stop()
+            patch.stopall()
+        assert REASON_MSG in caplog.text
+
+    with vcr_config.use_cassette("basic_completion.yaml"):
+        # Default
+        _invalid_failed_reason("length")
+        # Custom
+        _invalid_failed_reason("tool_calls")
 
 
 ##############################

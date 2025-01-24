@@ -1,6 +1,7 @@
 import datetime
 import logging
 import time
+from collections import defaultdict
 
 import aiohttp
 import instructor
@@ -10,13 +11,16 @@ from pydantic import BaseModel
 from bespokelabs.curator.request_processor.config import OnlineRequestProcessorConfig
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 from bespokelabs.curator.request_processor.online.base_online_request_processor import APIRequest, BaseOnlineRequestProcessor
-from bespokelabs.curator.status_tracker.online_status_tracker import OnlineStatusTracker
+from bespokelabs.curator.status_tracker.online_status_tracker import OnlineStatusTracker, TokenLimitStrategy, _TokenCount
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse, TokenUsage
 
 logger = logging.getLogger(__name__)
 
 litellm.suppress_debug_info = True
+
+_OTPM_LIMIT = defaultdict(lambda: "output_tokens")
+_OTPM_LIMIT["anthropic"] = "max_tokens"
 
 
 class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
@@ -44,6 +48,26 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             litellm.api_base = self.config.base_url
         self.client = instructor.from_litellm(litellm.acompletion)
         self.header_based_max_requests_per_minute, self.header_based_max_tokens_per_minute = self.get_header_based_rate_limits()
+
+        self._validate_config(config)
+        self._set_manual_tpm(config)
+
+    def _set_manual_tpm(self, config):
+        if self.token_limit_strategy == TokenLimitStrategy.combined:
+            self.manual_max_tokens_per_minute = config.max_tokens_per_minute
+        elif config.max_input_tokens_per_minute and config.max_output_tokens_per_minute:
+            self.manual_max_tokens_per_minute = _TokenCount(input=config.max_input_tokens_per_minute, output=config.max_output_tokens_per_minute)
+        else:
+            self.manual_max_tokens_per_minute = None
+
+    def _validate_config(self, config):
+        if self.token_limit_strategy == TokenLimitStrategy.combined:
+            assert config.max_input_tokens_per_minute is None, "`max_input_tokens_per_minute` cannot be used with `combined` token strategy"
+            assert config.max_output_tokens_per_minute is None, "`max_output_tokens_per_minute` cannot be used with `combined` token strategy"
+
+    @property
+    def _provider(self):
+        return self.config.model.split("/")[0]
 
     @property
     def backend(self):
@@ -102,11 +126,16 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             Falls back to 0 if token estimation fails
         """
         try:
-            return litellm.get_max_tokens(model=self.config.model) // 4
+            if _OTPM_LIMIT[self._provider] == "max_tokens":
+                return self._get_max_tokens()
+            return self._output_tokens_moving_average() or self._get_max_tokens() // 4
         except Exception:
             return 0
 
-    def estimate_total_tokens(self, messages: list) -> int:
+    def _get_max_tokens(self):
+        return litellm.get_max_tokens(model=self.config.model)
+
+    def estimate_total_tokens(self, messages: list) -> _TokenCount:
         """Calculate the total token usage for a request.
 
         Uses LiteLLM's token_counter for accurate input token counting
@@ -116,11 +145,11 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             messages (list): List of message dictionaries
 
         Returns:
-            int: Total estimated tokens (input + output)
+            _TokenCount: Total estimated tokens (input and output)
         """
         input_tokens = litellm.token_counter(model=self.config.model, messages=messages)
         output_tokens = self.estimate_output_tokens()
-        return input_tokens + output_tokens
+        return _TokenCount(input=input_tokens, output=output_tokens)
 
     def test_call(self):
         """Test call to get rate limits."""
@@ -139,11 +168,12 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         logger.info(f"Test call headers: {headers}")
         return headers
 
-    def get_header_based_rate_limits(self) -> tuple[int, int]:
+    def get_header_based_rate_limits(self) -> tuple[int, _TokenCount | int]:
         """Retrieve rate limits from the LLM provider via LiteLLM.
 
         Returns:
-            tuple[int, int]: Contains 'max_requests_per_minute' and 'max_tokens_per_minute'
+            tuple[int, _TokenCount | int]: Contains 'max_requests_per_minute' and
+                                           'max_tokens_per_minute' info.
 
         Note:
             - Makes a test request to get rate limit information from response headers.
@@ -152,8 +182,19 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         logger.info(f"Getting rate limits for model: {self.config.model}")
 
         headers = self.test_call()
+        provider = self.config.model.split("/")[0]
+        output_token_key = f"llm_provider-{provider}-ratelimit-output-tokens-remaining"
         rpm = int(headers.get("x-ratelimit-limit-requests", 0))
-        tpm = int(headers.get("x-ratelimit-limit-tokens", 0))
+        if output_token_key in headers:
+            self.token_limit_strategy = TokenLimitStrategy.seperate
+            output_tpm = int(headers.get(output_token_key, 0))
+
+            input_token_key = f"llm_provider-{provider}-ratelimit-input-tokens-remaining"
+            input_tpm = int(headers.get(input_token_key, 0))
+            tpm = _TokenCount(input=input_tpm, output=output_tpm)
+
+        else:
+            tpm = int(headers.get("x-ratelimit-limit-tokens", 0))
 
         return rpm, tpm
 
@@ -241,7 +282,10 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
                 response_message = response.model_dump() if hasattr(response, "model_dump") else response
             else:
                 completion_obj = await litellm.acompletion(**request.api_specific_request, timeout=self.config.request_timeout)
-                response_message = completion_obj["choices"][0]["message"]["content"]
+                if self.config.return_completions_object:
+                    response_message = dict(completion_obj)
+                else:
+                    response_message = completion_obj["choices"][0]["message"]["content"]
         except litellm.RateLimitError as e:
             status_tracker.time_of_last_rate_limit_error = time.time()
             status_tracker.num_rate_limit_errors += 1
@@ -260,10 +304,6 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         cost = self.completion_cost(completion_obj.model_dump())
 
         finish_reason = completion_obj.choices[0].finish_reason
-        invalid_finish_reasons = ["length", "content_filter"]
-        if finish_reason in invalid_finish_reasons:
-            logger.debug(f"Invalid finish_reason {finish_reason}. Raw response {completion_obj.model_dump()} for request {request.generic_request.messages}")
-            raise ValueError(f"finish_reason was {finish_reason}")
 
         if response_message is None:
             raise ValueError(f"response_message was None with raw response {completion_obj.model_dump()}")
@@ -279,4 +319,5 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
             finished_at=datetime.datetime.now(),
             token_usage=token_usage,
             response_cost=cost,
+            finish_reason=finish_reason,
         )

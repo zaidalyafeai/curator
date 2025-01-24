@@ -10,6 +10,7 @@ import json
 import logging
 import time
 from abc import ABC, abstractmethod
+from collections import deque
 from dataclasses import dataclass, field
 
 import aiofiles
@@ -20,12 +21,14 @@ from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.base_request_processor import BaseRequestProcessor
 from bespokelabs.curator.request_processor.config import OnlineRequestProcessorConfig
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
-from bespokelabs.curator.status_tracker.online_status_tracker import OnlineStatusTracker
+from bespokelabs.curator.status_tracker.online_status_tracker import OnlineStatusTracker, TokenLimitStrategy, _TokenCount
 from bespokelabs.curator.types.generic_request import GenericRequest
 from bespokelabs.curator.types.generic_response import GenericResponse
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+_MAX_OUTPUT_MVA_WINDOW = 50
 
 
 @dataclass
@@ -64,6 +67,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
     def __init__(self, config: OnlineRequestProcessorConfig):
         """Initialize the BaseOnlineRequestProcessor."""
         super().__init__(config)
+        self.token_limit_strategy = TokenLimitStrategy.default
         self.manual_max_requests_per_minute = config.max_requests_per_minute
         self.manual_max_tokens_per_minute = config.max_tokens_per_minute
         self.default_max_requests_per_minute = 10
@@ -73,6 +77,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
 
         # The rich.Console used for the status tracker, only set for testing
         self._tracker_console = None
+        self._output_tokens_window = deque(maxlen=_MAX_OUTPUT_MVA_WINDOW)
 
     @property
     def backend(self) -> str:
@@ -161,7 +166,10 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         """
         # Calculate cost using litellm
         try:
-            cost = litellm.completion_cost(completion_response=response)
+            if self.config.model in litellm.model_cost:
+                cost = litellm.completion_cost(completion_response=response)
+            else:
+                cost = 0
         except Exception:
             # We should ideally not catch a catch-all exception here. But litellm is not throwing any specific error.
             cost = 0
@@ -212,11 +220,11 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         """
         # Initialize trackers
         queue_of_requests_to_retry: asyncio.Queue[APIRequest] = asyncio.Queue()
-        status_tracker = OnlineStatusTracker()
-
-        # Get rate limits
-        status_tracker.max_requests_per_minute = self.max_requests_per_minute
-        status_tracker.max_tokens_per_minute = self.max_tokens_per_minute
+        status_tracker = OnlineStatusTracker(
+            token_limit_strategy=self.token_limit_strategy,
+            max_requests_per_minute=self.max_requests_per_minute,
+            max_tokens_per_minute=self.max_tokens_per_minute,
+        )
 
         # Resume if a response file exists
         completed_request_ids = self.validate_existing_response_file(response_file)
@@ -266,6 +274,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                             retry_queue=queue_of_requests_to_retry,
                             response_file=response_file,
                             status_tracker=status_tracker,
+                            blocked_capacity=token_estimate,
                         )
                     )
                     pending_requests.append(task)
@@ -305,6 +314,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                             retry_queue=queue_of_requests_to_retry,
                             response_file=response_file,
                             status_tracker=status_tracker,
+                            blocked_capacity=token_estimate,
                         )
                     )
                     pending_retries.add(task)
@@ -322,6 +332,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         if status_tracker.num_tasks_failed > 0:
             logger.warning(f"{status_tracker.num_tasks_failed} / {status_tracker.num_tasks_started} requests failed. Errors logged to {response_file}.")
 
+    def _free_capacity(self, status_tracker: OnlineStatusTracker, used_capacity: "_TokenCount", blocked_capacity: "_TokenCount"):
+        status_tracker.free_capacity(used_capacity, blocked_capacity)
+
     async def handle_single_request_with_retries(
         self,
         request: APIRequest,
@@ -329,6 +342,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         retry_queue: asyncio.Queue,
         response_file: str,
         status_tracker: OnlineStatusTracker,
+        blocked_capacity: "_TokenCount",
     ) -> None:
         """Common wrapper for handling a single request with error handling and retries.
 
@@ -341,6 +355,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             retry_queue: Queue for failed requests
             response_file: Path where the response data will be saved
             status_tracker: Tracks request status
+            blocked_capacity: Blocked token capacity
         """
         try:
             generic_response = await self.call_single_request(
@@ -348,16 +363,23 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 session=session,
                 status_tracker=status_tracker,
             )
+
+            if generic_response.finish_reason in self.config.invalid_finish_reasons:
+                logger.debug(
+                    f"Invalid finish_reason {generic_response.finish_reason}."
+                    " Raw response {generic_response.raw_response} "
+                    "for request {generic_response.raw_request}"
+                )
+                raise ValueError(f"finish_reason was {generic_response.finish_reason}")
+
             status_tracker.update_stats(generic_response.token_usage, generic_response.response_cost)
 
             # Allows us to retry on responses that don't match the response format
             self.prompt_formatter.response_to_response_format(generic_response.response_message)
 
-            # Save response in the base class
-            await self.append_generic_response(generic_response, response_file)
-
-            status_tracker.num_tasks_in_progress -= 1
-            status_tracker.num_tasks_succeeded += 1
+            # Free the extra capacity blocked before request with actual consumed capacity.
+            used_capacity = _TokenCount(input=generic_response.token_usage.prompt_tokens, output=generic_response.token_usage.completion_tokens)
+            self._free_capacity(status_tracker, used_capacity=used_capacity, blocked_capacity=blocked_capacity)
 
         except Exception as e:
             status_tracker.num_other_errors += 1
@@ -388,6 +410,21 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 await self.append_generic_response(generic_response, response_file)
                 status_tracker.num_tasks_in_progress -= 1
                 status_tracker.num_tasks_failed += 1
+            return
+        else:
+            self._add_output_token_moving_window(generic_response.token_usage.completion_tokens)
+
+        # Save response in the base class
+        await self.append_generic_response(generic_response, response_file)
+
+        status_tracker.num_tasks_in_progress -= 1
+        status_tracker.num_tasks_succeeded += 1
+
+    def _add_output_token_moving_window(self, tokens):
+        self._output_tokens_window.append(tokens)
+
+    def _output_tokens_moving_average(self):
+        return sum(self._output_tokens_window) / (len(self._output_tokens_window) or _MAX_OUTPUT_MVA_WINDOW)
 
     @abstractmethod
     async def call_single_request(

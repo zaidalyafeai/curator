@@ -56,8 +56,8 @@ class _RequestProcessorFactory:
             logger.info(f"Requesting structured output from {model_name}, using OpenAI backend")
             return "openai"
 
-        # GPT models and O1 models without response format should use OpenAI
-        if not response_format and any(x in model_name for x in ["gpt-", "o1-preview", "o1-mini"]):
+        # GPT models and O1 models and DeepSeek without response format should use OpenAI
+        if not response_format and any(x in model_name for x in ["gpt-", "o1-preview", "o1-mini", "deepseek"]):
             logger.info(f"Requesting text output from {model_name}, using OpenAI backend")
             return "openai"
 
@@ -78,6 +78,7 @@ class _RequestProcessorFactory:
         batch: bool,
         backend: str | None,
         response_format: t.Type[BaseModel] | None,
+        return_completions_object: bool = False,
     ) -> "BaseRequestProcessor":
         """Create appropriate processor instance based on config params."""
         if params:
@@ -91,11 +92,16 @@ class _RequestProcessorFactory:
         if backend is None:
             backend = cls._determine_backend(model_name, params, response_format, batch)
 
+        params["return_completions_object"] = return_completions_object
         config = cls._create_config(params, batch, backend)
 
         if backend == "openai" and not batch:
             from bespokelabs.curator.request_processor.online.openai_online_request_processor import OpenAIOnlineRequestProcessor
 
+            # Route DeepSeek to OpenAI online backend since LiteLLM does not return
+            # reasoning_content
+            if "deepseek" in model_name:
+                config.base_url = "https://api.deepseek.com"
             _request_processor = OpenAIOnlineRequestProcessor(config)
         elif backend == "openai" and batch:
             from bespokelabs.curator.request_processor.batch.openai_batch_request_processor import OpenAIBatchRequestProcessor

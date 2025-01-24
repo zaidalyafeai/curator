@@ -154,7 +154,10 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
             cost = None
         else:
             response_body = raw_response["response"]["body"]
-            response_message_raw = response_body["choices"][0]["message"]["content"]
+            if self.config.return_completions_object:
+                response_message_raw = response_body
+            else:
+                response_message_raw = response_body["choices"][0]["message"]["content"]
             usage = response_body.get("usage", {})
 
             # TODO(Ryan) will want to resubmit requests like in the online case
