@@ -71,7 +71,7 @@ class BaseCodeExecutionBackend:
 
     @abstractmethod
     async def execute_request(
-        self, request: CodeAPIRequest, status_tracker: CodeExecutionStatusTracker
+        self, request: CodeAPIRequest
     ) -> CodeExecutionResponse:
         """Execute a single request."""
         pass
@@ -105,19 +105,20 @@ class BaseCodeExecutionBackend:
         """
         # Initialize trackers
         queue_of_requests_to_retry: asyncio.Queue[CodeExecutionRequest] = asyncio.Queue()
-        status_tracker = CodeExecutionStatusTracker()
+        # status_tracker = CodeExecutionStatusTracker()
 
         # Get rate limits
-        status_tracker.max_requests_per_minute = self.max_requests_per_minute
+        # status_tracker.max_requests_per_minute = self.max_requests_per_minute
 
         # Resume if a response file exists
         completed_request_ids = self.validate_existing_response_file(response_file)
 
         # Count total requests
-        status_tracker.num_tasks_already_completed = len(completed_request_ids)
-        status_tracker.total_requests = self.total_requests
+        # status_tracker.num_tasks_already_completed = len(completed_request_ids)
+        # status_tracker.total_requests = self.total_requests
         # status_tracker.start_tracker(self._tracker_console)
 
+        tasks_started = 0   
         # Use higher connector limit for better throughput
         async with aiofiles.open(generic_request_filepath) as file:
             pending_requests = []
@@ -138,29 +139,27 @@ class BaseCodeExecutionBackend:
 
                 print(f"Processing request {request.task_id}")
 
-                while not status_tracker.has_capacity():
-                    await asyncio.sleep(0.1)
+                # while not status_tracker.has_capacity():
+                    # await asyncio.sleep(0.1)
 
-                status_tracker.consume_capacity()
+                # status_tracker.consume_capacity()
 
                 # Wait for rate limits cool down if needed
-                await self.cool_down_if_rate_limit_error(status_tracker)
+                # await self.cool_down_if_rate_limit_error(status_tracker)
 
                 task = asyncio.create_task(
                     self.handle_single_request_with_retries(
                         request=request,
                         retry_queue=queue_of_requests_to_retry,
                         response_file=response_file,
-                        status_tracker=status_tracker,
+                        # status_tracker=status_tracker,
                     )
                 )
 
                 pending_requests.append(task)
 
-                status_tracker.num_tasks_started += 1
-                status_tracker.num_tasks_in_progress += 1
-
-                print(f"Started {status_tracker.num_tasks_started} / {status_tracker.total_requests} requests")
+                # status_tracker.num_tasks_started += 1
+                # status_tracker.num_tasks_in_progress += 1
 
             # Wait for all tasks to complete
             if pending_requests:
@@ -180,18 +179,18 @@ class BaseCodeExecutionBackend:
                     )
 
                     # Wait for capacity if needed
-                    while not status_tracker.has_capacity():
-                        await asyncio.sleep(0.1)
+                    # while not status_tracker.has_capacity():
+                        # await asyncio.sleep(0.1)
 
                     # Consume capacity before making request
-                    status_tracker.consume_capacity()
+                    # status_tracker.consume_capacity()
 
                     task = asyncio.create_task(
                         self.handle_single_request_with_retries(
                             request=retry_request,
                             retry_queue=queue_of_requests_to_retry,
                             response_file=response_file,
-                            status_tracker=status_tracker,
+                            # status_tracker=status_tracker,
                         )
                     )
                     pending_retries.add(task)
@@ -204,36 +203,36 @@ class BaseCodeExecutionBackend:
 
         # Log final status
         logger.info(f"Processing complete. Results saved to {response_file}")
-        logger.info(f"Status tracker: {status_tracker}")
+        # logger.info(f"Status tracker: {status_tracker}")
 
-        if status_tracker.num_tasks_failed > 0:
-            logger.warning(f"{status_tracker.num_tasks_failed} / {status_tracker.num_tasks_started} requests failed. Errors logged to {response_file}.")
+        # if status_tracker.num_tasks_failed > 0:
+            # logger.warning(f"{status_tracker.num_tasks_failed} / {status_tracker.num_tasks_started} requests failed. Errors logged to {response_file}.")
 
     async def handle_single_request_with_retries(
         self,
         request: CodeAPIRequest,
         retry_queue: asyncio.Queue,
         response_file: str,
-        status_tracker: CodeExecutionStatusTracker,
+        # status_tracker: CodeExecutionStatusTracker,
     ) -> None:
         """Common wrapper for handling a single request with error handling and retries."""
         try:
             # Execute the request in a separate process, without passing status_tracker
-            generic_response = await self.execute_request(request, status_tracker)
+            generic_response = await self.execute_request(request)
             # Allows us to retry on responses that don't match the response format
             generic_response = self.code_formatter.response_to_response_format(generic_response)
 
             # Save response in the base class
             await self.append_generic_response(generic_response, response_file)
 
-            status_tracker.num_tasks_in_progress -= 1
-            status_tracker.num_tasks_succeeded += 1
-            status_tracker.update_stats()
+            # status_tracker.num_tasks_in_progress -= 1
+            # status_tracker.num_tasks_succeeded += 1
+            # status_tracker.update_stats()
 
             print(f"Successfully completed task..")
 
         except Exception as e:
-            status_tracker.num_other_errors += 1
+            # status_tracker.num_other_errors += 1
             request.result.append(e)
 
             if request.attempts_left > 0:
@@ -259,11 +258,11 @@ class BaseCodeExecutionBackend:
                             response_stderr=None,
                         )
                     ],
-                    code_api_request=request,
+                    code_api_request=request, 
                 )
                 await self.append_generic_response(generic_response, response_file)
-                status_tracker.num_tasks_in_progress -= 1
-                status_tracker.num_tasks_failed += 1
+                # status_tracker.num_tasks_in_progress -= 1
+                # status_tracker.num_tasks_failed += 1
 
     def run(
         self,
@@ -579,8 +578,6 @@ class BaseCodeExecutionBackend:
         return self._load_from_dataset_file(dataset_file)
 
     def _load_from_dataset_file(self, dataset_file: str) -> "Dataset":
-        
-        import pdb; pdb.set_trace()
 
         from datasets import Dataset
 

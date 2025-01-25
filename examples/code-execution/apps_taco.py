@@ -59,8 +59,20 @@ class APPSCodeExecutor(curator.experimental.CodeExecutor):
         return test_cases
 
     def parse_results(self, row, test_cases, execution_results):
+        
+        # row['function_name'] = self.function_name(row)
         row["correct"] = True
+        
+        # row['execution_results'] = execution_results
+
+        if len(test_cases) != len(execution_results):
+            row['correct'] = False
+            return row
+
         for test_case, result in zip(test_cases, execution_results):
+            if type(result.response_stdout) == str:
+                result.response_stdout = [result.response_stdout]
+
             if result.response_stdout != test_case.expected_output:
                 row["correct"] = False
                 break
@@ -70,7 +82,16 @@ class APPSCodeExecutor(curator.experimental.CodeExecutor):
 
 executor = APPSCodeExecutor()
 
-execution_output = executor(dataset["train"].select(range(1,1000)))
+
+# ex_st = "To solve this problem, we need to convert a given number into a specified base, which can be a non-integer like"
+
+data = dataset['train'].select(range(300))
+
+# select only the row where deepseek_solution contains ex_st
+# data = data.filter(lambda x: ex_st in x['deepseek_solution'])
+
+import pdb; pdb.set_trace()
+execution_output = executor(data)
 
 import pdb
 

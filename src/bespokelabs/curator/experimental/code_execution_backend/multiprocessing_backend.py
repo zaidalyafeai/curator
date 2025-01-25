@@ -5,11 +5,13 @@ import signal
 import subprocess
 import sys
 import tempfile
+import logging
 
 import asyncio
 import aiohttp
 from pyext import RuntimeModule
 from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 
 from bespokelabs.curator.experimental.code_execution_backend.base_backend import BaseCodeExecutionBackend
 from bespokelabs.curator.experimental.types import CodeAPIRequest, CodeExecutionResponse, CodeExecutionStatusTracker, CodeTestCaseResponse
@@ -19,17 +21,24 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
     def __init__(self, config):
         super().__init__(config)
         self.config = config
-        self.process_pool = ProcessPoolExecutor(max_workers=50)
+        self.max_retries = 3
+        self.retry_delay = 1
+        self._create_process_pool()
+
+    def _create_process_pool(self):
+        """Create a new process pool."""
+        if hasattr(self, 'process_pool'):
+            self.process_pool.shutdown(wait=False)
+        self.process_pool = ProcessPoolExecutor(max_workers=100)
 
     @property
     def max_requests_per_minute(self):
         return 10000
 
     async def execute_request(
-        self, request: CodeAPIRequest, status_tracker: CodeExecutionStatusTracker
+        self, request: CodeAPIRequest
     ) -> CodeExecutionResponse:
-        """Execute a single request."""
-        # Extract only the needed simple data
+        """Execute a single request with retry logic."""
         simple_request = {
             'code': request.generic_request.code,
             'request_type': request.generic_request.request_type,
@@ -41,13 +50,45 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
             ]
         }
         
-        # Execute with simplified data
-        future = self.process_pool.submit(self._execute_request, simple_request)
-        results = await asyncio.get_event_loop().run_in_executor(
-            None,
-            future.result
-        )        # Convert back to response objects
+        attempts = 0
+        last_error = None
+        
+        while attempts < self.max_retries:
+            try:
+                # Execute with simplified data
+                future = self.process_pool.submit(self._execute_request, simple_request)
+                results = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    future.result
+                )
+                break  # Success - exit retry loop
+                
+            except (BrokenProcessPool, Exception) as e:
+                attempts += 1
+                last_error = str(e)
+                logging.warning(f"Process pool failed (attempt {attempts}/{self.max_retries}): {last_error}")
+                
+                # Always recreate the pool on failure
+                self._create_process_pool()
+                
+                if attempts >= self.max_retries:
+                    logging.error(f"Max retries reached, last error: {last_error}")
+                    # Return error response instead of raising
+                    return CodeExecutionResponse(
+                        responses=[
+                            CodeTestCaseResponse(
+                                response_message="error",
+                                response_errors=[f"Process pool failed after {self.max_retries} attempts: {last_error}"],
+                                response_stdout="",
+                                response_stderr=""
+                            )
+                        ],
+                        code_api_request=request
+                    )
+                
+                await asyncio.sleep(self.retry_delay)
 
+        # Convert back to response objects
         final_results = []
         for result in results:
             final_results.append(
@@ -189,9 +230,13 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
 
                 try:
                     result = subprocess.run(["python", temp_program_path], input=input_data, text=True, capture_output=True, timeout=timeout)
-
                     # print("Done")
                     exec_results[test_case_idx] = {"status": "success", "output": result.stdout, "error": result.stderr}
+
+                    if result.stdout != expected:
+                        exec_results[test_case_idx] = {"status": "success", "output": result.stdout, "error": result.stderr}
+                        if early_stop:
+                            break
 
                 except subprocess.TimeoutExpired:
                     exec_results[test_case_idx] = {"status": "timeout", "output": None, "error": f"Execution timed out after {timeout}s"}
@@ -202,6 +247,7 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
                     exec_results[test_case_idx] = {"status": "error", "output": None, "error": str(e)}
                     if early_stop:
                         break
+
 
             return exec_results
         finally:
@@ -220,10 +266,15 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
             for index, inputs in enumerate(inputs_list):
                 try:
                     signal.alarm(timeout)
-                    exec_outputs = method(*inputs)
+                    exec_outputs = method(*inputs['input'])
+
+                    if isinstance(exec_outputs, tuple):
+                        exec_outputs = list(exec_outputs)
+
                     signal.alarm(0)
                     results[index] = {"status": "success", "output": str(exec_outputs), "error": None}
                 except Exception as e:
+                    print("Error in executing call based request: ", e)
                     signal.alarm(0)
                     if early_stop:
                         break

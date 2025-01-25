@@ -21,7 +21,7 @@ def run_test_with_timeout(problem, generation):
         result = taco_run_test(problem, test=generation, debug=False)
         return bool(result and np.all(result))
     except Exception as e:
-        print(f"Error in run_test: {e}")
+        print(f"Exception in run_test_with_timeout: {e}")
         return False
 
 
@@ -79,7 +79,7 @@ def process_single_row(row: dict) -> dict:
         return {**row, "correctness": False, "reason": f"Processing error: {str(e)}"}
 
 
-def process_dataset_parallel(df: Dataset, num_cpus: int = None, batch_size: int = 1024) -> Dataset:
+def process_dataset_parallel(df: Dataset, num_cpus: int = None, batch_size: int = 2048) -> Dataset:
     """Process the dataset in parallel using multiple CPUs.
 
     Args:
@@ -90,6 +90,7 @@ def process_dataset_parallel(df: Dataset, num_cpus: int = None, batch_size: int 
     Returns:
         Dataset: Processed dataset with correctness evaluations
     """
+
     if num_cpus is None:
         num_cpus = max(1, multiprocessing.cpu_count() - 1)
 
@@ -111,5 +112,12 @@ def process_dataset_parallel(df: Dataset, num_cpus: int = None, batch_size: int 
         print(f"Processed examples: {len(all_results)}/{total_rows}")
         print(f"Correct in this batch: {batch_correct}/{len(batch_results)} ({batch_correct / len(batch_results) * 100:.2f}%)")
         print(f"Total correct so far: {sum(1 for r in all_results if r.get('correctness', False))}/{len(all_results)}\n")
+
+        # save the dataset to huggingface
+        # import time 
+        # start_time = time.time()
+        # Dataset.from_list(all_results).push_to_hub("pimpalgaonkar/processed_taco_dataset_batch_" + str(i // batch_size + 1), private=True)
+        # end_time = time.time()
+        # print(f"Time taken to push to hub: {end_time - start_time} seconds")
 
     return Dataset.from_list(all_results)
