@@ -70,7 +70,7 @@ class BaseCodeExecutionBackend:
         return "base"
 
     @abstractmethod
-    def execute_request(
+    async def execute_request(
         self, request: CodeAPIRequest, status_tracker: CodeExecutionStatusTracker
     ) -> CodeExecutionResponse:
         """Execute a single request."""
@@ -116,13 +116,14 @@ class BaseCodeExecutionBackend:
         # Count total requests
         status_tracker.num_tasks_already_completed = len(completed_request_ids)
         status_tracker.total_requests = self.total_requests
-        status_tracker.start_tracker(self._tracker_console)
+        # status_tracker.start_tracker(self._tracker_console)
 
         # Use higher connector limit for better throughput
         async with aiofiles.open(generic_request_filepath) as file:
             pending_requests = []
 
             async for line in file:
+
                 generic_request = CodeExecutionRequest.model_validate_json(line)
 
                 if generic_request.original_row_idx in completed_request_ids:
@@ -134,6 +135,8 @@ class BaseCodeExecutionBackend:
                     attempts_left=self.config.max_retries,
                     code_formatter=self.code_formatter,
                 )
+
+                print(f"Processing request {request.task_id}")
 
                 while not status_tracker.has_capacity():
                     await asyncio.sleep(0.1)
@@ -156,6 +159,8 @@ class BaseCodeExecutionBackend:
 
                 status_tracker.num_tasks_started += 1
                 status_tracker.num_tasks_in_progress += 1
+
+                print(f"Started {status_tracker.num_tasks_started} / {status_tracker.total_requests} requests")
 
             # Wait for all tasks to complete
             if pending_requests:
@@ -195,7 +200,7 @@ class BaseCodeExecutionBackend:
                 if pending_retries:
                     done, pending_retries = await asyncio.wait(pending_retries, timeout=0.1)
 
-        status_tracker.stop_tracker()
+        # status_tracker.stop_tracker()
 
         # Log final status
         logger.info(f"Processing complete. Results saved to {response_file}")
@@ -211,29 +216,10 @@ class BaseCodeExecutionBackend:
         response_file: str,
         status_tracker: CodeExecutionStatusTracker,
     ) -> None:
-        """Common wrapper for handling a single request with error handling and retries.
-
-        This method implements the common try/except logic and retry mechanism,
-        while delegating the actual API call to call_single_request.
-
-        Args:
-            request: The request to process
-            session: Async HTTP session
-            retry_queue: Queue for failed requests
-            response_file: Path where the response data will be saved
-            status_tracker: Tracks request status
-        """
+        """Common wrapper for handling a single request with error handling and retries."""
         try:
-
-            loop = asyncio.get_running_loop()
-            with ProcessPoolExecutor() as pool:
-                generic_response = await loop.run_in_executor(
-                    pool,
-                    self.execute_request,
-                    request,
-                    status_tracker
-                )
-
+            # Execute the request in a separate process, without passing status_tracker
+            generic_response = await self.execute_request(request, status_tracker)
             # Allows us to retry on responses that don't match the response format
             generic_response = self.code_formatter.response_to_response_format(generic_response)
 
@@ -242,7 +228,6 @@ class BaseCodeExecutionBackend:
 
             status_tracker.num_tasks_in_progress -= 1
             status_tracker.num_tasks_succeeded += 1
-
             status_tracker.update_stats()
 
             print(f"Successfully completed task..")
@@ -260,7 +245,7 @@ class BaseCodeExecutionBackend:
                 )
                 retry_queue.put_nowait(request)
             else:
-                logger.error(
+                logger.error(  
                     f"Request {request.task_id} failed permanently after exhausting all {self.config.max_retries} retry attempts. "
                     f"Errors: {[str(e) for e in request.result]}"
                 )
@@ -594,6 +579,9 @@ class BaseCodeExecutionBackend:
         return self._load_from_dataset_file(dataset_file)
 
     def _load_from_dataset_file(self, dataset_file: str) -> "Dataset":
+        
+        import pdb; pdb.set_trace()
+
         from datasets import Dataset
 
         print(f"Loading dataset from {dataset_file}")

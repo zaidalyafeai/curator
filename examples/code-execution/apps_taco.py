@@ -70,7 +70,7 @@ class APPSCodeExecutor(curator.experimental.CodeExecutor):
 
 executor = APPSCodeExecutor()
 
-execution_output = executor(dataset["train"].select(range(5)))
+execution_output = executor(dataset["train"].select(range(1,1000)))
 
 import pdb
 

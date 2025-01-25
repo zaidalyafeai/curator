@@ -19,7 +19,7 @@ repository = "https://github.com/bespokelabsai/curator"
 keywords = ["ai", "curator", "bespoke"]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "==3.10.16"
 pydantic = ">=2.9.2"
 datasets = "^3.0.2"
 instructor = "^1.6.3"

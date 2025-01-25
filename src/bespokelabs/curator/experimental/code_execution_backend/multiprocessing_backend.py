@@ -8,6 +8,7 @@ import tempfile
 
 import aiohttp
 from pyext import RuntimeModule
+from concurrent.futures import ProcessPoolExecutor
 
 from bespokelabs.curator.experimental.code_execution_backend.base_backend import BaseCodeExecutionBackend
 from bespokelabs.curator.experimental.types import CodeAPIRequest, CodeExecutionResponse, CodeExecutionStatusTracker, CodeTestCaseResponse
@@ -17,13 +18,105 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
     def __init__(self, config):
         super().__init__(config)
         self.config = config
+        self.process_pool = ProcessPoolExecutor(max_workers=50)
 
     @property
     def max_requests_per_minute(self):
         return 10000
 
+    async def execute_request(
+        self, request: CodeAPIRequest, status_tracker: CodeExecutionStatusTracker
+    ) -> CodeExecutionResponse:
+        """Execute a single request."""
+        # Extract only the needed simple data
+        simple_request = {
+            'code': request.generic_request.code,
+            'request_type': request.generic_request.request_type,
+            'function_name': request.generic_request.function_name,
+            'timeout': request.generic_request.execution_params.timeout,
+            'test_cases': [
+                {'input': tc.input, 'expected': tc.expected_output} 
+                for tc in request.generic_request.test_cases
+            ]
+        }
+        
+        # Execute with simplified data
+        future = self.process_pool.submit(self._execute_request, simple_request)
+        results = await future.result()
+
+        # Convert back to response objects
+        final_results = []
+        for result in results:
+            final_results.append(
+                CodeTestCaseResponse(
+                    response_message=result['status'],
+                    response_errors=result.get('errors'),
+                    response_stdout=result.get('stdout', ''),
+                    response_stderr=result.get('stderr', '')
+                )
+            )
+            
+        return CodeExecutionResponse(
+            responses=final_results,
+            code_api_request=request
+        )
+
+    @staticmethod
+    def _execute_request(simple_request: dict) -> list:
+        """Execute request with simplified data structures.
+        
+        Args:
+            simple_request: Dict containing:
+                - code: str
+                - request_type: str 
+                - function_name: str
+                - timeout: int
+                - test_cases: list[dict]
+                
+        Returns:
+            List of result dicts
+        """
+        method = MultiprocessingCodeExecutionBackend.compile_and_get_function(
+            simple_request['code'],
+            simple_request['request_type'],
+            simple_request['function_name'], 
+            simple_request['timeout']
+        )
+
+        if method is False:
+            return [{
+                'status': 'error',
+                'errors': ['Compilation error'],
+                'stdout': '',
+                'stderr': ''
+            }]
+
+        if simple_request['request_type'] == 'call_based':
+            results = MultiprocessingCodeExecutionBackend.execute_call_based_request(
+                method,
+                simple_request['test_cases'],
+                simple_request['timeout']
+            )
+        else:
+            results = MultiprocessingCodeExecutionBackend.execute_standard_input_request(
+                method,
+                simple_request['code'] + '\ncode()',
+                simple_request['test_cases'],
+                simple_request['function_name'],
+                simple_request['timeout']
+            )
+
+        return [
+            {
+                'status': r['status'],
+                'stdout': r['output'],
+                'stderr': r['error']
+            }
+            for r in results.values()
+        ]
+
+    @staticmethod
     def compile_and_get_function(
-        self,
         program: str,
         which_type: str,
         method_name: str,
@@ -62,68 +155,8 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
             return False
         return method
 
-    def execute_request(
-        self, request: CodeAPIRequest, status_tracker: CodeExecutionStatusTracker
-    ) -> CodeExecutionResponse:
-        """Execute a single request."""
-        # Disable functionalities that can make destructive changes to the test.
-        # self.reliability_guard()
-
-        generic_request = request.generic_request
-        method = self.compile_and_get_function(
-            generic_request.code, generic_request.request_type, generic_request.function_name, generic_request.execution_params.timeout
-        )
-
-        if method is False:
-            return CodeExecutionResponse(
-                responses=[
-                    CodeTestCaseResponse(
-                        response_message="Compilation error",
-                        response_errors=["Compilation error"],
-                        response_stdout="",
-                        response_stderr="",
-                    )
-                ],
-                code_api_request=request,
-            )
-
-        if generic_request.request_type == "call_based":
-            results = self.execute_call_based_request(method, generic_request.test_cases, generic_request.execution_params.timeout)
-        else:
-            results = self.execute_standard_input_request(
-                method, generic_request.code + "\ncode()", generic_request.test_cases, generic_request.function_name, generic_request.execution_params.timeout
-            )
-
-        final_results = []
-        for test_case_idx, result in results.items():
-            final_results.append(
-                CodeTestCaseResponse(
-                    response_message=result["status"],
-                    response_errors=None,
-                    response_stdout=result["output"],
-                    response_stderr=result["error"],
-                )
-            )
-
-        return CodeExecutionResponse(
-            responses=final_results,
-            code_api_request=request,
-        )
-
-    def create_temp_file(self, content: str) -> str:
-        """Create a temporary file with the given content.
-
-        Args:
-            content: Content to write to temp file
-
-        Returns:
-            Path to the created temp file
-        """
-        with tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf-8") as temp_file:
-            temp_file.write(content)
-            return temp_file.name
-
-    def execute_standard_input_request(self, method_func, code: str, test_cases: list, function_name: str, timeout: int, early_stop: bool = True) -> dict:
+    @staticmethod
+    def execute_standard_input_request(method_func, code: str, test_cases: list, function_name: str, timeout: int, early_stop: bool = True) -> dict:
         """Execute code with function calls and test cases.
 
         Args:
@@ -139,12 +172,12 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
         """
         temp_program_path = None
         try:
-            temp_program_path = self.create_temp_file(code)
+            temp_program_path = MultiprocessingCodeExecutionBackend.create_temp_file(code)
             exec_results = {}
 
             for test_case_idx, test_case in enumerate(test_cases):
-                input_data = test_case.input
-                expected = test_case.expected_output
+                input_data = test_case['input']
+                expected = test_case['expected']
 
                 if isinstance(input_data, list):
                     input_data = "\n".join(input_data)
@@ -175,10 +208,10 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
                 except:
                     pass
 
-    def execute_call_based_request(self, method, inputs_list, timeout, early_stop=True):
+    @staticmethod
+    def execute_call_based_request(method, inputs_list, timeout, early_stop=True):
         original_handler = signal.getsignal(signal.SIGALRM)
         try:
-            self.reliability_guard()
             results = {}
 
             for index, inputs in enumerate(inputs_list):
@@ -196,3 +229,17 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
         finally:
             signal.alarm(0)
             signal.signal(signal.SIGALRM, original_handler)
+
+    @staticmethod
+    def create_temp_file(content: str) -> str:
+        """Create a temporary file with the given content.
+
+        Args:
+            content: Content to write to temp file
+
+        Returns:
+            Path to the created temp file
+        """
+        with tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf-8") as temp_file:
+            temp_file.write(content)
+            return temp_file.name
