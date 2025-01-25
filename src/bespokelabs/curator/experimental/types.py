@@ -8,26 +8,60 @@ from rich import box
 from rich.console import Console
 from rich.progress import BarColumn, Progress, TextColumn
 from rich.table import Table
+import datetime
 
+class CODE_REQUEST_TYPE(str, Enum):
+    call_based = "call_based"
+    standard_input = "standard_input"
 
-class CODE_REQUEST_TYPE(Enum):
-    call_based = 0
-    standard_input = 1
+    def __str__(self):
+        return self.value
 
+class CodeExecutionResult(BaseModel):
+    stdout: str
+    stderr: str
+    exit_code: int
+
+class TestCase(BaseModel):
+    input: Any
+    expected_output: Any
+
+class CodeExecutionRequestParams(BaseModel):
+    timeout: int = 10
+    memory_limit: int = 1024 * 1024 * 1024
+    cpu_limit: int = 1
 
 class CodeExecutionRequest(BaseModel):
     code: str
-    test_cases: List[str]
+    test_cases: List[TestCase]
+    function_name: Optional[str] = None
+    request_type: str
+    execution_params: Optional[CodeExecutionRequestParams] = None
+    original_row: Optional[Dict[str, Any]] = None
+    original_row_idx: Optional[int] = None
 
-
-class CodeExecutionResponse(BaseModel):
+class CodeTestCaseResponse(BaseModel):
     response_message: Optional[Dict[str, Any]] | str = None
     response_errors: Optional[List[str]] = None
     response_stdout: Optional[str] = None
     response_stderr: Optional[str] = None
-    raw_response: Optional[Dict[str, Any]]
-    raw_request: Optional[Dict[str, Any]] = None
-    code_execution_request: CodeExecutionRequest
+
+
+class CodeAPIRequest(BaseModel):
+    task_id: Optional[int] = None
+    generic_request: CodeExecutionRequest
+    attempts_left: int
+    code_formatter: Any
+    created_at: datetime.datetime = field(default_factory=datetime.datetime.now)
+    result: list = field(default_factory=list)
+
+class CodeExecutionResponse(BaseModel):
+    responses: List[CodeTestCaseResponse]
+    code_api_request: Optional[CodeAPIRequest] = None
+    response_message: Optional[Dict[str, Any]] | str = None
+    response_errors: Optional[List[str]] = None
+    created_at: datetime.datetime = field(default_factory=datetime.datetime.now)    
+    finished_at: datetime.datetime = field(default_factory=datetime.datetime.now)
 
 
 @dataclass
@@ -39,7 +73,8 @@ class CodeExecutionStatusTracker:
     num_tasks_already_completed: int = 0
     num_execution_errors: int = 0
     num_other_errors: int = 0
-
+    num_rate_limit_errors: int = 0
+    time_of_last_rate_limit_error: float = 0.0
     # Stats tracking
     total_requests: int = 0
 
@@ -140,3 +175,17 @@ class CodeExecutionStatusTracker:
             f"Errors - Execution: {self.num_execution_errors}, "
             f"Other: {self.num_other_errors}"
         )
+
+    def has_capacity(self):
+        return self.num_tasks_in_progress < self.max_requests_per_minute
+
+    def consume_capacity(self):
+        self.num_tasks_in_progress += 1
+
+    def free_capacity(self):
+        self.num_tasks_in_progress -= 1
+
+class CodeExecutionBackendConfig(BaseModel):
+    max_requests_per_minute: int = 10000
+    max_retries: int = 3
+    seconds_to_pause_on_rate_limit: int = 10

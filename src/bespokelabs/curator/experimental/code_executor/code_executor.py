@@ -17,20 +17,10 @@ _DictOrBaseModel = Dict[str, Any] | BaseModel
 logger = logging.getLogger(__name__)
 
 
-from bespokelabs.curator.db import MetadataDB
+from bespokelabs.curator.experimental.db import CodeMetadataDB
 from bespokelabs.curator.experimental.code_execution_backend._factory import _CodeExecutionBackendFactory
+from bespokelabs.curator.experimental.types import CodeExecutionRequest, CodeExecutionResponse, CodeExecutionResult, TestCase, CodeExecutionRequestParams
 from bespokelabs.curator.llm.llm import _convert_to_dataset, _get_function_hash, _get_function_source
-
-
-class CodeExecutionResult(BaseModel):
-    stdout: str
-    stderr: str
-    exit_code: int
-
-
-class TestCase(BaseModel):
-    input: str
-    expected_output: str
 
 
 class CodeExecutor:
@@ -48,8 +38,10 @@ class CodeExecutor:
 
     def __init__(
         self,
-        backend: str,
-        backend_params: dict,
+        backend: str = "multiprocessing",
+        backend_params: dict = {
+            'max_requests_per_minute': 10000,
+        },
     ):
         self._code_executor = _CodeExecutionBackendFactory.create(backend=backend, backend_params=backend_params)
 
@@ -57,19 +49,19 @@ class CodeExecutor:
         if disable_cache:
             fingerprint = xxh64(os.urandom(8)).hexdigest()
         else:
-            # get the source code of the function_name, preprocess, test_cases, and parse methods
+            # get the source code of the function_name, code_string, test_cases, and parse methods
             function_name_hash = _get_function_hash(self.function_name)
-            preprocess_hash = _get_function_hash(self.preprocess)
+            code_string_hash = _get_function_hash(self.code_string)
             test_cases_hash = _get_function_hash(self.test_cases)
-            parse_hash = _get_function_hash(self.parse)
+            parse_results_hash = _get_function_hash(self.parse_results)
 
             fingerprint_str = "_".join(
                 [
                     str(dataset_hash),
                     str(function_name_hash),
-                    str(preprocess_hash),
+                    str(code_string_hash),
                     str(test_cases_hash),
-                    str(parse_hash),
+                    str(parse_results_hash),
                 ]
             )
 
@@ -83,6 +75,7 @@ class CodeExecutor:
         self,
         dataset: Optional[Iterable] = None,
         working_dir: str = None,
+        execution_params: Optional[CodeExecutionRequestParams] = CodeExecutionRequestParams(),
     ) -> "Dataset":
         dataset = _convert_to_dataset(dataset)
 
@@ -100,15 +93,15 @@ class CodeExecutor:
         fingerprint = self._hash_fingerprint(dataset_hash, disable_cache)
 
         metadata_db_path = os.path.join(curator_cache_dir, "metadata.db")
-        metadata_db = MetadataDB(metadata_db_path)
+        metadata_db = CodeMetadataDB(metadata_db_path)
 
         metadata_dict = {
             "timestamp": datetime.now().isoformat(),
             "dataset_hash": dataset_hash,
             "function_name": _get_function_source(self.function_name),
-            "preprocess": _get_function_source(self.preprocess),
+            "code_string": _get_function_source(self.code_string),
             "test_cases": _get_function_source(self.test_cases),
-            "parse": _get_function_source(self.parse),
+            "parse_results": _get_function_source(self.parse_results),
             "run_hash": fingerprint,
         }
 
@@ -118,9 +111,9 @@ class CodeExecutor:
 
         all_func_hash = [
             _get_function_hash(self.function_name),
-            _get_function_hash(self.preprocess),
+            _get_function_hash(self.code_string),
             _get_function_hash(self.test_cases),
-            _get_function_hash(self.parse),
+            _get_function_hash(self.parse_results),
         ]
 
         # get a hash of all the function hashes
@@ -129,9 +122,10 @@ class CodeExecutor:
 
         self.code_formatter = CodeFormatter(
             function_name=self.function_name,
-            preprocess=self.preprocess,
+            code_string=self.code_string,
             test_cases=self.test_cases,
-            parse=self.parse,
+            parse_results=self.parse_results,
+            execution_params=execution_params,
         )
 
         dataset = self._code_executor.run(

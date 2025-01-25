@@ -1,4 +1,4 @@
-"""Base module for request processing functionality."""
+"""Code Execution Backend"""
 
 import asyncio
 import datetime
@@ -11,6 +11,7 @@ import platform
 import resource
 from abc import abstractmethod
 from typing import TYPE_CHECKING, List, Optional
+import time 
 
 import aiofiles
 import aiohttp
@@ -18,7 +19,8 @@ import pyarrow
 from pydantic import BaseModel, ValidationError
 
 from bespokelabs.curator.experimental.code_executor.code_formatter import CodeFormatter
-from bespokelabs.curator.experimental.types import CodeExecutionRequest, CodeExecutionResponse, CodeExecutionStatusTracker
+from bespokelabs.curator.experimental.types import CodeAPIRequest, CodeExecutionResponse, CodeExecutionStatusTracker, CodeExecutionRequest, CodeTestCaseResponse
+
 from bespokelabs.curator.file_utilities import count_lines
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 
@@ -54,6 +56,12 @@ class BaseCodeExecutionBackend:
         resource.setrlimit(resource.RLIMIT_NOFILE, (desired_limit, hard))
         self.config = config
 
+        self.manual_max_requests_per_minute = config.max_requests_per_minute
+        self.default_max_requests_per_minute = 10
+
+        # The rich.Console used for the status tracker, only set for testing
+        self._tracker_console = None
+
     @property
     @abstractmethod
     def backend(self) -> str:
@@ -61,8 +69,8 @@ class BaseCodeExecutionBackend:
         return "base"
 
     @abstractmethod
-    def execute_request(
-        self, request: CodeExecutionRequest, session: aiohttp.ClientSession, status_tracker: CodeExecutionStatusTracker
+    async def execute_request(
+        self, request: CodeAPIRequest, session: aiohttp.ClientSession, status_tracker: CodeExecutionStatusTracker
     ) -> CodeExecutionResponse:
         """Execute a single request."""
         pass
@@ -120,26 +128,21 @@ class BaseCodeExecutionBackend:
 
                     if generic_request.original_row_idx in completed_request_ids:
                         continue
-
-                    request = APIRequest(
-                        task_id=status_tracker.num_tasks_started,
+                    
+                    request = CodeAPIRequest(
+                        task_id=generic_request.original_row_idx,
                         generic_request=generic_request,
-                        api_specific_request=self.create_api_specific_request_online(generic_request),
                         attempts_left=self.config.max_retries,
-                        prompt_formatter=self.prompt_formatter,
+                        code_formatter=self.code_formatter,
                     )
 
-                    token_estimate = self.estimate_total_tokens(request.generic_request.messages)
-
-                    # Wait for capacity if needed
-                    while not status_tracker.has_capacity(token_estimate):
+                    while not status_tracker.has_capacity():
                         await asyncio.sleep(0.1)
+
+                    status_tracker.consume_capacity()
 
                     # Wait for rate limits cool down if needed
                     await self.cool_down_if_rate_limit_error(status_tracker)
-
-                    # Consume capacity before making request
-                    status_tracker.consume_capacity(token_estimate)
 
                     task = asyncio.create_task(
                         self.handle_single_request_with_retries(
@@ -150,6 +153,7 @@ class BaseCodeExecutionBackend:
                             status_tracker=status_tracker,
                         )
                     )
+
                     pending_requests.append(task)
 
                     status_tracker.num_tasks_started += 1
@@ -165,7 +169,6 @@ class BaseCodeExecutionBackend:
                 # Process new items from the queue if we have capacity
                 if not queue_of_requests_to_retry.empty():
                     retry_request = await queue_of_requests_to_retry.get()
-                    token_estimate = self.estimate_total_tokens(retry_request.generic_request.messages)
                     attempt_number = self.config.max_retries - retry_request.attempts_left
                     logger.debug(
                         f"Retrying request {retry_request.task_id} "
@@ -174,11 +177,11 @@ class BaseCodeExecutionBackend:
                     )
 
                     # Wait for capacity if needed
-                    while not status_tracker.has_capacity(token_estimate):
+                    while not status_tracker.has_capacity():
                         await asyncio.sleep(0.1)
 
                     # Consume capacity before making request
-                    status_tracker.consume_capacity(token_estimate)
+                    status_tracker.consume_capacity()
 
                     task = asyncio.create_task(
                         self.handle_single_request_with_retries(
@@ -206,7 +209,7 @@ class BaseCodeExecutionBackend:
 
     async def handle_single_request_with_retries(
         self,
-        request: CodeExecutionRequest,
+        request: CodeAPIRequest,
         session: aiohttp.ClientSession,
         retry_queue: asyncio.Queue,
         response_file: str,
@@ -224,16 +227,15 @@ class BaseCodeExecutionBackend:
             response_file: Path where the response data will be saved
             status_tracker: Tracks request status
         """
+
         try:
             generic_response = await self.execute_request(
                 request=request,
                 session=session,
                 status_tracker=status_tracker,
             )
-            status_tracker.update_stats(generic_response.token_usage, generic_response.response_cost)
-
             # Allows us to retry on responses that don't match the response format
-            self.prompt_formatter.response_to_response_format(generic_response.response_message)
+            generic_response = self.code_formatter.response_to_response_format(generic_response)
 
             # Save response in the base class
             await self.append_generic_response(generic_response, response_file)
@@ -258,14 +260,15 @@ class BaseCodeExecutionBackend:
                     f"Request {request.task_id} failed permanently after exhausting all {self.config.max_retries} retry attempts. "
                     f"Errors: {[str(e) for e in request.result]}"
                 )
-                generic_response = GenericResponse(
-                    response_message=None,
-                    response_errors=[str(e) for e in request.result],
-                    raw_request=request.api_specific_request,
-                    raw_response=None,
-                    generic_request=request.generic_request,
-                    created_at=request.created_at,
-                    finished_at=datetime.datetime.now(),
+                
+                generic_response = CodeExecutionResponse(
+                    responses=[CodeTestCaseResponse(
+                        response_message=None,
+                        response_errors=[str(e) for e in request.result],
+                        response_stdout=None,
+                        response_stderr=None,
+                    )],
+                    code_api_request=request,
                 )
                 await self.append_generic_response(generic_response, response_file)
                 status_tracker.num_tasks_in_progress -= 1
@@ -293,7 +296,7 @@ class BaseCodeExecutionBackend:
             ValueError: If model doesn't support structured output but it's requested
         """
         self.function_name = code_formatter.function_name
-        self.preprocess = code_formatter.preprocess
+        self.code_string = code_formatter.code_string
         self.test_cases = code_formatter.test_cases
         self.parse_results = code_formatter.parse_results
         self.working_dir = working_dir
@@ -428,7 +431,6 @@ class BaseCodeExecutionBackend:
                 dataset_row_idx = idx + start_idx
                 # Get the generic request from the map function
                 request = self.code_formatter.create_code_execution_request(dataset_row, dataset_row_idx)
-                request.execution_params = self.config.execution_params
                 await f.write(json.dumps(request.model_dump(), default=str) + "\n")
 
         num_requests = end_idx - start_idx
@@ -514,12 +516,12 @@ class BaseCodeExecutionBackend:
                         #     continue
 
                         # parse_func can return a single row or a list of rows
-                        if self.code_formatter.parse:
+                        if self.code_formatter.parse_results:
                             try:
                                 dataset_rows = self.code_formatter.parse_results(
-                                    response.code_execution_request.original_row,
-                                    response.code_execution_request.test_cases,
-                                    response.execution_results,
+                                    response.code_api_request.generic_request.original_row,
+                                    response.code_api_request.generic_request.test_cases,
+                                    response.responses,
                                 )
                             except Exception as e:
                                 logger.error(f"Exception raised in your `parse_func`. {error_help}")
@@ -544,7 +546,7 @@ class BaseCodeExecutionBackend:
                                 os.remove(dataset_file)
                                 raise ValueError(f"Got empty row {row} from `parse_func`. {error_help}")
                             # Add the original row index to the row so that we can sort by it later.
-                            row["__original_row_idx"] = response.generic_request.original_row_idx
+                            row["__original_row_idx"] = response.code_api_request.generic_request.original_row_idx
                             writer.write(row)
 
             logger.info(f"Read {total_responses_count} responses.")
@@ -585,6 +587,7 @@ class BaseCodeExecutionBackend:
     def _load_from_dataset_file(self, dataset_file: str) -> "Dataset":
         from datasets import Dataset
 
+        print(f"Loading dataset from {dataset_file}")
         d = Dataset.from_file(dataset_file)
         d = d.sort("__original_row_idx")
         d = d.remove_columns("__original_row_idx")
@@ -616,7 +619,7 @@ class BaseCodeExecutionBackend:
                         logger.warning("Skipping response due to error parsing line")
                         parsing_error_responses += 1
                         continue
-                    row_id = response.generic_request.original_row_idx
+                    row_id = response.code_api_request.generic_request.original_row_idx
                     if response.response_errors:
                         logger.debug(f"Request {row_id} previously failed due to errors: {response.response_errors}, removing from output and will retry")
                         failed_request_ids.add(row_id)
@@ -659,6 +662,19 @@ class BaseCodeExecutionBackend:
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in metadata file: {metadata_file}. Delete cache directory 'rm -rf {self.working_dir}' and try again.") from e
 
+    async def cool_down_if_rate_limit_error(self, status_tracker: CodeExecutionStatusTracker) -> None:
+        """Pause processing if a rate limit error is detected.
+
+        Args:
+            status_tracker: Tracker containing rate limit status
+        """
+        seconds_to_pause_on_rate_limit = self.config.seconds_to_pause_on_rate_limit
+        seconds_since_rate_limit_error = time.time() - status_tracker.time_of_last_rate_limit_error
+        remaining_seconds_to_pause = seconds_to_pause_on_rate_limit - seconds_since_rate_limit_error
+        if remaining_seconds_to_pause > 0:
+            logger.warn(f"Pausing for {int(remaining_seconds_to_pause)} seconds")
+            await asyncio.sleep(remaining_seconds_to_pause)
+
     def reliability_guard(self, maximum_memory_bytes=None):
         """This disables various destructive functions and prevents the generated code
         from interfering with the test (e.g. fork bomb, killing other processes,
@@ -687,7 +703,7 @@ class BaseCodeExecutionBackend:
 
         import os
 
-        os.environ["OMP_NUM_THREADS"] = "1"
+        # os.environ["OMP_NUM_THREADS"] = "1"
 
         os.kill = None
         os.system = None
@@ -736,3 +752,16 @@ class BaseCodeExecutionBackend:
         sys.modules["resource"] = None
         sys.modules["psutil"] = None
         sys.modules["tkinter"] = None
+
+
+    async def append_generic_response(self, data: dict, filename: str) -> None:
+        """Append a response to a jsonl file with async file operations.
+
+        Args:
+            data: Response data to append
+            filename: File to append to
+        """
+        json_string = json.dumps(data, default=str)
+        async with aiofiles.open(filename, "a") as f:
+            await f.write(json_string + "\n")
+        logger.debug(f"Successfully appended response to {filename}")

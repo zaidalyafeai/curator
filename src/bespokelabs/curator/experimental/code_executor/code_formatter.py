@@ -1,16 +1,17 @@
 from dataclasses import dataclass
 from typing import Callable
 
-from bespokelabs.curator.experimental.types import CODE_REQUEST_TYPE
+from bespokelabs.curator.experimental.types import CODE_REQUEST_TYPE, CodeExecutionRequestParams
 from bespokelabs.curator.llm.prompt_formatter import GenericRequest
-
+from bespokelabs.curator.experimental.types import CodeExecutionRequest, CodeExecutionResponse
 
 @dataclass
 class CodeFormatter:
     function_name: Callable
-    preprocess: Callable
+    code_string: Callable
     test_cases: Callable
     parse_results: Callable
+    execution_params: CodeExecutionRequestParams
 
     def create_code_execution_request(self, row: dict, idx: int) -> GenericRequest:
         """Format the request object based off of `LLM` attributes.
@@ -26,27 +27,34 @@ class CodeFormatter:
             ValueError: If prompt_func has invalid number of arguments or returns invalid format
         """
         # Convert BaseModel to dict for serialization
-        code = self.preprocess(row)
-        fn_name = self.function_name(code)
-        test_case_list = self.test_cases(code)
+        code = self.code_string(row)
+        fn_name = self.function_name(row)
+        test_case_list = self.test_cases(row)
 
         # if function name is None, request_type is
 
         if fn_name is None:
-            self.code_request_type = CODE_REQUEST_TYPE.standard_input
+            self.code_request_type = "standard_input"
         else:
-            self.code_request_type = CODE_REQUEST_TYPE.call_based
+            self.code_request_type = "call_based"
 
         base_code = self.base_imports()
 
-        if self.code_request_type == CODE_REQUEST_TYPE.standard_input:
+        if self.code_request_type == "standard_input":
             add_code = self.synthesize_std_code(code)
         else:
             add_code = self.synthesize_cb_code(code)
 
         base_code += "\n" + add_code
 
-        return base_code
+        return CodeExecutionRequest(
+            code=base_code,
+            test_cases=test_case_list,
+            function_name=fn_name,
+            request_type=self.code_request_type,
+            execution_params=self.execution_params,
+            original_row=row,
+        )
 
     def base_imports(self):
         return "import sys\nimport time\nimport itertools\nfrom itertools import accumulate, product, permutations, combinations\nimport collections\nfrom collections import Counter, OrderedDict, deque, defaultdict, ChainMap\nfrom functools import lru_cache\nimport math\nfrom math import sqrt, sin, cos, tan, ceil, fabs, floor, gcd, exp, log, log2\nimport fractions\nfrom typing import List, Tuple\nimport numpy as np\nimport random\nimport heapq\nfrom heapq import *\n"
@@ -54,11 +62,19 @@ class CodeFormatter:
     def synthesize_cb_code(self, raw_code, debug=False):
         sol = "import sys\nimport time\nimport itertools\nfrom itertools import accumulate, product, permutations, combinations\nimport collections\nfrom collections import Counter, OrderedDict, deque, defaultdict, ChainMap\nfrom functools import lru_cache\nimport math\nfrom math import sqrt, sin, cos, tan, ceil, fabs, floor, gcd, exp, log, log2\nimport fractions\nfrom typing import List, Tuple\nimport numpy as np\nimport random\nimport heapq\nfrom heapq import *\n"
         sol += raw_code
+
+        # check if last line is a function call
+        # doesn't work 
+        # if re.search(r"\w+\(\)", raw_code.split("\n")[-1]):
+        #     sol = raw_code.split("\n")[:-1]
+        #     sol = "\n".join(sol)
+
         return sol
 
     def synthesize_std_code(self, raw_code, debug=False):
         normal_import_lines = "import sys\nimport time\nimport itertools\nfrom itertools import accumulate, product, permutations, combinations\nimport collections\nfrom collections import Counter, OrderedDict, deque, defaultdict, ChainMap\nfrom functools import lru_cache\nimport math\nfrom math import sqrt, sin, cos, tan, ceil, fabs, floor, gcd, exp, log, log2\nimport fractions\nfrom typing import List, Tuple\nimport numpy as np\nimport random\nimport heapq\nfrom heapq import *\n"
 
+        sol = "" # code for compile
         sol2 = ""  # code for execute
 
         tmp_test = raw_code.split("\n")
@@ -98,4 +114,17 @@ class CodeFormatter:
                         sol += "\t"
                     sol += f"{i}\n"
 
-        return sol + "\n" + sol2
+        return sol
+
+
+    def response_to_response_format(self, response: CodeExecutionResponse):
+        # Convert responses to proper dictionary format
+        return {
+            "responses": [{
+                "response_message": r.response_message,
+                "response_errors": r.response_errors,
+                "response_stdout": r.response_stdout,
+                "response_stderr": r.response_stderr,
+            } for r in response.responses],
+            "code_api_request": response.code_api_request.model_dump(),
+        }
