@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 
+import asyncio
 import aiohttp
 from pyext import RuntimeModule
 from concurrent.futures import ProcessPoolExecutor
@@ -42,9 +43,11 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
         
         # Execute with simplified data
         future = self.process_pool.submit(self._execute_request, simple_request)
-        results = await future.result()
+        results = await asyncio.get_event_loop().run_in_executor(
+            None,
+            future.result
+        )        # Convert back to response objects
 
-        # Convert back to response objects
         final_results = []
         for result in results:
             final_results.append(
