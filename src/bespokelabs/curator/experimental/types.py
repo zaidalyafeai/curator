@@ -1,3 +1,4 @@
+import datetime
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -8,7 +9,7 @@ from rich import box
 from rich.console import Console
 from rich.progress import BarColumn, Progress, TextColumn
 from rich.table import Table
-import datetime
+
 
 class CODE_REQUEST_TYPE(str, Enum):
     call_based = "call_based"
@@ -17,19 +18,23 @@ class CODE_REQUEST_TYPE(str, Enum):
     def __str__(self):
         return self.value
 
+
 class CodeExecutionResult(BaseModel):
     stdout: str
     stderr: str
     exit_code: int
 
+
 class TestCase(BaseModel):
     input: Any
     expected_output: Any
+
 
 class CodeExecutionRequestParams(BaseModel):
     timeout: int = 10
     memory_limit: int = 1024 * 1024 * 1024
     cpu_limit: int = 1
+
 
 class CodeExecutionRequest(BaseModel):
     code: str
@@ -39,6 +44,7 @@ class CodeExecutionRequest(BaseModel):
     execution_params: Optional[CodeExecutionRequestParams] = None
     original_row: Optional[Dict[str, Any]] = None
     original_row_idx: Optional[int] = None
+
 
 class CodeTestCaseResponse(BaseModel):
     response_message: Optional[Dict[str, Any]] | str = None
@@ -55,12 +61,13 @@ class CodeAPIRequest(BaseModel):
     created_at: datetime.datetime = field(default_factory=datetime.datetime.now)
     result: list = field(default_factory=list)
 
+
 class CodeExecutionResponse(BaseModel):
     responses: List[CodeTestCaseResponse]
     code_api_request: Optional[CodeAPIRequest] = None
     response_message: Optional[Dict[str, Any]] | str = None
     response_errors: Optional[List[str]] = None
-    created_at: datetime.datetime = field(default_factory=datetime.datetime.now)    
+    created_at: datetime.datetime = field(default_factory=datetime.datetime.now)
     finished_at: datetime.datetime = field(default_factory=datetime.datetime.now)
 
 
@@ -184,6 +191,7 @@ class CodeExecutionStatusTracker:
 
     def free_capacity(self):
         self.num_tasks_in_progress -= 1
+
 
 class CodeExecutionBackendConfig(BaseModel):
     max_requests_per_minute: int = 10000

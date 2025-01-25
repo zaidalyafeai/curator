@@ -1,5 +1,6 @@
 from bespokelabs.curator.experimental.types import CodeExecutionBackendConfig
 
+
 class _CodeExecutionBackendFactory:
     @classmethod
     def create(cls, backend: str, backend_params: dict):
@@ -9,6 +10,7 @@ class _CodeExecutionBackendFactory:
             _code_executor = E2BCodeExecutionBackend(CodeExecutionBackendConfig(**backend_params))
         elif backend == "multiprocessing":
             from bespokelabs.curator.experimental.code_execution_backend.multiprocessing_backend import MultiprocessingCodeExecutionBackend
+
             _code_executor = MultiprocessingCodeExecutionBackend(CodeExecutionBackendConfig(**backend_params))
         elif backend == "rpy":
             from bespokelabs.curator.experimental.code_execution_backend.rpy_backend import RPyCodeExecutionBackend

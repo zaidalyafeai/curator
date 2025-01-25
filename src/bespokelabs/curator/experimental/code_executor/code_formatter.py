@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from typing import Callable
 
-from bespokelabs.curator.experimental.types import CODE_REQUEST_TYPE, CodeExecutionRequestParams
+from bespokelabs.curator.experimental.types import CodeExecutionRequest, CodeExecutionRequestParams, CodeExecutionResponse
 from bespokelabs.curator.llm.prompt_formatter import GenericRequest
-from bespokelabs.curator.experimental.types import CodeExecutionRequest, CodeExecutionResponse
+
 
 @dataclass
 class CodeFormatter:
@@ -13,7 +13,7 @@ class CodeFormatter:
     parse_results: Callable
     execution_params: CodeExecutionRequestParams
 
-    def create_code_execution_request(self, row: dict, idx: int) -> GenericRequest:
+    def create_code_execution_request(self, row: dict, idx: int) -> CodeExecutionRequest:
         """Format the request object based off of `LLM` attributes.
 
         Args:
@@ -54,6 +54,7 @@ class CodeFormatter:
             request_type=self.code_request_type,
             execution_params=self.execution_params,
             original_row=row,
+            original_row_idx=idx,
         )
 
     def base_imports(self):
@@ -64,7 +65,7 @@ class CodeFormatter:
         sol += raw_code
 
         # check if last line is a function call
-        # doesn't work 
+        # doesn't work
         # if re.search(r"\w+\(\)", raw_code.split("\n")[-1]):
         #     sol = raw_code.split("\n")[:-1]
         #     sol = "\n".join(sol)
@@ -74,7 +75,7 @@ class CodeFormatter:
     def synthesize_std_code(self, raw_code, debug=False):
         normal_import_lines = "import sys\nimport time\nimport itertools\nfrom itertools import accumulate, product, permutations, combinations\nimport collections\nfrom collections import Counter, OrderedDict, deque, defaultdict, ChainMap\nfrom functools import lru_cache\nimport math\nfrom math import sqrt, sin, cos, tan, ceil, fabs, floor, gcd, exp, log, log2\nimport fractions\nfrom typing import List, Tuple\nimport numpy as np\nimport random\nimport heapq\nfrom heapq import *\n"
 
-        sol = "" # code for compile
+        sol = ""  # code for compile
         sol2 = ""  # code for execute
 
         tmp_test = raw_code.split("\n")
@@ -116,15 +117,17 @@ class CodeFormatter:
 
         return sol
 
-
     def response_to_response_format(self, response: CodeExecutionResponse):
         # Convert responses to proper dictionary format
         return {
-            "responses": [{
-                "response_message": r.response_message,
-                "response_errors": r.response_errors,
-                "response_stdout": r.response_stdout,
-                "response_stderr": r.response_stderr,
-            } for r in response.responses],
+            "responses": [
+                {
+                    "response_message": r.response_message,
+                    "response_errors": r.response_errors,
+                    "response_stdout": r.response_stdout,
+                    "response_stderr": r.response_stderr,
+                }
+                for r in response.responses
+            ],
             "code_api_request": response.code_api_request.model_dump(),
         }

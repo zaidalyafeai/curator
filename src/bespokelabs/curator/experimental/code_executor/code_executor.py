@@ -17,9 +17,9 @@ _DictOrBaseModel = Dict[str, Any] | BaseModel
 logger = logging.getLogger(__name__)
 
 
-from bespokelabs.curator.experimental.db import CodeMetadataDB
 from bespokelabs.curator.experimental.code_execution_backend._factory import _CodeExecutionBackendFactory
-from bespokelabs.curator.experimental.types import CodeExecutionRequest, CodeExecutionResponse, CodeExecutionResult, TestCase, CodeExecutionRequestParams
+from bespokelabs.curator.experimental.db import CodeMetadataDB
+from bespokelabs.curator.experimental.types import CodeExecutionRequestParams, CodeExecutionResult, TestCase
 from bespokelabs.curator.llm.llm import _convert_to_dataset, _get_function_hash, _get_function_source
 
 
@@ -40,7 +40,7 @@ class CodeExecutor:
         self,
         backend: str = "multiprocessing",
         backend_params: dict = {
-            'max_requests_per_minute': 10000,
+            "max_requests_per_minute": 10000,
         },
     ):
         self._code_executor = _CodeExecutionBackendFactory.create(backend=backend, backend_params=backend_params)

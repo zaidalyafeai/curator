@@ -1,7 +1,6 @@
 """Code Execution Backend"""
 
 import asyncio
-import datetime
 import faulthandler
 import glob
 import json
@@ -9,9 +8,9 @@ import logging
 import os
 import platform
 import resource
+import time
 from abc import abstractmethod
 from typing import TYPE_CHECKING, List, Optional
-import time 
 
 import aiofiles
 import aiohttp
@@ -19,10 +18,12 @@ import pyarrow
 from pydantic import BaseModel, ValidationError
 
 from bespokelabs.curator.experimental.code_executor.code_formatter import CodeFormatter
-from bespokelabs.curator.experimental.types import CodeAPIRequest, CodeExecutionResponse, CodeExecutionStatusTracker, CodeExecutionRequest, CodeTestCaseResponse
-
+from bespokelabs.curator.experimental.types import CodeAPIRequest, CodeExecutionRequest, CodeExecutionResponse, CodeExecutionStatusTracker, CodeTestCaseResponse
 from bespokelabs.curator.file_utilities import count_lines
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
+
+from concurrent.futures import ProcessPoolExecutor
+
 
 if TYPE_CHECKING:
     from datasets import Dataset
@@ -69,8 +70,8 @@ class BaseCodeExecutionBackend:
         return "base"
 
     @abstractmethod
-    async def execute_request(
-        self, request: CodeAPIRequest, session: aiohttp.ClientSession, status_tracker: CodeExecutionStatusTracker
+    def execute_request(
+        self, request: CodeAPIRequest, status_tracker: CodeExecutionStatusTracker
     ) -> CodeExecutionResponse:
         """Execute a single request."""
         pass
@@ -118,46 +119,43 @@ class BaseCodeExecutionBackend:
         status_tracker.start_tracker(self._tracker_console)
 
         # Use higher connector limit for better throughput
-        connector = aiohttp.TCPConnector(limit=10 * status_tracker.max_requests_per_minute)
-        async with aiohttp.ClientSession(connector=connector) as session:
-            async with aiofiles.open(generic_request_filepath) as file:
-                pending_requests = []
+        async with aiofiles.open(generic_request_filepath) as file:
+            pending_requests = []
 
-                async for line in file:
-                    generic_request = CodeExecutionRequest.model_validate_json(line)
+            async for line in file:
+                generic_request = CodeExecutionRequest.model_validate_json(line)
 
-                    if generic_request.original_row_idx in completed_request_ids:
-                        continue
-                    
-                    request = CodeAPIRequest(
-                        task_id=generic_request.original_row_idx,
-                        generic_request=generic_request,
-                        attempts_left=self.config.max_retries,
-                        code_formatter=self.code_formatter,
+                if generic_request.original_row_idx in completed_request_ids:
+                    continue
+
+                request = CodeAPIRequest(
+                    task_id=generic_request.original_row_idx,
+                    generic_request=generic_request,
+                    attempts_left=self.config.max_retries,
+                    code_formatter=self.code_formatter,
+                )
+
+                while not status_tracker.has_capacity():
+                    await asyncio.sleep(0.1)
+
+                status_tracker.consume_capacity()
+
+                # Wait for rate limits cool down if needed
+                await self.cool_down_if_rate_limit_error(status_tracker)
+
+                task = asyncio.create_task(
+                    self.handle_single_request_with_retries(
+                        request=request,
+                        retry_queue=queue_of_requests_to_retry,
+                        response_file=response_file,
+                        status_tracker=status_tracker,
                     )
+                )
 
-                    while not status_tracker.has_capacity():
-                        await asyncio.sleep(0.1)
+                pending_requests.append(task)
 
-                    status_tracker.consume_capacity()
-
-                    # Wait for rate limits cool down if needed
-                    await self.cool_down_if_rate_limit_error(status_tracker)
-
-                    task = asyncio.create_task(
-                        self.handle_single_request_with_retries(
-                            request=request,
-                            session=session,
-                            retry_queue=queue_of_requests_to_retry,
-                            response_file=response_file,
-                            status_tracker=status_tracker,
-                        )
-                    )
-
-                    pending_requests.append(task)
-
-                    status_tracker.num_tasks_started += 1
-                    status_tracker.num_tasks_in_progress += 1
+                status_tracker.num_tasks_started += 1
+                status_tracker.num_tasks_in_progress += 1
 
             # Wait for all tasks to complete
             if pending_requests:
@@ -186,7 +184,6 @@ class BaseCodeExecutionBackend:
                     task = asyncio.create_task(
                         self.handle_single_request_with_retries(
                             request=retry_request,
-                            session=session,
                             retry_queue=queue_of_requests_to_retry,
                             response_file=response_file,
                             status_tracker=status_tracker,
@@ -210,7 +207,6 @@ class BaseCodeExecutionBackend:
     async def handle_single_request_with_retries(
         self,
         request: CodeAPIRequest,
-        session: aiohttp.ClientSession,
         retry_queue: asyncio.Queue,
         response_file: str,
         status_tracker: CodeExecutionStatusTracker,
@@ -227,13 +223,17 @@ class BaseCodeExecutionBackend:
             response_file: Path where the response data will be saved
             status_tracker: Tracks request status
         """
-
         try:
-            generic_response = await self.execute_request(
-                request=request,
-                session=session,
-                status_tracker=status_tracker,
-            )
+
+            loop = asyncio.get_running_loop()
+            with ProcessPoolExecutor() as pool:
+                generic_response = await loop.run_in_executor(
+                    pool,
+                    self.execute_request,
+                    request,
+                    status_tracker
+                )
+
             # Allows us to retry on responses that don't match the response format
             generic_response = self.code_formatter.response_to_response_format(generic_response)
 
@@ -242,6 +242,10 @@ class BaseCodeExecutionBackend:
 
             status_tracker.num_tasks_in_progress -= 1
             status_tracker.num_tasks_succeeded += 1
+
+            status_tracker.update_stats()
+
+            print(f"Successfully completed task..")
 
         except Exception as e:
             status_tracker.num_other_errors += 1
@@ -260,14 +264,16 @@ class BaseCodeExecutionBackend:
                     f"Request {request.task_id} failed permanently after exhausting all {self.config.max_retries} retry attempts. "
                     f"Errors: {[str(e) for e in request.result]}"
                 )
-                
+
                 generic_response = CodeExecutionResponse(
-                    responses=[CodeTestCaseResponse(
-                        response_message=None,
-                        response_errors=[str(e) for e in request.result],
-                        response_stdout=None,
-                        response_stderr=None,
-                    )],
+                    responses=[
+                        CodeTestCaseResponse(
+                            response_message=None,
+                            response_errors=[str(e) for e in request.result],
+                            response_stdout=None,
+                            response_stderr=None,
+                        )
+                    ],
                     code_api_request=request,
                 )
                 await self.append_generic_response(generic_response, response_file)
@@ -302,6 +308,8 @@ class BaseCodeExecutionBackend:
         self.working_dir = working_dir
         self.total_requests = len(dataset) if dataset is not None else 1
         # load from already completed dataset
+
+        print("Attempting to load cached dataset")
         output_dataset = self.attempt_loading_cached_dataset(all_func_hash_hash)
         if output_dataset is not None:
             return output_dataset
@@ -449,6 +457,7 @@ class BaseCodeExecutionBackend:
         Returns:
             Cached dataset if available and valid, None otherwise
         """
+
         dataset_file = os.path.join(self.working_dir, f"{all_func_hash_hash}.arrow")
         if os.path.exists(dataset_file):
             logger.debug(f"Loading dataset from {dataset_file}")
@@ -752,7 +761,6 @@ class BaseCodeExecutionBackend:
         sys.modules["resource"] = None
         sys.modules["psutil"] = None
         sys.modules["tkinter"] = None
-
 
     async def append_generic_response(self, data: dict, filename: str) -> None:
         """Append a response to a jsonl file with async file operations.
