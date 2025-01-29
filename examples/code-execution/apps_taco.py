@@ -40,7 +40,17 @@ class APPSCodeExecutor(curator.experimental.CodeExecutor):
     def parse_results(self, row, test_cases, execution_results):
         """Parse execution results."""
         row["correct"] = True
+
+        # row['execution_results'] = execution_results
+
+        if len(test_cases) != len(execution_results):
+            row["correct"] = False
+            return row
+
         for test_case, result in zip(test_cases, execution_results):
+            if isinstance(result.response_stdout, str):
+                result.response_stdout = [result.response_stdout]
+
             if result.response_stdout != test_case.expected_output:
                 row["correct"] = False
                 break

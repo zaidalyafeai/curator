@@ -86,8 +86,14 @@ def run_test(sample, test=None, debug=False):
         inputs_list.append(inputs)
         outputs_list.append(outputs)
 
+    # print(inputs, outputs)
+    # print(which_type, method_name)
+
     if debug:
         print(f"loaded input_output = {datetime.now().time()}")
+
+    # if "class Solution" in test and "Solution()" not in test:
+    #     which_type = CODE_TYPE.call_based
 
     if test is None:
         return None
@@ -95,9 +101,11 @@ def run_test(sample, test=None, debug=False):
         results = []
         if debug:
             print(f"loading test code = {datetime.now().time()}")
+        # if which_type == CODE_TYPE.call_based or "class Solution" in test:
         if which_type == CODE_TYPE.call_based:
             synthesized_code = synthesize_cb_code(test, debug)
             method_func = compile_and_get_func(synthesized_code, which_type, method_name, timeout=TIMEOUT, debug=debug)
+            # print(method_func)
         elif which_type == CODE_TYPE.standard_input:
             synthesized_code, exec_code = synthesize_std_code(test, debug)
             method_func = compile_and_get_func(synthesized_code, which_type, method_name, timeout=TIMEOUT, debug=debug)
@@ -159,6 +167,7 @@ def compile_and_get_func(program, which_type, method_name, timeout, debug):
     try:
         signal.alarm(timeout)
         tmp_sol = RuntimeModule.from_string("tmp_sol", "", program)
+        # if which_type == CODE_TYPE.call_based or "class Solution" in program:
         if which_type == CODE_TYPE.call_based and "class Solution" in program:
             tmp = tmp_sol.Solution()
         else:
@@ -166,6 +175,7 @@ def compile_and_get_func(program, which_type, method_name, timeout, debug):
         signal.alarm(0)
     except Exception as e:
         signal.alarm(0)
+        print("Compilation error: ")
         if debug:
             print(f"compilation error = {e}")
         return False
@@ -173,6 +183,13 @@ def compile_and_get_func(program, which_type, method_name, timeout, debug):
     if which_type == CODE_TYPE.call_based:
         assert isinstance(method_name, str)
     else:
+        # if "class Solution" in program:
+        #     # method_name = program.split("def ")[-1].split("(")[0]
+        #     methods = [func for func in dir(tmp) if callable(getattr(tmp, func)) and not func.startswith("__")]
+        #     method_name = methods[0]
+        #     print(method_name)
+        # else:
+            # method_name = "code"
         method_name = "code"
 
     try:
@@ -182,6 +199,7 @@ def compile_and_get_func(program, which_type, method_name, timeout, debug):
     except:
         signal.alarm(0)
         e = sys.exc_info()
+        print("Unable to get function: ", method_name, program)
         if debug:
             print(f"unable to get function error = {e}")
         return False
@@ -292,6 +310,7 @@ def execute_cb_code(method, inputs_list, outputs_list, timeout, early_stop=True,
         except Exception as e:
             signal.alarm(0)
             faulthandler.disable()
+            print("Unable to get function: ", method, inputs)
             if debug:
                 print(f"Standard input runtime error = {e}")
             if early_stop:
@@ -321,6 +340,7 @@ def execute_cb_code(method, inputs_list, outputs_list, timeout, early_stop=True,
             else:
                 results.append((False, EXECUTION_RESULTS[0]))
         except Exception as e:
+            print("Error in execute_cb_code: ", e)
             if debug:
                 print(f"Standard input time limit exceeded error = {e}")
             results.append((False, EXECUTION_RESULTS[-1]))
@@ -340,6 +360,9 @@ def remove_tmp_files():
 
 
 def execute_std_code(method, synthesized_code, inputs_list, outputs_list, timeout, early_stop=False, debug=False):
+    # debug = True
+    
+    # exec_code = -2
     temp_program_path = create_temp_file(synthesized_code)
     if debug:
         print("Test program:", temp_program_path)
@@ -356,13 +379,16 @@ def execute_std_code(method, synthesized_code, inputs_list, outputs_list, timeou
         if isinstance(outputs, list):
             outputs = "\n".join(outputs)
 
+
         try:
             result = subprocess.run(["python", temp_program_path], input=inputs, text=True, capture_output=True, timeout=timeout)
             exec_code = 999
         except subprocess.TimeoutExpired:
             exec_code = -1
         except Exception as e:
-            print(e)
+            # print("test_program: ", temp_program_path)
+            # print("synthesized code: ", synthesized_code)
+            print("Error in execute_std_code: ", e)
             exec_code = -2
 
         if exec_code > 0:
@@ -401,6 +427,7 @@ def execute_std_code(method, synthesized_code, inputs_list, outputs_list, timeou
                 exec_results["debug"][i] = {"inputs": inputs, "gt_outputs": outputs, "exec_outputs": result.stdout}
         if early_stop and exec_code <= 0:
             break
+
     return exec_results
 
 
@@ -585,7 +612,7 @@ def reliability_guard(maximum_memory_bytes=None):
 
     import os
 
-    os.environ["OMP_NUM_THREADS"] = "1"
+    # os.environ["OMP_NUM_THREADS"] = "1"
 
     os.kill = None
     os.system = None
@@ -623,7 +650,7 @@ def reliability_guard(maximum_memory_bytes=None):
 
     import subprocess
 
-    subprocess.Popen = None  # type: ignore
+    # subprocess.Popen = None  # type: ignore
 
     __builtins__["help"] = None
 

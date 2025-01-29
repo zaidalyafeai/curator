@@ -105,9 +105,9 @@ class BaseCodeExecutionBackend:
         completed_request_ids = self.validate_existing_response_file(response_file)
 
         # Count total requests
-        status_tracker.num_tasks_already_completed = len(completed_request_ids)
-        status_tracker.total_requests = self.total_requests
-        status_tracker.start_tracker(self._tracker_console)
+        # status_tracker.num_tasks_already_completed = len(completed_request_ids)
+        # status_tracker.total_requests = self.total_requests
+        # status_tracker.start_tracker(self._tracker_console)
 
         # Use higher connector limit for better throughput
         async with aiofiles.open(generic_request_filepath) as file:
@@ -126,27 +126,29 @@ class BaseCodeExecutionBackend:
                     code_formatter=self.code_formatter,
                 )
 
-                while not status_tracker.has_capacity():
-                    await asyncio.sleep(0.1)
+                print(f"Processing request {request.task_id}")
 
-                status_tracker.consume_capacity()
+                # while not status_tracker.has_capacity():
+                # await asyncio.sleep(0.1)
+
+                # status_tracker.consume_capacity()
 
                 # Wait for rate limits cool down if needed
-                await self.cool_down_if_rate_limit_error(status_tracker)
+                # await self.cool_down_if_rate_limit_error(status_tracker)
 
                 task = asyncio.create_task(
                     self.handle_single_request_with_retries(
                         request=request,
                         retry_queue=queue_of_requests_to_retry,
                         response_file=response_file,
-                        status_tracker=status_tracker,
+                        # status_tracker=status_tracker,
                     )
                 )
 
                 pending_requests.append(task)
 
-                status_tracker.num_tasks_started += 1
-                status_tracker.num_tasks_in_progress += 1
+                # status_tracker.num_tasks_started += 1
+                # status_tracker.num_tasks_in_progress += 1
 
             # Wait for all tasks to complete
             if pending_requests:
@@ -166,18 +168,18 @@ class BaseCodeExecutionBackend:
                     )
 
                     # Wait for capacity if needed
-                    while not status_tracker.has_capacity():
-                        await asyncio.sleep(0.1)
+                    # while not status_tracker.has_capacity():
+                    # await asyncio.sleep(0.1)
 
                     # Consume capacity before making request
-                    status_tracker.consume_capacity()
+                    # status_tracker.consume_capacity()
 
                     task = asyncio.create_task(
                         self.handle_single_request_with_retries(
                             request=retry_request,
                             retry_queue=queue_of_requests_to_retry,
                             response_file=response_file,
-                            status_tracker=status_tracker,
+                            # status_tracker=status_tracker,
                         )
                     )
                     pending_retries.add(task)
@@ -186,21 +188,21 @@ class BaseCodeExecutionBackend:
                 if pending_retries:
                     done, pending_retries = await asyncio.wait(pending_retries, timeout=0.1)
 
-        status_tracker.stop_tracker()
+        # status_tracker.stop_tracker()
 
         # Log final status
         logger.info(f"Processing complete. Results saved to {response_file}")
-        logger.info(f"Status tracker: {status_tracker}")
+        # logger.info(f"Status tracker: {status_tracker}")
 
-        if status_tracker.num_tasks_failed > 0:
-            logger.warning(f"{status_tracker.num_tasks_failed} / {status_tracker.num_tasks_started} requests failed. Errors logged to {response_file}.")
+        # if status_tracker.num_tasks_failed > 0:
+        # logger.warning(f"{status_tracker.num_tasks_failed} / {status_tracker.num_tasks_started} requests failed. Errors logged to {response_file}.")
 
     async def handle_single_request_with_retries(
         self,
         request: CodeAPIRequest,
         retry_queue: asyncio.Queue,
         response_file: str,
-        status_tracker: CodeExecutionStatusTracker,
+        # status_tracker: CodeExecutionStatusTracker,
     ) -> None:
         """Common wrapper for handling a single request with error handling and retries.
 
@@ -223,13 +225,12 @@ class BaseCodeExecutionBackend:
             # Save response in the base class
             await self.append_generic_response(generic_response, response_file)
 
-            status_tracker.num_tasks_in_progress -= 1
-            status_tracker.num_tasks_succeeded += 1
-
-            status_tracker.update_stats()
+            # status_tracker.num_tasks_in_progress -= 1
+            # status_tracker.num_tasks_succeeded += 1
+            # status_tracker.update_stats()
 
         except Exception as e:
-            status_tracker.num_other_errors += 1
+            # status_tracker.num_other_errors += 1
             request.result.append(e)
 
             if request.attempts_left > 0:
@@ -259,8 +260,8 @@ class BaseCodeExecutionBackend:
                     code_api_request=request,
                 )
                 await self.append_generic_response(generic_response, response_file)
-                status_tracker.num_tasks_in_progress -= 1
-                status_tracker.num_tasks_failed += 1
+                # status_tracker.num_tasks_in_progress -= 1
+                # status_tracker.num_tasks_failed += 1
 
     def run(
         self,
