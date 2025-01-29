@@ -1,6 +1,7 @@
 """Base module for request processing functionality."""
 
 import asyncio
+import functools
 import glob
 import json
 import logging
@@ -15,6 +16,7 @@ import pyarrow
 from pydantic import BaseModel, ValidationError
 
 from bespokelabs.curator.file_utilities import count_lines
+from bespokelabs.curator.hf_card_template import HUGGINGFACE_CARD_TEMPLATE
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor.config import BatchRequestProcessorConfig, RequestProcessorConfig
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
@@ -22,7 +24,6 @@ from bespokelabs.curator.types.generic_response import GenericResponse
 
 if TYPE_CHECKING:
     from datasets import Dataset
-
 
 logger = logging.getLogger(__name__)
 
@@ -432,7 +433,26 @@ class BaseRequestProcessor(ABC):
         d = Dataset.from_file(dataset_file)
         d = d.sort("__original_row_idx")
         d = d.remove_columns("__original_row_idx")
+
+        push_to_hub = functools.partial(BaseRequestProcessor.push_to_hub, dataset=d, _push_to_hub=d.push_to_hub)
+        d.push_to_hub = push_to_hub
+
         return d
+
+    @staticmethod
+    def push_to_hub(repo_id: str, dataset=None, _push_to_hub=None, **kwargs):
+        """Push the dataset to the hub and create a dataset card."""
+        from huggingface_hub import DatasetCard
+
+        _push_to_hub(repo_id, **kwargs)
+        card = DatasetCard(
+            HUGGINGFACE_CARD_TEMPLATE.format(
+                dataset_name=repo_id.split("/")[-1],
+                repo_id=repo_id,
+                sample=json.dumps(dataset[0], indent=4),
+            )
+        )
+        card.push_to_hub(repo_id, **kwargs)
 
     def validate_existing_response_file(self, response_file: str) -> set[int]:
         """Parse an existing response file to identify completed requests and removes failed requests.
