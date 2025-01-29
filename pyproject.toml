@@ -19,7 +19,7 @@ repository = "https://github.com/bespokelabsai/curator"
 keywords = ["ai", "curator", "bespoke"]
 
 [tool.poetry.dependencies]
-python = "==3.10.16"
+python = "^3.10"
 pydantic = ">=2.9.2"
 datasets = "^3.0.2"
 instructor = "^1.6.3"
@@ -50,7 +50,6 @@ pytest-dependency = "^0.6.0"
 pytest-timeout = "^2.3.1"
 pytest-cov = "^6.0.0"
 psutil = "^6.1.1"
-ipykernel = "^6.29.5"
 
 [build-system]
 requires = ["poetry-core"]
