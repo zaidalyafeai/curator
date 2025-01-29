@@ -6,8 +6,6 @@ from datasets import load_dataset
 from bespokelabs import curator
 from bespokelabs.curator.experimental.code_executor.code_executor import TestCase
 
-dataset = load_dataset("bespokelabs/sky-t1-taco-test-rejection-sampled-shreyas")
-
 
 class APPSCodeExecutor(curator.experimental.CodeExecutor):
     """APPS Code Executor."""
@@ -41,8 +39,6 @@ class APPSCodeExecutor(curator.experimental.CodeExecutor):
         """Parse execution results."""
         row["correct"] = True
 
-        # row['execution_results'] = execution_results
-
         if len(test_cases) != len(execution_results):
             row["correct"] = False
             return row
@@ -60,7 +56,8 @@ class APPSCodeExecutor(curator.experimental.CodeExecutor):
 
 if __name__ == "__main__":
     executor = APPSCodeExecutor(backend="multiprocessing")
-    execution_output = executor(dataset["train"].select(range(1, 2)))
+    dataset = load_dataset("bespokelabs/sky-t1-taco-test-rejection-sampled-shreyas")
+    execution_output = executor(dataset["train"].select(range(100)))
 
     print("================")
     print(execution_output)

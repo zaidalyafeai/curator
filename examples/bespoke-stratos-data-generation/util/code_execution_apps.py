@@ -8,9 +8,6 @@ import json
 import multiprocessing
 import re
 from multiprocessing import Manager
-from multiprocessing import Pool
-from tqdm import tqdm
-from datasets import Dataset
 
 import numpy as np
 from util.testing.apps import run_test as apps_run_test
@@ -99,40 +96,13 @@ def process_single_row(row):
     return response_entry
 
 
-def process_dataset_parallel(df: Dataset, num_cpus: int = None, batch_size: int = 1024) -> Dataset:
+def process_dataset_parallel(df):
     """Process the dataset in parallel using multiple CPUs.
 
     Args:
-        df (Dataset): Input dataset to process
-        num_cpus (int, optional): Number of CPUs to use. Defaults to max CPUs - 1
-        batch_size (int, optional): Size of each processing batch. Defaults to 1024
+        df (pandas.DataFrame): Dataset to process
 
     Returns:
-        Dataset: Processed dataset with correctness evaluations
+        pandas.Series: Processing results for each row
     """
-    # if num_cpus is None:
-        # num_cpus = max(1, multiprocessing.cpu_count() - 1)
-
-    data = df.to_list()
-    total_rows = len(data)
-    print(f"Processing {total_rows} rows using {num_cpus} CPUs...")
-
-    all_results = []
-    pbar = tqdm(total=total_rows, desc="Processing samples")
-    for i in range(0, total_rows, batch_size):
-        batch = data[i : i + batch_size]
-        with Pool(processes=num_cpus) as pool:
-            for result in pool.imap_unordered(process_single_row, batch):
-                all_results.append(result)
-                pbar.update(1)
-
-        # Calculate and print statistics for this batch
-        batch_results = all_results[i:i + len(batch)]
-        batch_correct = sum(1 for r in batch_results if r.get("correctness", False))
-        print(f"\nBatch {i // batch_size + 1} Results:")
-        print(f"Processed examples: {len(all_results)}/{total_rows}")
-        print(f"Correct in this batch: {batch_correct}/{len(batch_results)} ({batch_correct / len(batch_results) * 100:.2f}%)")
-        print(f"Total correct so far: {sum(1 for r in all_results if r.get('correctness', False))}/{len(all_results)}\n")
-
-    pbar.close()
-    return Dataset.from_list(all_results)
+    return df.map(process_single_row)

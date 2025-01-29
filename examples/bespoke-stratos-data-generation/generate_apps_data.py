@@ -51,35 +51,20 @@ if __name__ == "__main__":
     )
 
     # Load APPS dataset based on specified split
-    curated_dataset = load_dataset("bespokelabs/sky-t1-taco-train-rejection-sampled-shreyas", trust_remote_code=True)['train']
+    apps = load_dataset("codeparrot/apps", trust_remote_code=True)[args.split]
 
     # Generate solutions using curator
-    # curated_dataset = curator(apps)
+    curated_dataset = curator(apps)
 
     # Push unfiltered results to hub if specified
-    # if args.push_to_hub:
-        # curated_dataset.push_to_hub(f"{args.dataset_name}-{args.split}-unfiltered", private=True)
-
-    import pdb; pdb.set_trace()
+    if args.push_to_hub:
+        curated_dataset.push_to_hub(f"{args.dataset_name}-{args.split}-unfiltered", private=True)
 
     # Run rejection sampling to filter results
-    curated_dataset = curated_dataset.add_column('input_output', curated_dataset['input_output_x'])
-    curated_dataset = curated_dataset.add_column('correctness_original', curated_dataset['correctness'])
-    # curated_dataset = curated_dataset.add_column('input_output_copy', curated_dataset['input_output_x']) 
-    # import pdb; pdb.set_trace()
-    curated_dataset = process_dataset_parallel(curated_dataset.select(range(100)))
+    curated_dataset = process_dataset_parallel(curated_dataset)
 
     # Push rejection sampled results to hub if specified
-    # if args.push_to_hub:
-        # curated_dataset.push_to_hub(f"{args.dataset_name}-{args.split}-rejection-sampled", private=True)
+    if args.push_to_hub:
+        curated_dataset.push_to_hub(f"{args.dataset_name}-{args.split}-rejection-sampled", private=True)
 
-    import pdb; pdb.set_trace()
     print("Done")
-
-
-# [False, False, False, False, False, True, False, False, False, False, False, False, False, False, True, False, True, False, False, True, False, True, False, False, False, False, True, False, True, True, False, False, False, False, True, False, False, False, False, False, True, False, False, True, False, True, False, False, False, True, True, False, True, False, False, False, False, False, False, True, True, False, False, True, True, False, False, False, False, True, False, True, False, False, True, False, True, True, False, False, False, True, True, True, False, False, False, True, False, True, True, False, True, False, False, False, False, False, False, True]
-# [False, False, False, False, True, False, True, True, True, True, False, True, False, False, True, False, True, False, False, True, False, False, False, False, False, False, True, False, True, False, True, True, False, False, True, True, False, False, True, True, True, False, True, True, False, True, False, False, True, True, True, False, True, True, False, True, True, True, False, True, True, True, True, True, False, True, True, True, False, True, False, True, True, False, True, False, True, True, False, True, False, True, True, True, True, True, False, False, False, True, True, True, True, True, False, True, False, False, False, True]
-
-
-# [False, False, False, False, True, False, True, True, True, True, False, True, False, False, True, False, True, False, False, True, False, False, False, False, False, False, True, False, True, False, True, True, False, False, True, True, False, False, True, True, True, False, True, True, False, True, False, False, True, True, True, False, True, True, False, True, True, True, False, True, True, True, True, True, False, True, True, True, False, True, False, True, True, False, True, False, True, True, False, True, False, True, True, True, True, True, False, False, False, True, True, True, True, True, False, True, False, False, False, True]
-# [False, False, False, False, False, True, False, False, False, False, False, False, False, False, True, False, True, False, False, True, False, True, False, False, False, False, True, False, True, True, False, False, False, False, True, False, False, False, False, False, True, False, False, True, False, True, False, False, False, True, True, False, True, False, False, False, False, False, False, True, True, False, False, True, True, False, False, False, False, True, False, True, False, False, True, False, True, True, False, False, False, True, True, True, False, False, False, True, False, True, True, False, True, False, False, False, False, False, False, True]

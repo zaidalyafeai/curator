@@ -189,7 +189,7 @@ def compile_and_get_func(program, which_type, method_name, timeout, debug):
         #     method_name = methods[0]
         #     print(method_name)
         # else:
-            # method_name = "code"
+        # method_name = "code"
         method_name = "code"
 
     try:
@@ -361,7 +361,7 @@ def remove_tmp_files():
 
 def execute_std_code(method, synthesized_code, inputs_list, outputs_list, timeout, early_stop=False, debug=False):
     # debug = True
-    
+
     # exec_code = -2
     temp_program_path = create_temp_file(synthesized_code)
     if debug:
@@ -378,7 +378,6 @@ def execute_std_code(method, synthesized_code, inputs_list, outputs_list, timeou
             inputs = "\n".join(inputs)
         if isinstance(outputs, list):
             outputs = "\n".join(outputs)
-
 
         try:
             result = subprocess.run(["python", temp_program_path], input=inputs, text=True, capture_output=True, timeout=timeout)
@@ -612,7 +611,7 @@ def reliability_guard(maximum_memory_bytes=None):
 
     import os
 
-    # os.environ["OMP_NUM_THREADS"] = "1"
+    os.environ["OMP_NUM_THREADS"] = "1"
 
     os.kill = None
     os.system = None
@@ -650,7 +649,7 @@ def reliability_guard(maximum_memory_bytes=None):
 
     import subprocess
 
-    # subprocess.Popen = None  # type: ignore
+    subprocess.Popen = None  # type: ignore
 
     __builtins__["help"] = None
 
