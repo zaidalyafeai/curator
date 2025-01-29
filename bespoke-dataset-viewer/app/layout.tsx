@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
-
+import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: "Bella Dataset Viewer",
+  title: "Curator Viewer",
   description: "A powerful dataset viewer and analysis tool",
 };
 
@@ -13,9 +13,10 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body suppressHydrationWarning>
+      <html lang="en" suppressHydrationWarning>
+          <body suppressHydrationWarning>
         {children}
+        <Toaster />
       </body>
     </html>
   )

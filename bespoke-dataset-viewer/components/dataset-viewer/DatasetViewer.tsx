@@ -1,50 +1,76 @@
 "use client"
 
-import { useState, useCallback, useEffect, useMemo } from "react"
+import { Header } from "@/components/layout/Header"
 import { Button } from "@/components/ui/button"
-import { Loader2 } from "lucide-react"
-import { DataItem } from "@/types/dataset"
-import { getColumnValue } from "@/lib/utils"
-import { DetailsSidebar } from "./DetailsSidebar"
-import { DistributionChart } from "./DistributionChart"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuTrigger,
   DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Column } from "@/types/table"
 import { SortableTable } from "@/components/ui/sortable-table"
 import { useToast } from "@/components/ui/use-toast"
+import { cn, getColumnValue } from "@/lib/utils"
+import { DataItem } from "@/types/dataset"
+import { Column } from "@/types/table"
 import { AnimatePresence } from "framer-motion"
-import { cn } from "@/lib/utils"
-import { Header } from "@/components/layout/Header"
+import { FileText, Loader2, RefreshCcw } from "lucide-react"
+import { useCallback, useEffect, useState } from "react"
+import { DetailsSidebar } from "./DetailsSidebar"
+import { DistributionChart } from "./DistributionChart"
+import { TimeSeriesChart } from './TimeSeriesChart'
 
 const COLUMNS: Column[] = [
   { key: "user_message", label: "User Message" },
   { key: "assistant_message", label: "Assistant Message" },
   { key: "prompt_tokens", label: "Prompt Tokens" },
-  { key: "completion_tokens", label: "Completion Tokens" }
+  { key: "completion_tokens", label: "Completion Tokens" },
+  { key: "generation_time", label: "Generation Time (s)" }
 ]
 
 interface DatasetViewerProps {
   runHash?: string
+  batchMode: boolean
 }
 
-export function DatasetViewer({ runHash }: DatasetViewerProps) {
+function NoDataView({ batchMode, isPolling }: { batchMode: boolean, isPolling: boolean }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-[60vh] p-8">
+      <div className="bg-muted/30 rounded-full p-6 mb-6">
+        <FileText className="w-12 h-12 text-muted-foreground" />
+      </div>
+      <h3 className="text-xl font-semibold mb-2">No responses available yet</h3>
+      <p className="text-muted-foreground text-center max-w-md mb-4">
+        {batchMode
+          ? "Waiting for the first batch to complete. Once finished, responses will appear here in batches."
+          : "Responses will appear here as they are generated. The table will update automatically. Check if the curator is still running."}
+      </p>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        {isPolling ? (
+          <>
+            <RefreshCcw className="w-4 h-4 animate-spin" />
+            <span>Polling for new responses...</span>
+          </>
+        ) : (
+          <span>Polling is paused</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export function DatasetViewer({ runHash, batchMode }: DatasetViewerProps) {
   const [data, setData] = useState<DataItem[]>([])
-  const [sortColumn] = useState<string | null>(null)
-  const [sortDirection] = useState<"asc" | "desc">("asc")
-  const [filters] = useState<Record<string, string>>({})
   const [theme, setTheme] = useState<"light" | "dark">("light")
   const [mounted, setMounted] = useState(false)
-  const [selectedDistribution, setSelectedDistribution] = useState<string | null>("total_tokens")
+  const [selectedDistribution, setSelectedDistribution] = useState<string | null>("requests")
   const [selectedItem, setSelectedItem] = useState<DataItem | null>(null)
   const { toast } = useToast()
   const [isPolling, setIsPolling] = useState(false)
   const [lastLineNumber, setLastLineNumber] = useState(0)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [newItemIds, setNewItemIds] = useState<Set<number>>(new Set())
+  const [processedFiles, setProcessedFiles] = useState<string[]>([])
 
   useEffect(() => {
     const systemPreference = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
@@ -55,7 +81,7 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
 
   useEffect(() => {
     if (!mounted) return
-    
+
     if (theme === 'dark') {
       document.documentElement.classList.add('dark')
     } else {
@@ -64,70 +90,43 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
     localStorage.setItem('theme', theme)
   }, [theme, mounted])
 
-  const filteredData = useMemo(() => {
-    const dataArray = Array.isArray(data) ? data : []
-    
-    return dataArray.filter((item) => {
-      return Object.entries(filters).every(([column, filterValue]) => {
-        if (!filterValue) return true
-        const cellValue = getColumnValue(item, column)
-        return cellValue.toLowerCase().includes(filterValue.toLowerCase())
-      })
-    })
-  }, [data, filters])
-
-  const sortedData = useMemo(() => {
-    if (!sortColumn) return filteredData
-    
-    return [...filteredData].sort((a, b) => {
-      const aValue = getColumnValue(a, sortColumn)
-      const bValue = getColumnValue(b, sortColumn)
-      
-      const comparison = aValue.localeCompare(bValue)
-      return sortDirection === "asc" ? comparison : -comparison
-    })
-  }, [filteredData, sortColumn, sortDirection])
-
-  const getCellContent = (item: DataItem, columnKey: string) => {
-    switch (columnKey) {
-      case "user_message":
-        return item.request.messages.find(m => m.role === "user")?.content || "N/A";
-      case "assistant_message":
-        if (typeof item.response === 'object') {
-          return JSON.stringify(item.response, null, 2);
-        }
-        return item.response || "N/A";
-      case "prompt_tokens":
-        return item.raw_response.usage.prompt_tokens?.toString() || "N/A";
-      case "completion_tokens":
-        return item.raw_response.usage.completion_tokens?.toString() || "N/A";
-      default:
-        return "N/A";
-    }
-  }
-
   const fetchNewResponses = useCallback(async () => {
     if (!runHash) return
 
     try {
-      const response = await fetch(`/api/responses/${runHash}?lastLine=${lastLineNumber}`)
-      if (!response.ok) throw new Error('Failed to fetch responses')
-      
-      const { data: newData, totalLines } = await response.json()
-      
-      if (newData && newData.length > 0) {
-        setNewItemIds(new Set(newData.map((item: DataItem) => item.raw_response.id)))
+      const queryParams = new URLSearchParams({
+        batchMode: batchMode.toString(),
+        ...(batchMode
+          ? { processedFiles: processedFiles.join(',') }
+          : { lastLine: lastLineNumber.toString() }
+        )
+      })
 
-        setData(prevData => [...newData.reverse(), ...prevData])
-        setLastLineNumber(totalLines)
-        
+      const response = await fetch(`/api/responses/${runHash}?${queryParams}`)
+      if (!response.ok) throw new Error('Failed to fetch responses')
+
+      const responseData = await response.json()
+
+      if (responseData.data && responseData.data.length > 0) {
+        setNewItemIds(new Set(responseData.data.map((item: DataItem) => item.raw_response.id)))
+
+        setData(prevData => [...responseData.data.reverse(), ...prevData])
+
+        if (batchMode) {
+          // Update processed files list
+          setProcessedFiles(prev => [...prev, ...responseData.processedFiles])
+        } else {
+          // Update last line number for streaming mode
+          setLastLineNumber(responseData.totalLines)
+        }
+
         setTimeout(() => {
           setNewItemIds(new Set())
         }, 5000)
 
         toast({
           title: "New responses received",
-          description: `${newData.length} new responses added`,
+          description: `${responseData.data.length} new responses added`,
         })
       }
     } catch (error) {
@@ -138,27 +137,39 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
         description: "Failed to fetch new responses",
       })
     }
-  }, [runHash, lastLineNumber, toast])
+  }, [runHash, lastLineNumber, processedFiles, batchMode, toast])
 
   const handleInitialLoad = useCallback(async () => {
     if (!runHash) return
 
     try {
-      const response = await fetch(`/api/responses/${runHash}`)
+      const queryParams = new URLSearchParams({
+        batchMode: batchMode.toString(),
+        ...(batchMode
+          ? { processedFiles: '' }
+          : { lastLine: '0' }
+        )
+      })
+      const response = await fetch(`/api/responses/${runHash}?${queryParams}`)
       if (!response.ok) throw new Error('Failed to fetch responses')
-      const { data: initialData, totalLines } = await response.json()
-      
+      const { data: initialData, totalLines, processedFiles: newProcessedFiles } = await response.json()
+
       if (initialData && Array.isArray(initialData)) {
         setData(initialData.reverse()) // Newest first
-        setLastLineNumber(totalLines)
-        
+
+        if (batchMode && newProcessedFiles) {
+          setProcessedFiles(newProcessedFiles)
+        } else {
+          setLastLineNumber(totalLines)
+        }
+
         // Show initial data count
         toast({
           title: "Dataset loaded",
           description: `Loaded ${initialData.length} responses`,
         })
       }
-      
+
       // Start polling after initial load
       setIsPolling(true)
     } catch (error) {
@@ -171,7 +182,7 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
     } finally {
       setIsInitialLoad(false)
     }
-  }, [runHash, toast])
+  }, [runHash, batchMode, toast])
 
   // Initial data load
   useEffect(() => {
@@ -200,7 +211,7 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
     <>
       <DetailsSidebar item={selectedItem} onClose={() => setSelectedItem(null)} />
       <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
-        <Header 
+        <Header
           isLoading={isInitialLoad}
           isPolling={isPolling}
           onTogglePolling={() => setIsPolling(prev => !prev)}
@@ -214,29 +225,39 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
               <h2 className="text-2xl font-semibold text-foreground">Dataset Details</h2>
               <p className="text-sm text-muted-foreground">View and analyze your dataset responses</p>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  {selectedDistribution 
-                    ? selectedDistribution.split('_').map(word => 
-                        word.charAt(0).toUpperCase() + word.slice(1)
-                      ).join(' ')
-                    : 'Select Metric'}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setSelectedDistribution(null)}>
-                  None
-                </DropdownMenuItem>
-                {["total_tokens", "prompt_tokens", "completion_tokens"].map((column) => (
-                  <DropdownMenuItem key={column} onClick={() => setSelectedDistribution(column)}>
-                    {column === "total_tokens" ? "Total Tokens" : 
-                     column === "prompt_tokens" ? "Prompt Tokens" : 
-                     "Completion Tokens"}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {data.length > 0 && (
+              <div className="flex gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                      {selectedDistribution
+                        ? selectedDistribution === "requests"
+                          ? "Requests & Responses"
+                          : selectedDistribution.split('_').map(word =>
+                              word.charAt(0).toUpperCase() + word.slice(1)
+                            ).join(' ')
+                        : 'Select Metric'}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setSelectedDistribution(null)}>
+                      None
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSelectedDistribution("requests")}>
+                      Requests & Responses
+                    </DropdownMenuItem>
+                    {["total_tokens", "prompt_tokens", "completion_tokens", "generation_time"].map((column) => (
+                      <DropdownMenuItem key={column} onClick={() => setSelectedDistribution(column)}>
+                        {column === "total_tokens" ? "Total Tokens" :
+                          column === "prompt_tokens" ? "Prompt Tokens" :
+                            column === "completion_tokens" ? "Completion Tokens" :
+                              "Generation Time (s)"}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
           </div>
 
           {isInitialLoad ? (
@@ -246,15 +267,21 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
                 <p className="text-muted-foreground">Loading dataset...</p>
               </div>
             </div>
+          ) : data.length === 0 ? (
+            <NoDataView batchMode={batchMode} isPolling={isPolling} />
           ) : (
             <>
               <div className="mb-8 space-y-4">
                 {selectedDistribution && (
                   <div className="rounded-lg border bg-card p-4">
-                    <DistributionChart
-                      data={sortedData}
-                      column={selectedDistribution}
-                    />
+                    {selectedDistribution === "requests" ? (
+                      <TimeSeriesChart data={data} />
+                    ) : (
+                      <DistributionChart
+                        data={data}
+                        column={selectedDistribution}
+                      />
+                    )}
                   </div>
                 )}
               </div>
@@ -263,12 +290,12 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
                 <AnimatePresence>
                   <SortableTable
                     columns={COLUMNS}
-                    data={sortedData}
+                    data={data}
                     getRowKey={(item) => item.raw_response.id}
-                    getCellContent={getCellContent}
+                    getCellContent={(item, columnKey) => getColumnValue(item, columnKey)}
                     onRowClick={(item) => setSelectedItem(item)}
-                    truncateConfig={{ 
-                      enabled: true, 
+                    truncateConfig={{
+                      enabled: true,
                       maxLength: 150
                     }}
                     pageSize={10}
@@ -279,14 +306,14 @@ export function DatasetViewer({ runHash }: DatasetViewerProps) {
                       ),
                       layout: true,
                       initial: { opacity: 0, y: -20 },
-                      animate: { 
-                        opacity: 1, 
+                      animate: {
+                        opacity: 1,
                         y: 0,
                         transition: {
                           duration: 0.2
                         }
                       },
-                      exit: { 
+                      exit: {
                         opacity: 0,
                         y: -20,
                         transition: {

@@ -1,0 +1,389 @@
+interactions:
+- request:
+    body: '{"model": "gpt-3.5-turbo", "messages": []}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Authorization:
+      - Bearer 
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '42'
+      Content-Type:
+      - application/json
+      User-Agent:
+      - python-requests/2.32.3
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n  \"error\": {\n    \"message\": \"Invalid 'messages': empty array.
+        Expected an array with minimum length 1, but got an empty array instead.\",\n
+        \   \"type\": \"invalid_request_error\",\n    \"param\": \"messages\",\n    \"code\":
+        \"empty_array\"\n  }\n}"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 907214cd883e85c5-BOM
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '232'
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 24 Jan 2025 18:28:05 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=8I2BSa5EJ0F1EZTr0HE7l._SNTWWW3OzciS6jhV0K44-1737743285-1.0.1.1-MAnLB6sElIf9PGFXRvp2uJpNzZxGmjB_BtxF_ETgQtk6NRjJJALeX8hM.DZlhyX5h1Xnm_y16cBEgGr1b5pfCg;
+        path=/; expires=Fri, 24-Jan-25 18:58:05 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=WxAa5JW0E2nJx1wSQgsnH8tjhsw4gwiEzo2JxH6BCJ8-1737743285720-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      X-Content-Type-Options:
+      - nosniff
+      access-control-expose-headers:
+      - X-Request-ID
+      alt-svc:
+      - h3=":443"; ma=86400
+      openai-organization:
+      - personl-pozv85
+      openai-processing-ms:
+      - '60'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '200000'
+      x-ratelimit-remaining-requests:
+      - '9994'
+      x-ratelimit-remaining-tokens:
+      - '199983'
+      x-ratelimit-reset-requests:
+      - 45.209s
+      x-ratelimit-reset-tokens:
+      - 4ms
+      x-request-id:
+      - req_f69a15dad7af517be69128f109343bf0
+    status:
+      code: 400
+      message: Bad Request
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer 
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n  \"id\": \"chatcmpl-AtIhSloMzBRYNiaSmEXhZvwVOODHm\",\n  \"object\":
+        \"chat.completion\",\n  \"created\": 1737743286,\n  \"model\": \"gpt-3.5-turbo-0125\",\n
+        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
+        \"assistant\",\n        \"content\": \"Spaghetti is a type of pasta that is
+        long, thin, and cylindrical in shape. It is a popular dish that is often served
+        with a variety of sauces, such as marinara, Alfredo, or pesto. Spaghetti can
+        also be topped with meatballs, cheese, or vegetables. It is a versatile and
+        delicious meal that is enjoyed by people around the world.\",\n        \"refusal\":
+        null\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n
+        \   }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 10,\n    \"completion_tokens\":
+        77,\n    \"total_tokens\": 87,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\":
+        0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
+        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
+        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\":
+        \"default\",\n  \"system_fingerprint\": null\n}\n"
+    headers:
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      CF-RAY:
+      - 907214d33ac24061-BOM
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 24 Jan 2025 18:28:07 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=9krBX4r3F10Le6WfVPb8P1HQAU4DkdKTmNad6WnNyWE-1737743287-1.0.1.1-SIP93DnT4yb.ZXh3jYY6reLo3XiCin3n8nj10oAd630.Hj0k9zPMFjwYFFde9xA1ZCE8vv5b0q0iZkhq3qoE9w;
+        path=/; expires=Fri, 24-Jan-25 18:58:07 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=mzbDs78YhHoy5sDCPWvWWYN1kjp.Ye8v7wGjOhncbVU-1737743287407-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      openai-organization:
+      - personl-pozv85
+      openai-processing-ms:
+      - '843'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '200000'
+      x-ratelimit-remaining-requests:
+      - '9993'
+      x-ratelimit-remaining-tokens:
+      - '199981'
+      x-ratelimit-reset-requests:
+      - 52.918s
+      x-ratelimit-reset-tokens:
+      - 5ms
+      x-request-id:
+      - req_55aaec5c1ea31f08dca3c9365403fdfc
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"model": "gpt-3.5-turbo", "messages": []}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Authorization:
+      - Bearer 
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '42'
+      Content-Type:
+      - application/json
+      User-Agent:
+      - python-requests/2.32.3
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n  \"error\": {\n    \"message\": \"Invalid 'messages': empty array.
+        Expected an array with minimum length 1, but got an empty array instead.\",\n
+        \   \"type\": \"invalid_request_error\",\n    \"param\": \"messages\",\n    \"code\":
+        \"empty_array\"\n  }\n}"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 907214ecf99f3ce8-BOM
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '232'
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 24 Jan 2025 18:28:10 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=YUzYnxQG2tiAKaTsJA0CatAwWTGpbFEKr6fQzT0PcT4-1737743290-1.0.1.1-XIWZEuc8sqQaOnzI6aVzx_x7CYzlj1x_BkpIKsSXA_IBfWhlyUiD7Bg1RFXqH2aRdKqiMC9yv3RpQwdD8elopQ;
+        path=/; expires=Fri, 24-Jan-25 18:58:10 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=00ieMLxCUFslHBK__XtNRt7MsbbaSFBWEXaiVY5PbBQ-1737743290702-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      X-Content-Type-Options:
+      - nosniff
+      access-control-expose-headers:
+      - X-Request-ID
+      alt-svc:
+      - h3=":443"; ma=86400
+      openai-organization:
+      - personl-pozv85
+      openai-processing-ms:
+      - '28'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '200000'
+      x-ratelimit-remaining-requests:
+      - '9993'
+      x-ratelimit-remaining-tokens:
+      - '199983'
+      x-ratelimit-reset-requests:
+      - 57.449s
+      x-ratelimit-reset-tokens:
+      - 4ms
+      x-request-id:
+      - req_ec444f64fc6eab26eaab7f65ea7ba8be
+    status:
+      code: 400
+      message: Bad Request
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer 
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n  \"id\": \"chatcmpl-AtIhXrRujYAN9PRNWwzI0ySPohqz1\",\n  \"object\":
+        \"chat.completion\",\n  \"created\": 1737743291,\n  \"model\": \"gpt-3.5-turbo-0125\",\n
+        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
+        \"assistant\",\n        \"content\": \"Sushi is a Japanese dish consisting
+        of vinegared rice combined with various ingredients such as raw fish, vegetables,
+        and seaweed. It is often served with soy sauce, wasabi, and pickled ginger.
+        Sushi is a popular and well-known dish enjoyed by many people around the world.\",\n
+        \       \"refusal\": null\n      },\n      \"logprobs\": null,\n      \"finish_reason\":
+        \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 9,\n    \"completion_tokens\":
+        61,\n    \"total_tokens\": 70,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\":
+        0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
+        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
+        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\":
+        \"default\",\n  \"system_fingerprint\": null\n}\n"
+    headers:
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 907214f16ac1850d-BOM
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 24 Jan 2025 18:28:12 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=WJcA.tpXCZaV9pwdLUKPMwWw0gnvrZWoIFjFcuhj_yE-1737743292-1.0.1.1-2k60M7ieATYCKCN.Zi9yMFyAmqibvLc76gtWoqLC67_VyWx7snL2zRJTQyBLUcOE3NzX41K0yb6drz8ek1tZ3w;
+        path=/; expires=Fri, 24-Jan-25 18:58:12 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=c3AiRr9nuVyKABVjg52eQjClXdGer1AlvTwH8unxC9c-1737743292083-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      openai-organization:
+      - personl-pozv85
+      openai-processing-ms:
+      - '705'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '200000'
+      x-ratelimit-remaining-requests:
+      - '9992'
+      x-ratelimit-remaining-tokens:
+      - '199981'
+      x-ratelimit-reset-requests:
+      - 1m5.383s
+      x-ratelimit-reset-tokens:
+      - 5ms
+      x-request-id:
+      - req_3dc407a3599ce22be96ae19c95dd0676
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Authorization:
+      - Bearer
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: "{\n  \"id\": \"chatcmpl-AtIhXFdx6AWT8U55YLlfUWh2DBb0x\",\n  \"object\":
+        \"chat.completion\",\n  \"created\": 1737743291,\n  \"model\": \"gpt-3.5-turbo-0125\",\n
+        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
+        \"assistant\",\n        \"content\": \"Ramen is a popular Japanese noodle
+        soup dish consisting of Chinese-style wheat noodles served in a meat or fish-based
+        broth, often flavored with soy sauce or miso, and topped with various ingredients
+        such as sliced pork, green onions, seaweed, and boiled eggs. It is a comforting
+        and satisfying meal that is enjoyed by people all over the world.\",\n        \"refusal\":
+        null\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n
+        \   }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 9,\n    \"completion_tokens\":
+        72,\n    \"total_tokens\": 81,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\":
+        0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
+        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
+        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\":
+        \"default\",\n  \"system_fingerprint\": null\n}\n"
+    headers:
+      Access-Control-Expose-Headers:
+      - X-Request-ID
+      CF-RAY:
+      - 907214f40c89303f-BOM
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 24 Jan 2025 18:28:12 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=J5mCrwFj6FvYQg843MDSpVLmd4W_kEwSdx54VoF5Mlw-1737743292-1.0.1.1-nwU_El6Ua6WBGvQE3MS8B0lOreql8LgoGGMabsEDETto.xcSXZzapdlFbhtarTnbR5HiA2vFJtIwoa_mZ2_HPg;
+        path=/; expires=Fri, 24-Jan-25 18:58:12 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=HwOmh3TaD_Y9Bh1CGMqJc3Jw7_AFZ.XH.PNssDE1YZY-1737743292765-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      openai-organization:
+      - personl-pozv85
+      openai-processing-ms:
+      - '934'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '200000'
+      x-ratelimit-remaining-requests:
+      - '9991'
+      x-ratelimit-remaining-tokens:
+      - '199981'
+      x-ratelimit-reset-requests:
+      - 1m13.595s
+      x-ratelimit-reset-tokens:
+      - 5ms
+      x-request-id:
+      - req_48cb9fccc90e653fcd2f83a95baa550b
+    status:
+      code: 200
+      message: OK
+version: 1

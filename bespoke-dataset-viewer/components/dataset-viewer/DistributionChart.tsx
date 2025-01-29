@@ -1,6 +1,7 @@
 "use client"
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { bin } from 'd3-array'
 import { DataItem } from '@/types/dataset'
 
 interface DistributionChartProps {
@@ -11,106 +12,43 @@ interface DistributionChartProps {
 const COLUMN_DISPLAY_NAMES: Record<string, string> = {
   total_tokens: "Total Tokens",
   prompt_tokens: "Prompt Tokens",
-  completion_tokens: "Completion Tokens"
-}
-
-function calculateNiceBinSize(min: number, max: number): { binSize: number, start: number, end: number } {
-  // Calculate the range
-  const range = max - min;
-  
-  // Get the magnitude of the range (in powers of 10)
-  const magnitude = Math.floor(Math.log10(range));
-  
-  // Possible bin sizes (1, 2, 5, 10) * 10^n
-  const base = Math.pow(10, magnitude);
-  const possibleBinSizes = [
-    0.1 * base,
-    0.2 * base,
-    0.5 * base,
-    base,
-    2 * base,
-    5 * base,
-    10 * base
-  ];
-
-  // Aim for between 5-10 bins
-  const targetBins = 7;
-  
-  // Find the bin size that gives us closest to our target number of bins
-  const binSize = possibleBinSizes.reduce((prev, curr) => {
-    const prevBins = range / prev;
-    const currBins = range / curr;
-    return Math.abs(currBins - targetBins) < Math.abs(prevBins - targetBins) ? curr : prev;
-  });
-
-  // Calculate nice start and end points
-  const start = Math.floor(min / binSize) * binSize;
-  const end = Math.ceil(max / binSize) * binSize;
-
-  return { binSize, start, end };
+  completion_tokens: "Completion Tokens",
+  generation_time: "Generation Time (s)"
 }
 
 function getDistributionData(data: DataItem[], column: string) {
   const values = data.map(item => {
     switch (column) {
       case "total_tokens":
-        return item.raw_response.usage.total_tokens;
+        return item.raw_response.usage?.total_tokens || item.raw_response.response?.body?.usage?.total_tokens || 0;
       case "prompt_tokens":
-        return item.raw_response.usage.prompt_tokens;
+        return item.raw_response.usage?.prompt_tokens || item.raw_response.response?.body?.usage?.prompt_tokens || 0;
       case "completion_tokens":
-        return item.raw_response.usage.completion_tokens;
+        return item.raw_response.usage?.completion_tokens || item.raw_response.response?.body?.usage?.completion_tokens || 0;
+      case "generation_time":
+        return (new Date(item.finished_at).getTime() - new Date(item.created_at).getTime()) / 1000;
       default:
         return 0;
     }
   });
 
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const binner = bin()
+    .value(d => d)
+    .thresholds(10);
 
-  // If min equals max, all values are the same
-  if (min === max) {
-    return [{
-      range: `${min}`,
-      count: values.length
-    }];
-  }
+  const bins = binner(values);
 
-  const { binSize, start, end } = calculateNiceBinSize(min, max);
-  const numBins = Math.ceil((end - start) / binSize);
-  
-  // Initialize buckets
-  const buckets: { range: string; start: number; count: number }[] = [];
-  for (let i = 0; i < numBins; i++) {
-    const bucketStart = start + (i * binSize);
-    const bucketEnd = bucketStart + binSize;
-    buckets.push({
-      range: `${Math.round(bucketStart)}-${Math.round(bucketEnd)}`,
-      start: bucketStart,
-      count: 0
-    });
-  }
-
-  // Count values in buckets
-  values.forEach(value => {
-    const bucketIndex = Math.floor((value - start) / binSize);
-    if (bucketIndex >= 0 && bucketIndex < buckets.length) {
-      buckets[bucketIndex].count++;
-    }
-  });
-
-  // Only return buckets that have counts
-  return buckets
-    .filter(bucket => bucket.count > 0)
-    .sort((a, b) => a.start - b.start)
-    .map(({ range, count }) => ({
-      range,
-      count
-    }));
+  return bins.map(b => ({
+    range: Number.isInteger(b.x0) ? `${b.x0}` : `${b.x0?.toFixed(2)}`,
+    count: b.length,
+    start: b.x0,
+    end: b.x1
+  }));
 }
 
 export function DistributionChart({ data, column }: DistributionChartProps) {
   const distributionData = getDistributionData(data, column);
-  
+
   if (distributionData.length === 0) return null;
 
   const displayName = COLUMN_DISPLAY_NAMES[column] || column;
@@ -119,23 +57,35 @@ export function DistributionChart({ data, column }: DistributionChartProps) {
     <div className="w-full h-80">
       <h2 className="text-xl font-semibold mb-4">Distribution of {displayName}</h2>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart 
+        <BarChart
           data={distributionData}
           margin={{ top: 10, right: 30, left: 20, bottom: 15 }}
         >
-          <XAxis 
-            dataKey="range" 
+          <XAxis
+            dataKey="range"
             fontSize={12}
             angle={-45}
             textAnchor="end"
             height={70}
           />
           <YAxis />
-          <Tooltip 
+          <Tooltip
             formatter={(value: number) => [`Count: ${value}`, displayName]}
+            contentStyle={{
+              backgroundColor: 'var(--tooltip-text-bg)',
+              border: '1px solid var(--border)',
+              borderRadius: '4px',
+              color: 'var(--tooltip-text)',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}
+            labelStyle={{
+              color: 'var(--tooltip-text)',
+              marginBottom: '4px'
+            }}
+            cursor={{ fill: 'var(--tooltip-bg)', opacity: 0.2 }}
           />
-          <Bar 
-            dataKey="count" 
+          <Bar
+            dataKey="count"
             fill="#8884d8"
             name={displayName}
           />

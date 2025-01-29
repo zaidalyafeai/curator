@@ -1,2 +1,5 @@
-from .prompter.prompter import Prompter
-from .dataset import Dataset
+"""BespokeLabs Curator."""
+
+from .llm.llm import LLM
+
+__all__ = ["LLM"]
