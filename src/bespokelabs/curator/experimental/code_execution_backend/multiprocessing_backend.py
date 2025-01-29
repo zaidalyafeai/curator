@@ -1,116 +1,43 @@
-"""Multiprocessing Code Execution Backend"""
+"""Multiprocessing Code Execution Backend."""
 
+import asyncio
 import os
-import signal
 import subprocess
-import sys
 import tempfile
-
-import aiohttp
-from pyext import RuntimeModule
+from concurrent.futures import ProcessPoolExecutor
 
 from bespokelabs.curator.experimental.code_execution_backend.base_backend import BaseCodeExecutionBackend
-from bespokelabs.curator.experimental.types import CodeAPIRequest, CodeExecutionResponse, CodeExecutionStatusTracker, CodeTestCaseResponse
+from bespokelabs.curator.experimental.types import CodeAPIRequest, CodeExecutionResponse, CodeTestCaseResponse
 
 
 class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
+    """Multiprocessing Code Execution Backend."""
+
     def __init__(self, config):
+        """Initialize the backend."""
         super().__init__(config)
         self.config = config
+        self.process_pool = ProcessPoolExecutor(max_workers=os.cpu_count())
 
-    @property
-    def max_requests_per_minute(self):
-        return 10000
-
-    def compile_and_get_function(
-        self,
-        program: str,
-        which_type: str,
-        method_name: str,
-        timeout: int,
-    ):
-        original_handler = signal.getsignal(signal.SIGALRM)
-        try:
-            signal.alarm(timeout)
-            tmp_sol = RuntimeModule.from_string("tmp_sol", "", program)
-            if which_type == "call_based" and "class Solution" in program:
-                tmp = tmp_sol.Solution()
-            else:
-                tmp = tmp_sol
-            signal.alarm(0)
-        except Exception as e:
-            signal.alarm(0)
-            print(f"compilation error = {e}")
-            return False
-        finally:
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, original_handler)
-
-        if which_type == "call_based":
-            assert isinstance(method_name, str)
-        else:
-            method_name = "code"
-
-        try:
-            signal.alarm(timeout)
-            method = getattr(tmp, method_name)  # get_attr second arg must be str
-            signal.alarm(0)
-        except:
-            signal.alarm(0)
-            e = sys.exc_info()
-            print(f"unable to get function error = {e}")
-            return False
-        return method
-
-    def execute_request(
-        self, request: CodeAPIRequest, status_tracker: CodeExecutionStatusTracker
-    ) -> CodeExecutionResponse:
+    async def execute_request(self, request: CodeAPIRequest) -> CodeExecutionResponse:
         """Execute a single request."""
-        # Disable functionalities that can make destructive changes to the test.
-        # self.reliability_guard()
+        loop = asyncio.get_running_loop()
 
-        generic_request = request.generic_request
-        method = self.compile_and_get_function(
-            generic_request.code, generic_request.request_type, generic_request.function_name, generic_request.execution_params.timeout
+        results = await loop.run_in_executor(
+            self.process_pool,
+            self.execute_standard_input_request,
+            request.generic_request.code,
+            request.generic_request.test_cases,
+            request.generic_request.execution_params.timeout,
         )
 
-        if method is False:
-            return CodeExecutionResponse(
-                responses=[
-                    CodeTestCaseResponse(
-                        response_message="Compilation error",
-                        response_errors=["Compilation error"],
-                        response_stdout="",
-                        response_stderr="",
-                    )
-                ],
-                code_api_request=request,
-            )
-
-        if generic_request.request_type == "call_based":
-            results = self.execute_call_based_request(method, generic_request.test_cases, generic_request.execution_params.timeout)
-        else:
-            results = self.execute_standard_input_request(
-                method, generic_request.code + "\ncode()", generic_request.test_cases, generic_request.function_name, generic_request.execution_params.timeout
-            )
-
-        final_results = []
-        for test_case_idx, result in results.items():
-            final_results.append(
-                CodeTestCaseResponse(
-                    response_message=result["status"],
-                    response_errors=None,
-                    response_stdout=result["output"],
-                    response_stderr=result["error"],
-                )
-            )
-
         return CodeExecutionResponse(
-            responses=final_results,
+            responses=results,
             code_api_request=request,
         )
 
-    def create_temp_file(self, content: str) -> str:
+    @classmethod
+    def _create_temp_file(cls, content: str) -> str:
         """Create a temporary file with the given content.
 
         Args:
@@ -123,14 +50,13 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
             temp_file.write(content)
             return temp_file.name
 
-    def execute_standard_input_request(self, method_func, code: str, test_cases: list, function_name: str, timeout: int, early_stop: bool = True) -> dict:
+    @classmethod
+    def execute_standard_input_request(cls, code: str, test_cases: list, timeout: int, early_stop: bool = True) -> dict:
         """Execute code with function calls and test cases.
 
         Args:
-            method_func: Compiled method to execute
             code: Source code
             test_cases: List of test cases to run
-            function_name: Name of function to call
             timeout: Execution timeout in seconds
             early_stop: Whether to stop on first failure
 
@@ -139,60 +65,59 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
         """
         temp_program_path = None
         try:
-            temp_program_path = self.create_temp_file(code)
-            exec_results = {}
+            temp_program_path = cls._create_temp_file(code)
+            exec_results = []
 
             for test_case_idx, test_case in enumerate(test_cases):
                 input_data = test_case.input
-                expected = test_case.expected_output
-
                 if isinstance(input_data, list):
                     input_data = "\n".join(input_data)
-                if isinstance(expected, list):
-                    expected = "\n".join(expected)
 
                 try:
                     result = subprocess.run(["python", temp_program_path], input=input_data, text=True, capture_output=True, timeout=timeout)
-
-                    # print("Done")
-                    exec_results[test_case_idx] = {"status": "success", "output": result.stdout, "error": result.stderr}
+                    exec_results.append(
+                        CodeTestCaseResponse(
+                            test_case_idx=test_case_idx,
+                            response_message="success",
+                            response_errors=None,
+                            response_stdout=result.stdout,
+                            response_stderr=result.stderr,
+                        )
+                    )
 
                 except subprocess.TimeoutExpired:
-                    exec_results[test_case_idx] = {"status": "timeout", "output": None, "error": f"Execution timed out after {timeout}s"}
+                    exec_results.append(
+                        CodeTestCaseResponse(
+                            test_case_idx=test_case_idx,
+                            response_message="timeout",
+                            response_errors=[f"Execution timed out after {timeout}s"],
+                            response_stdout=None,
+                            response_stderr=None,
+                        )
+                    )
                     if early_stop:
                         break
 
                 except Exception as e:
-                    exec_results[test_case_idx] = {"status": "error", "output": None, "error": str(e)}
+                    exec_results.append(
+                        CodeTestCaseResponse(
+                            test_case_idx=test_case_idx,
+                            response_message="error",
+                            response_errors=[str(e)],
+                            response_stdout=None,
+                            response_stderr=None,
+                        )
+                    )
                     if early_stop:
                         break
 
+            print(exec_results[0])
             return exec_results
+
         finally:
             if temp_program_path:
-                try:
-                    os.unlink(temp_program_path)
-                except:
-                    pass
+                os.unlink(temp_program_path)
 
-    def execute_call_based_request(self, method, inputs_list, timeout, early_stop=True):
-        original_handler = signal.getsignal(signal.SIGALRM)
-        try:
-            self.reliability_guard()
-            results = {}
-
-            for index, inputs in enumerate(inputs_list):
-                try:
-                    signal.alarm(timeout)
-                    exec_outputs = method(*inputs)
-                    signal.alarm(0)
-                    results[index] = {"status": "success", "output": str(exec_outputs), "error": None}
-                except Exception as e:
-                    signal.alarm(0)
-                    if early_stop:
-                        break
-                    results[index] = {"status": "error", "error": str(e)}
-            return results
-        finally:
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, original_handler)
+    def __del__(self):
+        """Clean up pool when object is destroyed."""
+        self.process_pool.shutdown(wait=True)
