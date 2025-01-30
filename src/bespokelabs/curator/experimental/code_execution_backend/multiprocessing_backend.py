@@ -18,6 +18,7 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
         super().__init__(config)
         self.config = config
         self.process_pool = ProcessPoolExecutor(max_workers=os.cpu_count())
+        print("self.process_pool: ", self.process_pool)
 
     async def execute_request(self, request: CodeAPIRequest) -> CodeExecutionResponse:
         """Execute a single request."""
@@ -111,7 +112,6 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
                     if early_stop:
                         break
 
-            print(exec_results[0])
             return exec_results
 
         finally:

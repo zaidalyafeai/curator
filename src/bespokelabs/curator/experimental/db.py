@@ -38,7 +38,6 @@ class CodeMetadataDB:
         expected_columns = [
             "run_hash",
             "dataset_hash",
-            "function_name",
             "code_string",
             "test_cases",
             "parse_results",
@@ -79,7 +78,6 @@ class CodeMetadataDB:
                 CREATE TABLE IF NOT EXISTS runs_code (
                     run_hash TEXT PRIMARY KEY,
                     dataset_hash TEXT,
-                    function_name TEXT,
                     code_string TEXT,
                     test_cases TEXT,
                     parse_results TEXT,
@@ -112,14 +110,12 @@ class CodeMetadataDB:
                 cursor.execute(
                     """
                     INSERT INTO runs_code (
-                        run_hash, dataset_hash, function_name, code_string,
-                        test_cases, parse_results, created_time, last_edited_time
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        run_hash, dataset_hash, code_string, test_cases, parse_results, created_time, last_edited_time
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         metadata["run_hash"],
                         metadata["dataset_hash"],
-                        metadata["function_name"],
                         metadata["code_string"],
                         metadata["test_cases"],
                         metadata["parse_results"],

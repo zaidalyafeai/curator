@@ -126,7 +126,7 @@ class BaseCodeExecutionBackend:
                     code_formatter=self.code_formatter,
                 )
 
-                print(f"Processing request {request.task_id}")
+                # print(f"Processing request {request.task_id}")
 
                 # while not status_tracker.has_capacity():
                 # await asyncio.sleep(0.1)
@@ -284,7 +284,6 @@ class BaseCodeExecutionBackend:
         Raises:
             ValueError: If model doesn't support structured output but it's requested
         """
-        self.function_name = code_formatter.function_name
         self.code_string = code_formatter.code_string
         self.test_cases = code_formatter.test_cases
         self.parse_results = code_formatter.parse_results
@@ -490,9 +489,7 @@ class BaseCodeExecutionBackend:
                 with open(responses_file, "r") as f_in:
                     for generic_response_string in f_in:
                         total_responses_count += 1
-                        import pdb
 
-                        pdb.set_trace()
                         response = CodeExecutionResponse.model_validate_json(generic_response_string)
                         # if response.response_errors is not None:
                         #     failed_responses_count += 1

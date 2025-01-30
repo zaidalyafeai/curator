@@ -1,9 +1,14 @@
+from typing import Optional
+
 from bespokelabs.curator.experimental.types import CodeExecutionBackendConfig
 
 
 class _CodeExecutionBackendFactory:
     @classmethod
-    def create(cls, backend: str, backend_params: dict):
+    def create(cls, backend: str, backend_params: Optional[CodeExecutionBackendConfig] = None):
+        if backend_params is None:
+            backend_params = {}
+
         if backend == "multiprocessing":
             from bespokelabs.curator.experimental.code_execution_backend.multiprocessing_backend import MultiprocessingCodeExecutionBackend
 

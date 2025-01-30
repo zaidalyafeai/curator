@@ -90,7 +90,6 @@ def process_dataset_parallel(df: Dataset, num_cpus: int = None, batch_size: int 
     Returns:
         Dataset: Processed dataset with correctness evaluations
     """
-
     if num_cpus is None:
         num_cpus = max(1, multiprocessing.cpu_count() - 1)
 
@@ -114,7 +113,7 @@ def process_dataset_parallel(df: Dataset, num_cpus: int = None, batch_size: int 
         print(f"Total correct so far: {sum(1 for r in all_results if r.get('correctness', False))}/{len(all_results)}\n")
 
         # save the dataset to huggingface
-        # import time 
+        # import time
         # start_time = time.time()
         # Dataset.from_list(all_results).push_to_hub("pimpalgaonkar/processed_taco_dataset_batch_" + str(i // batch_size + 1), private=True)
         # end_time = time.time()

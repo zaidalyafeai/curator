@@ -1,12 +1,13 @@
+from dataclasses import dataclass
 from typing import Callable
 
 from bespokelabs.curator.experimental.types import CodeExecutionRequest, CodeExecutionRequestParams, CodeExecutionResponse
 
 
+@dataclass
 class CodeFormatter:
     """Formatter for the code execution backend."""
 
-    function_name: Callable
     code_string: Callable
     test_cases: Callable
     parse_results: Callable

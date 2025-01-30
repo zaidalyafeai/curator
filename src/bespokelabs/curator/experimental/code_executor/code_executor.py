@@ -16,7 +16,7 @@ from xxhash import xxh64
 from bespokelabs.curator.experimental.code_execution_backend._factory import _CodeExecutionBackendFactory
 from bespokelabs.curator.experimental.code_executor.code_formatter import CodeFormatter
 from bespokelabs.curator.experimental.db import CodeMetadataDB
-from bespokelabs.curator.experimental.types import CodeExecutionBackendConfig, CodeExecutionRequestParams, CodeExecutionResult, TestCase
+from bespokelabs.curator.experimental.types import CodeExecutionRequestParams, CodeExecutionResult, TestCase
 from bespokelabs.curator.llm.llm import _convert_to_dataset, _get_function_hash, _get_function_source
 
 if TYPE_CHECKING:
@@ -52,7 +52,7 @@ class CodeExecutor:
     def __init__(
         self,
         backend: str = "multiprocessing",
-        backend_params: CodeExecutionBackendConfig = CodeExecutionBackendConfig,
+        backend_params: dict = None,
     ):
         """Initialize the CodeExecutor with specified backend and parameters.
 
@@ -77,7 +77,6 @@ class CodeExecutor:
             fingerprint = xxh64(os.urandom(8)).hexdigest()
         else:
             # Generate deterministic fingerprint based on dataset and method hashes
-            function_name_hash = _get_function_hash(self.function_name)
             code_string_hash = _get_function_hash(self.code_string)
             test_cases_hash = _get_function_hash(self.test_cases)
             parse_results_hash = _get_function_hash(self.parse_results)
@@ -85,7 +84,6 @@ class CodeExecutor:
             fingerprint_str = "_".join(
                 [
                     str(dataset_hash),
-                    str(function_name_hash),
                     str(code_string_hash),
                     str(test_cases_hash),
                     str(parse_results_hash),
@@ -102,7 +100,7 @@ class CodeExecutor:
         self,
         dataset: Optional[Iterable] = None,
         working_dir: str = None,
-        execution_params: Optional[CodeExecutionRequestParams] = CodeExecutionRequestParams,
+        execution_params: Optional[CodeExecutionRequestParams | dict] = None,
     ) -> "Dataset":
         """Execute code on the provided dataset.
 
@@ -126,6 +124,11 @@ class CodeExecutor:
         else:
             curator_cache_dir = working_dir
 
+        if execution_params is None:
+            execution_params = CodeExecutionRequestParams()
+        elif isinstance(execution_params, dict):
+            execution_params = CodeExecutionRequestParams(**execution_params)
+
         # Generate dataset hash and cache fingerprint
         dataset_hash = dataset._fingerprint if dataset is not None else xxh64("").hexdigest()
         disable_cache = os.getenv("CURATOR_DISABLE_CACHE", "").lower() in ["true", "1"]
@@ -138,7 +141,6 @@ class CodeExecutor:
         metadata_dict = {
             "timestamp": datetime.now().isoformat(),
             "dataset_hash": dataset_hash,
-            "function_name": _get_function_source(self.function_name),
             "code_string": _get_function_source(self.code_string),
             "test_cases": _get_function_source(self.test_cases),
             "parse_results": _get_function_source(self.parse_results),
@@ -152,7 +154,6 @@ class CodeExecutor:
 
         # Generate hash of all function implementations
         all_func_hash = [
-            _get_function_hash(self.function_name),
             _get_function_hash(self.code_string),
             _get_function_hash(self.test_cases),
             _get_function_hash(self.parse_results),
@@ -163,7 +164,6 @@ class CodeExecutor:
 
         # Initialize code formatter
         self.code_formatter = CodeFormatter(
-            function_name=self.function_name,
             code_string=self.code_string,
             test_cases=self.test_cases,
             parse_results=self.parse_results,
