@@ -33,7 +33,7 @@ class APPSCodeExecutor(curator.experimental.CodeExecutor):
         except Exception as e:
             print("Error parsing input output", e)
 
-        return test_cases
+        return test_cases[:5]
 
     def parse_results(self, row, test_cases, execution_results):
         """Parse execution results."""
@@ -44,10 +44,11 @@ class APPSCodeExecutor(curator.experimental.CodeExecutor):
             return row
 
         for test_case, result in zip(test_cases, execution_results):
-            if isinstance(result.response_stdout, str):
-                result.response_stdout = [result.response_stdout]
-
             if result.response_stdout != test_case.expected_output:
+                print("================")
+                print("result.response_stdout[:20]", result.response_stdout[:20])
+                print("test_case.expected_output[:20]", test_case.expected_output[:20])
+                print("================")
                 row["correct"] = False
                 break
 
@@ -55,12 +56,12 @@ class APPSCodeExecutor(curator.experimental.CodeExecutor):
 
 
 if __name__ == "__main__":
-    executor = APPSCodeExecutor(backend="multiprocessing")
+    executor = APPSCodeExecutor(backend="ray")
     dataset = load_dataset("bespokelabs/sky-t1-taco-test-rejection-sampled-shreyas")
-    execution_output = executor(dataset["train"].select(range(100)))
+    execution_output = executor(dataset["train"].select(range(1, 100)))
 
     print("================")
     print(execution_output)
 
-    print(execution_output[0])
+    print(execution_output["correct"])
     print("================")

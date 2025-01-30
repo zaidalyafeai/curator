@@ -291,7 +291,6 @@ class BaseCodeExecutionBackend:
         self.total_requests = len(dataset) if dataset is not None else 1
         # load from already completed dataset
 
-        print("Attempting to load cached dataset")
         output_dataset = self.attempt_loading_cached_dataset(all_func_hash_hash)
         if output_dataset is not None:
             return output_dataset
