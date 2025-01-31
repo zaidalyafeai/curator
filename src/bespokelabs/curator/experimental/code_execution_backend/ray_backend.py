@@ -5,12 +5,11 @@ import logging
 import os
 import subprocess
 import tempfile
-from typing import List
 
 import ray
 
 from bespokelabs.curator.experimental.code_execution_backend.base_backend import BaseCodeExecutionBackend
-from bespokelabs.curator.experimental.types import CodeAPIRequest, CodeExecutionResponse, CodeTestCaseResponse
+from bespokelabs.curator.experimental.types import CodeAPIRequest, CodeExecutionResponse, CodeExecutionRequestParams
 
 
 @ray.remote
@@ -31,8 +30,17 @@ class CodeExecutorActor:
                 except Exception:
                     pass
 
-    async def execute_test_case(self, code: str, test_case, test_case_idx: int, timeout: int) -> CodeTestCaseResponse:
-        """Execute a single test case in isolation."""
+    async def execute_standard_input_request(self, code: str, code_input: str, execution_params: CodeExecutionRequestParams) -> CodeExecutionResponse:
+        """Execute code with standard input.
+
+        Args:
+            code: Source code
+            code_input: Input to the code
+            execution_params: Execution parameters
+
+        Returns:
+            CodeExecutionResponse: Execution results
+        """
         temp_program_path = None
 
         try:
@@ -42,36 +50,24 @@ class CodeExecutorActor:
                 temp_program_path = temp_file.name
                 self.temp_files.append(temp_program_path)
 
-            input_data = test_case.input
-            if isinstance(input_data, list):
-                input_data = "\n".join(str(item) for item in input_data)
-
             try:
-                result = subprocess.run(["python", temp_program_path], input=input_data, text=True, capture_output=True, timeout=timeout)
-                return CodeTestCaseResponse(
-                    test_case_idx=test_case_idx,
+                result = subprocess.run(["python", temp_program_path], input=code_input, text=True, capture_output=True, timeout=execution_params.timeout)
+                return CodeExecutionResponse(
                     response_message="success",
-                    response_errors=None,
                     response_stdout=result.stdout,
                     response_stderr=result.stderr,
                 )
 
             except subprocess.TimeoutExpired:
-                return CodeTestCaseResponse(
-                    test_case_idx=test_case_idx,
+                return CodeExecutionResponse(
                     response_message="timeout",
-                    response_errors=[f"Execution timed out after {timeout}s"],
-                    response_stdout=None,
-                    response_stderr=None,
+                    response_error=f"Execution timed out after {execution_params.timeout}s"
                 )
 
             except Exception as e:
-                return CodeTestCaseResponse(
-                    test_case_idx=test_case_idx,
+                return CodeExecutionResponse(
                     response_message="error",
-                    response_errors=[str(e)],
-                    response_stdout=None,
-                    response_stderr=None,
+                    response_error=str(e)
                 )
 
         finally:
@@ -81,14 +77,6 @@ class CodeExecutorActor:
                     self.temp_files.remove(temp_program_path)
                 except Exception:
                     pass
-
-    async def execute_test_cases(self, code: str, test_cases: List, timeout: int) -> List[CodeTestCaseResponse]:
-        """Execute multiple test cases in isolation."""
-        results = []
-        for idx, test_case in enumerate(test_cases):
-            result = await self.execute_test_case(code, test_case, idx, timeout)
-            results.append(result)
-        return results
 
 
 class RayCodeExecutionBackend(BaseCodeExecutionBackend):
@@ -108,17 +96,18 @@ class RayCodeExecutionBackend(BaseCodeExecutionBackend):
 
     async def execute_request(self, request: CodeAPIRequest) -> CodeExecutionResponse:
         """Execute a single request using Ray actors."""
-        code = request.generic_request.code
-        test_cases = request.generic_request.test_cases
-        timeout = request.generic_request.execution_params.timeout
+        code = request.execution_request.code
+        code_input = request.execution_request.code_input
+        execution_params = request.execution_request.execution_params
 
-        # Execute all test cases in the remote executor
-        results = await asyncio.get_event_loop().run_in_executor(None, ray.get, self.executor.execute_test_cases.remote(code, test_cases, timeout))
-
-        return CodeExecutionResponse(
-            responses=results,
-            code_api_request=request,
+        # Execute request in the remote executor
+        result = await asyncio.get_event_loop().run_in_executor(
+            None,
+            ray.get,
+            self.executor.execute_standard_input_request.remote(code, code_input, execution_params)
         )
+
+        return result
 
     def shutdown(self):
         """Cleanup resources when shutting down the backend."""

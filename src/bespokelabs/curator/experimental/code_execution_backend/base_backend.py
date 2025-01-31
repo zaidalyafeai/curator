@@ -68,30 +68,30 @@ class BaseCodeExecutionBackend:
         pass
 
     @abstractmethod
-    def requests_to_responses(self, generic_request_files: list[str]) -> None:
+    def requests_to_responses(self, execution_request_files: list[str]) -> None:
         """Process request files and generate responses.
 
         Args:
-            generic_request_files: List of paths to request files to process
+            execution_request_files: List of paths to request files to process
         """
-        for request_file in generic_request_files:
+        for request_file in execution_request_files:
             response_file = request_file.replace("requests_", "responses_")
             run_in_event_loop(
                 self.process_requests_from_file(
-                    generic_request_filepath=request_file,
+                    execution_request_filepath=request_file,
                     response_file=response_file,
                 )
             )
 
     async def process_requests_from_file(
         self,
-        generic_request_filepath: str,
+        execution_request_filepath: str,
         response_file: str,
     ) -> None:
         """Processes API requests in parallel, throttling to stay under rate limits.
 
         Args:
-            generic_request_filepath: Path to file containing requests
+            execution_request_filepath: Path to file containing requests
             response_file: Path where the response data will be saved
         """
         # Initialize trackers
@@ -110,18 +110,18 @@ class BaseCodeExecutionBackend:
         # status_tracker.start_tracker(self._tracker_console)
 
         # Use higher connector limit for better throughput
-        async with aiofiles.open(generic_request_filepath) as file:
+        async with aiofiles.open(execution_request_filepath) as file:
             pending_requests = []
 
             async for line in file:
-                generic_request = CodeExecutionRequest.model_validate_json(line)
+                execution_request = CodeExecutionRequest.model_validate_json(line)
 
-                if generic_request.original_row_idx in completed_request_ids:
+                if execution_request.original_row_idx in completed_request_ids:
                     continue
 
                 request = CodeAPIRequest(
-                    task_id=generic_request.original_row_idx,
-                    generic_request=generic_request,
+                    task_id=execution_request.original_row_idx,
+                    execution_request=execution_request,
                     attempts_left=self.config.max_retries,
                     code_formatter=self.code_formatter,
                 )
@@ -297,9 +297,9 @@ class BaseCodeExecutionBackend:
 
         self.code_formatter = code_formatter
 
-        generic_request_files = self.create_request_files(dataset)
+        execution_request_files = self.create_request_files(dataset)
 
-        self.requests_to_responses(generic_request_files)
+        self.requests_to_responses(execution_request_files)
 
         return self.create_dataset_files(all_func_hash_hash)
 
@@ -507,8 +507,8 @@ class BaseCodeExecutionBackend:
                         if self.code_formatter.output:
                             try:
                                 dataset_rows = self.code_formatter.code_output(
-                                    response.code_api_request.generic_request.original_row,
-                                    response.code_api_request.generic_request.code_output,
+                                    response.code_api_request.execution_request.original_row,
+                                    response.code_api_request.execution_request.code_output,
                                     response.responses,
                                 )
                             except Exception as e:
@@ -534,7 +534,7 @@ class BaseCodeExecutionBackend:
                                 os.remove(dataset_file)
                                 raise ValueError(f"Got empty row {row} from `parse_func`. {error_help}")
                             # Add the original row index to the row so that we can sort by it later.
-                            row["__original_row_idx"] = response.code_api_request.generic_request.original_row_idx
+                            row["__original_row_idx"] = response.code_api_request.execution_request.original_row_idx
                             writer.write(row)
 
             logger.info(f"Read {total_responses_count} responses.")
@@ -607,7 +607,7 @@ class BaseCodeExecutionBackend:
                         logger.warning("Skipping response due to error parsing line")
                         parsing_error_responses += 1
                         continue
-                    row_id = response.code_api_request.generic_request.original_row_idx
+                    row_id = response.code_api_request.execution_request.original_row_idx
                     if response.response_errors:
                         logger.debug(f"Request {row_id} previously failed due to errors: {response.response_errors}, removing from output and will retry")
                         failed_request_ids.add(row_id)

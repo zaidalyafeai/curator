@@ -33,7 +33,7 @@ class CodeAPIRequest(BaseModel):
     """Request to the code execution backend."""
 
     task_id: Optional[int] = None
-    generic_request: CodeExecutionRequest
+    execution_request: CodeExecutionRequest
     attempts_left: int
     code_formatter: Any
     created_at: datetime.datetime = field(default_factory=datetime.datetime.now)
