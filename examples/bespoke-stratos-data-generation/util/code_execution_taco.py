@@ -112,11 +112,5 @@ def process_dataset_parallel(df: Dataset, num_cpus: int = None, batch_size: int 
         print(f"Correct in this batch: {batch_correct}/{len(batch_results)} ({batch_correct / len(batch_results) * 100:.2f}%)")
         print(f"Total correct so far: {sum(1 for r in all_results if r.get('correctness', False))}/{len(all_results)}\n")
 
-        # save the dataset to huggingface
-        # import time
-        # start_time = time.time()
-        # Dataset.from_list(all_results).push_to_hub("pimpalgaonkar/processed_taco_dataset_batch_" + str(i // batch_size + 1), private=True)
-        # end_time = time.time()
-        # print(f"Time taken to push to hub: {end_time - start_time} seconds")
 
     return Dataset.from_list(all_results)
