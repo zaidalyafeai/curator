@@ -29,17 +29,6 @@ class CodeExecutionRequest(BaseModel):
     original_row: Optional[Dict[str, Any]] = None
     original_row_idx: Optional[int] = None
 
-
-class CodeTestCaseResponse(BaseModel):
-    """Response from the code execution backend for a single test case."""
-
-    test_case_idx: int = 0
-    response_message: Optional[Dict[str, Any]] | str = None
-    response_errors: Optional[List[str]] = None
-    response_stdout: Optional[str] = None
-    response_stderr: Optional[str] = None
-
-
 class CodeAPIRequest(BaseModel):
     """Request to the code execution backend."""
 
@@ -54,10 +43,11 @@ class CodeAPIRequest(BaseModel):
 class CodeExecutionResponse(BaseModel):
     """Response from the code execution backend."""
 
-    responses: List[CodeTestCaseResponse]
     code_api_request: Optional[CodeAPIRequest] = None
     response_message: Optional[Dict[str, Any]] | str = None
     response_errors: Optional[List[str]] = None
+    response_stdout: Optional[str] = None
+    response_stderr: Optional[str] = None
     created_at: datetime.datetime = field(default_factory=datetime.datetime.now)
     finished_at: datetime.datetime = field(default_factory=datetime.datetime.now)
 
