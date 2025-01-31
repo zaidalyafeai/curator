@@ -37,16 +37,16 @@ class CodeExecutor:
     execution parameters.
     """
 
-    def code_string(self, input: dict):
-        """Extract code string from a dataset row."""
+    def code(self, row: dict):
+        """Extract code from a dataset row."""
         pass
 
-    def test_cases(self, input: dict) -> list[TestCase]:
-        """Extract test cases from a dataset row."""
+    def input(self, row: dict):
+        """Extract input from a dataset row."""
         pass
 
-    def parse_results(self, input: dict, test_cases: list[TestCase], execution_results: list[CodeExecutionResult]):
-        """Parse execution results for a given row."""
+    def output(self, row: dict) -> list[TestCase]:
+        """Extract output from a dataset row."""
         pass
 
     def __init__(
