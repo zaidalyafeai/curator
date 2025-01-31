@@ -45,7 +45,7 @@ class CodeExecutionResponse(BaseModel):
 
     code_api_request: Optional[CodeAPIRequest] = None
     response_message: Optional[Dict[str, Any]] | str = None
-    response_errors: Optional[List[str]] = None
+    response_error: Optional[str] = None
     response_stdout: Optional[str] = None
     response_stderr: Optional[str] = None
     created_at: datetime.datetime = field(default_factory=datetime.datetime.now)
