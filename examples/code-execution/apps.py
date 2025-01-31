@@ -10,7 +10,7 @@ from bespokelabs.curator.experimental.code_executor.code_executor import TestCas
 class APPSCodeExecutor(curator.experimental.CodeExecutor):
     """APPS Code Executor."""
 
-    def code_string(self, row):
+    def code(self, row):
         """Extract code string from a dataset row."""
         try:
             code = re.search(r"```python\n(.*?)\n```", row["deepseek_solution"], re.DOTALL).group(1)
@@ -18,8 +18,8 @@ class APPSCodeExecutor(curator.experimental.CodeExecutor):
             code = ""
         return code
 
-    def test_cases(self, row) -> list[TestCase]:
-        """Extract test cases from a dataset row."""
+    def input(self, row):
+        """Extract input from a dataset row."""
         test_cases = []
         inputs_outputs = row["input_output_x"]
         try:
@@ -35,7 +35,7 @@ class APPSCodeExecutor(curator.experimental.CodeExecutor):
 
         return test_cases[:5]
 
-    def parse_results(self, row, test_cases, execution_results):
+    def output(self, row, test_cases, execution_results):
         """Parse execution results."""
         row["correct"] = True
 

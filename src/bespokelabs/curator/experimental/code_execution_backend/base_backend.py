@@ -284,9 +284,9 @@ class BaseCodeExecutionBackend:
         Raises:
             ValueError: If model doesn't support structured output but it's requested
         """
-        self.code_string = code_formatter.code_string
-        self.test_cases = code_formatter.test_cases
-        self.parse_results = code_formatter.parse_results
+        self.code = code_formatter.code
+        self.input = code_formatter.input
+        self.output = code_formatter.output
         self.working_dir = working_dir
         self.total_requests = len(dataset) if dataset is not None else 1
         # load from already completed dataset
@@ -504,11 +504,11 @@ class BaseCodeExecutionBackend:
                         #     continue
 
                         # parse_func can return a single row or a list of rows
-                        if self.code_formatter.parse_results:
+                        if self.code_formatter.output:
                             try:
-                                dataset_rows = self.code_formatter.parse_results(
+                                dataset_rows = self.code_formatter.output(
                                     response.code_api_request.generic_request.original_row,
-                                    response.code_api_request.generic_request.test_cases,
+                                    response.code_api_request.generic_request.input,
                                     response.responses,
                                 )
                             except Exception as e:
@@ -519,7 +519,7 @@ class BaseCodeExecutionBackend:
                                 dataset_rows = [dataset_rows]
                         else:
                             # Convert response to dict before adding to dataset
-                            raise ValueError("parse_results is not implemented")
+                            raise ValueError("output is not implemented")
 
                         for row in dataset_rows:
                             if isinstance(row, BaseModel):

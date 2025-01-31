@@ -45,7 +45,7 @@ class CodeExecutor:
         """Extract input from a dataset row."""
         pass
 
-    def output(self, row: dict) -> list[TestCase]:
+    def output(self, row: dict, code_output: Any):
         """Extract output from a dataset row."""
         pass
 
@@ -77,16 +77,16 @@ class CodeExecutor:
             fingerprint = xxh64(os.urandom(8)).hexdigest()
         else:
             # Generate deterministic fingerprint based on dataset and method hashes
-            code_string_hash = _get_function_hash(self.code_string)
-            test_cases_hash = _get_function_hash(self.test_cases)
-            parse_results_hash = _get_function_hash(self.parse_results)
+            code_hash = _get_function_hash(self.code)
+            input_hash = _get_function_hash(self.input)
+            output_hash = _get_function_hash(self.output)
 
             fingerprint_str = "_".join(
                 [
                     str(dataset_hash),
-                    str(code_string_hash),
-                    str(test_cases_hash),
-                    str(parse_results_hash),
+                    str(code_hash),
+                    str(input_hash),
+                    str(output_hash),
                 ]
             )
 
@@ -141,9 +141,9 @@ class CodeExecutor:
         metadata_dict = {
             "timestamp": datetime.now().isoformat(),
             "dataset_hash": dataset_hash,
-            "code_string": _get_function_source(self.code_string),
-            "test_cases": _get_function_source(self.test_cases),
-            "parse_results": _get_function_source(self.parse_results),
+            "code": _get_function_source(self.code),
+            "input": _get_function_source(self.input),
+            "output": _get_function_source(self.output),
             "run_hash": fingerprint,
         }
 
@@ -154,9 +154,9 @@ class CodeExecutor:
 
         # Generate hash of all function implementations
         all_func_hash = [
-            _get_function_hash(self.code_string),
-            _get_function_hash(self.test_cases),
-            _get_function_hash(self.parse_results),
+            _get_function_hash(self.code),
+            _get_function_hash(self.input),
+            _get_function_hash(self.output),
         ]
 
         all_func_hash_str = "_".join(all_func_hash)
@@ -164,9 +164,9 @@ class CodeExecutor:
 
         # Initialize code formatter
         self.code_formatter = CodeFormatter(
-            code_string=self.code_string,
-            test_cases=self.test_cases,
-            parse_results=self.parse_results,
+            code=self.code,
+            input=self.input,
+            output=self.output,
             execution_params=execution_params,
         )
 

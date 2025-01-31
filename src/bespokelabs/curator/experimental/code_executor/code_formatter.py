@@ -8,9 +8,9 @@ from bespokelabs.curator.experimental.types import CodeExecutionRequest, CodeExe
 class CodeFormatter:
     """Formatter for the code execution backend."""
 
-    code_string: Callable
-    test_cases: Callable
-    parse_results: Callable
+    code: Callable
+    input: Callable
+    output: Callable
     execution_params: CodeExecutionRequestParams
 
     def create_code_execution_request(self, row: dict, idx: int) -> CodeExecutionRequest:
@@ -27,8 +27,8 @@ class CodeFormatter:
             ValueError: If prompt_func has invalid number of arguments or returns invalid format
         """
         return CodeExecutionRequest(
-            code=self.code_string(row),
-            test_cases=self.test_cases(row),
+            code=self.code(row),
+            input=self.input(row),
             execution_params=self.execution_params,
             original_row=row,
             original_row_idx=idx,

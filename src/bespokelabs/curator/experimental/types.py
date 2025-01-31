@@ -31,7 +31,7 @@ class CodeExecutionRequest(BaseModel):
     """Request to the code execution backend."""
 
     code: str
-    test_cases: List[TestCase]
+    input: List[TestCase]
     execution_params: Optional[CodeExecutionRequestParams] = None
     original_row: Optional[Dict[str, Any]] = None
     original_row_idx: Optional[int] = None

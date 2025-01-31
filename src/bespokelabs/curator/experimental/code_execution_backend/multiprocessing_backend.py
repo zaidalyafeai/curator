@@ -28,7 +28,7 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
             self.process_pool,
             self.execute_standard_input_request,
             request.generic_request.code,
-            request.generic_request.test_cases,
+            request.generic_request.input,
             request.generic_request.execution_params.timeout,
         )
 
@@ -52,12 +52,12 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
             return temp_file.name
 
     @classmethod
-    def execute_standard_input_request(cls, code: str, test_cases: list, timeout: int, early_stop: bool = True) -> dict:
+    def execute_standard_input_request(cls, code: str, input: list, timeout: int, early_stop: bool = True) -> dict:
         """Execute code with function calls and test cases.
 
         Args:
             code: Source code
-            test_cases: List of test cases to run
+            input: List of test cases to run
             timeout: Execution timeout in seconds
             early_stop: Whether to stop on first failure
 
@@ -69,7 +69,7 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
             temp_program_path = cls._create_temp_file(code)
             exec_results = []
 
-            for test_case_idx, test_case in enumerate(test_cases):
+            for test_case_idx, test_case in enumerate(input):
                 input_data = test_case.input
                 if isinstance(input_data, list):
                     input_data = "\n".join(input_data)

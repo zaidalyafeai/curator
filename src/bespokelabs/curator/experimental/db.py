@@ -38,9 +38,9 @@ class CodeMetadataDB:
         expected_columns = [
             "run_hash",
             "dataset_hash",
-            "code_string",
-            "test_cases",
-            "parse_results",
+            "code",
+            "input",
+            "output",
             "created_time",
             "last_edited_time",
         ]
@@ -62,9 +62,9 @@ class CodeMetadataDB:
             metadata: Dictionary containing run metadata with keys:
                 - timestamp: ISO format timestamp
                 - dataset_hash: Unique hash of input dataset
-                - code_string: Source code of code string function
-                - test_cases: Source code of test cases function
-                - parse_results: Source code of parse results function
+                - code: Source code of code string function
+                - input: Source code of test cases function
+                - output: Source code of parse results function
                 - run_hash: Unique hash identifying the run
         """
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
@@ -78,9 +78,9 @@ class CodeMetadataDB:
                 CREATE TABLE IF NOT EXISTS runs_code (
                     run_hash TEXT PRIMARY KEY,
                     dataset_hash TEXT,
-                    code_string TEXT,
-                    test_cases TEXT,
-                    parse_results TEXT,
+                    code TEXT,
+                    input TEXT,
+                    output TEXT,
                     created_time TEXT,
                     last_edited_time TEXT
                 )
@@ -110,15 +110,15 @@ class CodeMetadataDB:
                 cursor.execute(
                     """
                     INSERT INTO runs_code (
-                        run_hash, dataset_hash, code_string, test_cases, parse_results, created_time, last_edited_time
+                        run_hash, dataset_hash, code, input, output, created_time, last_edited_time
                     ) VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         metadata["run_hash"],
                         metadata["dataset_hash"],
-                        metadata["code_string"],
-                        metadata["test_cases"],
-                        metadata["parse_results"],
+                        metadata["code"],
+                        metadata["input"],
+                        metadata["output"],
                         metadata["timestamp"],
                         "-",
                     ),

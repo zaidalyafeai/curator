@@ -32,12 +32,12 @@ class DockerCodeExecutionBackend(BaseCodeExecutionBackend):
     async def execute_request(self, request: CodeAPIRequest) -> CodeExecutionResponse:
         """Execute a single request in a Docker container."""
         results = await self.execute_standard_input_request(
-            request.generic_request.code, request.generic_request.test_cases, request.generic_request.execution_params.timeout
+            request.generic_request.code, request.generic_request.input, request.generic_request.execution_params.timeout
         )
 
         return CodeExecutionResponse(responses=results, code_api_request=request)
 
-    async def execute_standard_input_request(self, code: str, test_cases: list, timeout: int) -> list:
+    async def execute_standard_input_request(self, code: str, input: list, timeout: int) -> list:
         """Execute code with test cases in Docker container."""
         await self._ensure_client()
         temp_program_path = None
@@ -48,7 +48,7 @@ class DockerCodeExecutionBackend(BaseCodeExecutionBackend):
                 temp_program_path = temp_file.name
 
             exec_results = []
-            for test_case_idx, test_case in enumerate(test_cases):
+            for test_case_idx, test_case in enumerate(input):
                 input_data = test_case.input
                 if isinstance(input_data, list):
                     input_data = "\n".join(input_data)
