@@ -12,14 +12,6 @@ class CodeExecutionResult(BaseModel):
     stderr: str
     exit_code: int
 
-
-class TestCase(BaseModel):
-    """Test case for the code execution backend."""
-
-    input: Any
-    expected_output: Any
-
-
 class CodeExecutionRequestParams(BaseModel):
     """Parameters for the code execution backend."""
 
@@ -31,7 +23,8 @@ class CodeExecutionRequest(BaseModel):
     """Request to the code execution backend."""
 
     code: str
-    input: List[TestCase]
+    code_input: str
+    code_output: str
     execution_params: Optional[CodeExecutionRequestParams] = None
     original_row: Optional[Dict[str, Any]] = None
     original_row_idx: Optional[int] = None

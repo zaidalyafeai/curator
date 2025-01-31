@@ -82,10 +82,10 @@ class CodeExecutorActor:
                 except Exception:
                     pass
 
-    async def execute_input(self, code: str, input: List, timeout: int) -> List[CodeTestCaseResponse]:
+    async def execute_test_cases(self, code: str, test_cases: List, timeout: int) -> List[CodeTestCaseResponse]:
         """Execute multiple test cases in isolation."""
         results = []
-        for idx, test_case in enumerate(input):
+        for idx, test_case in enumerate(test_cases):
             result = await self.execute_test_case(code, test_case, idx, timeout)
             results.append(result)
         return results
@@ -109,11 +109,11 @@ class RayCodeExecutionBackend(BaseCodeExecutionBackend):
     async def execute_request(self, request: CodeAPIRequest) -> CodeExecutionResponse:
         """Execute a single request using Ray actors."""
         code = request.generic_request.code
-        input = request.generic_request.input
+        test_cases = request.generic_request.test_cases
         timeout = request.generic_request.execution_params.timeout
 
         # Execute all test cases in the remote executor
-        results = await asyncio.get_event_loop().run_in_executor(None, ray.get, self.executor.execute_input.remote(code, input, timeout))
+        results = await asyncio.get_event_loop().run_in_executor(None, ray.get, self.executor.execute_test_cases.remote(code, test_cases, timeout))
 
         return CodeExecutionResponse(
             responses=results,

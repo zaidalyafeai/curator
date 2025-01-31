@@ -9,8 +9,8 @@ class CodeFormatter:
     """Formatter for the code execution backend."""
 
     code: Callable
-    input: Callable
-    output: Callable
+    code_input: Callable
+    code_output: Callable
     execution_params: CodeExecutionRequestParams
 
     def create_code_execution_request(self, row: dict, idx: int) -> CodeExecutionRequest:
@@ -28,7 +28,7 @@ class CodeFormatter:
         """
         return CodeExecutionRequest(
             code=self.code(row),
-            input=self.input(row),
+            code_input=self.code_input(row),
             execution_params=self.execution_params,
             original_row=row,
             original_row_idx=idx,

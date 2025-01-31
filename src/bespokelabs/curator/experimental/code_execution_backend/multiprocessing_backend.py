@@ -28,7 +28,7 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
             self.process_pool,
             self.execute_standard_input_request,
             request.generic_request.code,
-            request.generic_request.input,
+            request.generic_request.code_input,
             request.generic_request.execution_params.timeout,
         )
 
@@ -69,10 +69,9 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
             temp_program_path = cls._create_temp_file(code)
             exec_results = []
 
-            for test_case_idx, test_case in enumerate(input):
-                input_data = test_case.input
-                if isinstance(input_data, list):
-                    input_data = "\n".join(input_data)
+            input_data = input
+            if isinstance(input_data, list):
+                input_data = "\n".join(input_data)
 
                 try:
                     result = subprocess.run(["python", temp_program_path], input=input_data, text=True, capture_output=True, timeout=timeout)

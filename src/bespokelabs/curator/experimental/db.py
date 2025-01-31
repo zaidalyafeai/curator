@@ -39,8 +39,8 @@ class CodeMetadataDB:
             "run_hash",
             "dataset_hash",
             "code",
-            "input",
-            "output",
+            "code_input",
+            "code_output",
             "created_time",
             "last_edited_time",
         ]
@@ -63,8 +63,8 @@ class CodeMetadataDB:
                 - timestamp: ISO format timestamp
                 - dataset_hash: Unique hash of input dataset
                 - code: Source code of code string function
-                - input: Source code of test cases function
-                - output: Source code of parse results function
+                - code_input: Source code of test cases function
+                - code_output: Source code of parse results function
                 - run_hash: Unique hash identifying the run
         """
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
@@ -79,8 +79,8 @@ class CodeMetadataDB:
                     run_hash TEXT PRIMARY KEY,
                     dataset_hash TEXT,
                     code TEXT,
-                    input TEXT,
-                    output TEXT,
+                    code_input TEXT,
+                    code_output TEXT,
                     created_time TEXT,
                     last_edited_time TEXT
                 )
@@ -110,15 +110,15 @@ class CodeMetadataDB:
                 cursor.execute(
                     """
                     INSERT INTO runs_code (
-                        run_hash, dataset_hash, code, input, output, created_time, last_edited_time
+                        run_hash, dataset_hash, code, code_input, code_output, created_time, last_edited_time
                     ) VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         metadata["run_hash"],
                         metadata["dataset_hash"],
                         metadata["code"],
-                        metadata["input"],
-                        metadata["output"],
+                        metadata["code_input"],
+                        metadata["code_output"],
                         metadata["timestamp"],
                         "-",
                     ),

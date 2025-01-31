@@ -41,11 +41,11 @@ class CodeExecutor:
         """Extract code from a dataset row."""
         pass
 
-    def input(self, row: dict):
+    def code_input(self, row: dict):
         """Extract input from a dataset row."""
         pass
 
-    def output(self, row: dict, code_output: Any):
+    def code_output(self, row: dict, execution_output: Any):
         """Extract output from a dataset row."""
         pass
 
@@ -78,8 +78,8 @@ class CodeExecutor:
         else:
             # Generate deterministic fingerprint based on dataset and method hashes
             code_hash = _get_function_hash(self.code)
-            input_hash = _get_function_hash(self.input)
-            output_hash = _get_function_hash(self.output)
+            input_hash = _get_function_hash(self.code_input)
+            output_hash = _get_function_hash(self.code_output)
 
             fingerprint_str = "_".join(
                 [
@@ -142,8 +142,8 @@ class CodeExecutor:
             "timestamp": datetime.now().isoformat(),
             "dataset_hash": dataset_hash,
             "code": _get_function_source(self.code),
-            "input": _get_function_source(self.input),
-            "output": _get_function_source(self.output),
+            "code_input": _get_function_source(self.code_input),
+            "code_output": _get_function_source(self.code_output),
             "run_hash": fingerprint,
         }
 
@@ -155,8 +155,8 @@ class CodeExecutor:
         # Generate hash of all function implementations
         all_func_hash = [
             _get_function_hash(self.code),
-            _get_function_hash(self.input),
-            _get_function_hash(self.output),
+            _get_function_hash(self.code_input),
+            _get_function_hash(self.code_output),
         ]
 
         all_func_hash_str = "_".join(all_func_hash)
@@ -165,8 +165,8 @@ class CodeExecutor:
         # Initialize code formatter
         self.code_formatter = CodeFormatter(
             code=self.code,
-            input=self.input,
-            output=self.output,
+            code_input=self.code_input,
+            code_output=self.code_output,
             execution_params=execution_params,
         )
 

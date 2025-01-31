@@ -285,8 +285,8 @@ class BaseCodeExecutionBackend:
             ValueError: If model doesn't support structured output but it's requested
         """
         self.code = code_formatter.code
-        self.input = code_formatter.input
-        self.output = code_formatter.output
+        self.code_input = code_formatter.code_input
+        self.code_output = code_formatter.code_output
         self.working_dir = working_dir
         self.total_requests = len(dataset) if dataset is not None else 1
         # load from already completed dataset
@@ -506,9 +506,9 @@ class BaseCodeExecutionBackend:
                         # parse_func can return a single row or a list of rows
                         if self.code_formatter.output:
                             try:
-                                dataset_rows = self.code_formatter.output(
+                                dataset_rows = self.code_formatter.code_output(
                                     response.code_api_request.generic_request.original_row,
-                                    response.code_api_request.generic_request.input,
+                                    response.code_api_request.generic_request.code_output,
                                     response.responses,
                                 )
                             except Exception as e:
