@@ -1,17 +1,17 @@
 """Multiprocessing Code Execution Backend."""
 
 import asyncio
+import logging
 import os
 import subprocess
 import tempfile
 from concurrent.futures import ProcessPoolExecutor
 
 from bespokelabs.curator.experimental.code_execution_backend.base_backend import BaseCodeExecutionBackend
-from bespokelabs.curator.experimental.types import CodeAPIRequest, CodeExecutionResponse, CodeExecutionRequestParams
-
-import logging
+from bespokelabs.curator.experimental.types import CodeAPIRequest, CodeExecutionOutput, CodeExecutionRequestParams
 
 logger = logging.getLogger(__name__)
+
 
 class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
     """Multiprocessing Code Execution Backend."""
@@ -23,7 +23,7 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
         self.process_pool = ProcessPoolExecutor(max_workers=os.cpu_count())
         logger.debug(f"Initialized multiprocessing backend with {os.cpu_count()} workers")
 
-    async def execute_request(self, request: CodeAPIRequest) -> CodeExecutionResponse:
+    async def execute_request(self, request: CodeAPIRequest) -> CodeExecutionOutput:
         """Execute a single request."""
         loop = asyncio.get_running_loop()
 
@@ -50,7 +50,7 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
             return temp_file.name
 
     @classmethod
-    def execute_standard_input_request(cls, code: str, code_input: str, execution_params: CodeExecutionRequestParams) -> CodeExecutionResponse:
+    def execute_standard_input_request(cls, code: str, code_input: str, execution_params: CodeExecutionRequestParams) -> CodeExecutionOutput:
         """Execute code with function calls and test cases.
 
         Args:
@@ -59,31 +59,30 @@ class MultiprocessingCodeExecutionBackend(BaseCodeExecutionBackend):
             execution_params: Execution parameters
 
         Returns:
-            CodeExecutionResponse: Execution results
+            CodeExecutionOutput: Execution results
         """
-
         temp_program_path = None
         output = None
         try:
             temp_program_path = cls._create_temp_file(code)
             try:
                 result = subprocess.run(["python", temp_program_path], input=code_input, text=True, capture_output=True, timeout=execution_params.timeout)
-                output = CodeExecutionResponse(
-                    response_message="success",
-                    response_stdout=result.stdout,
-                    response_stderr=result.stderr,
+                output = CodeExecutionOutput(
+                    message="success",
+                    stdout=result.stdout,
+                    stderr=result.stderr,
                 )
 
             except subprocess.TimeoutExpired:
-                output = CodeExecutionResponse(
-                    response_message="timeout",
-                    response_errors=[f"Execution timed out after {execution_params.timeout}s"],
+                output = CodeExecutionOutput(
+                    message="timeout",
+                    error=f"Execution timed out after {execution_params.timeout}s",
                 )
 
             except Exception as e:
-                output = CodeExecutionResponse(
-                    response_message="error",
-                    response_errors=[str(e)],
+                output = CodeExecutionOutput(
+                    message="error",
+                    error=str(e),
                 )
         finally:
             if temp_program_path:

@@ -16,7 +16,7 @@ from pydantic import BaseModel, ValidationError
 
 from bespokelabs.curator.experimental.code_executor.code_formatter import CodeFormatter
 from bespokelabs.curator.experimental.tracker import CodeExecutionStatusTracker
-from bespokelabs.curator.experimental.types import CodeAPIRequest, CodeExecutionRequest, CodeExecutionResponse, CodeTestCaseResponse
+from bespokelabs.curator.experimental.types import CodeAPIRequest, CodeExecutionOutput, CodeExecutionRequest, CodeExecutionResponse
 from bespokelabs.curator.file_utilities import count_lines
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 
@@ -217,13 +217,14 @@ class BaseCodeExecutionBackend:
             status_tracker: Tracks request status
         """
         try:
-            generic_response = await self.execute_request(request)
+            execution_output = await self.execute_request(request)
 
-            # Allows us to retry on responses that don't match the response format
-            generic_response = self.code_formatter.response_to_response_format(generic_response)
+            execution_response = CodeExecutionResponse(
+                code_api_request=request,
+                exec_output=execution_output,
+            ).model_dump()
 
-            # Save response in the base class
-            await self.append_generic_response(generic_response, response_file)
+            await self.append_execution_response(execution_response, response_file)
 
             # status_tracker.num_tasks_in_progress -= 1
             # status_tracker.num_tasks_succeeded += 1
@@ -247,21 +248,15 @@ class BaseCodeExecutionBackend:
                     f"Errors: {[str(e) for e in request.result]}"
                 )
 
-                generic_response = CodeExecutionResponse(
-                    responses=[
-                        CodeTestCaseResponse(
-                            test_case_idx=0,
-                            response_message=None,
-                            response_errors=[str(e) for e in request.result],
-                            response_stdout=None,
-                            response_stderr=None,
-                        )
-                    ],
+                execution_response = CodeExecutionResponse(
                     code_api_request=request,
-                )
-                await self.append_generic_response(generic_response, response_file)
-                # status_tracker.num_tasks_in_progress -= 1
-                # status_tracker.num_tasks_failed += 1
+                    exec_output=CodeExecutionOutput(
+                        message="Error",
+                        error="\n".join([str(e) for e in request.result]),
+                    ),
+                ).model_dump()
+
+                await self.append_execution_response(execution_response, response_file)
 
     def run(
         self,
@@ -486,30 +481,16 @@ class BaseCodeExecutionBackend:
         with ArrowWriter(path=dataset_file) as writer:
             for responses_file in responses_files:
                 with open(responses_file, "r") as f_in:
-                    for generic_response_string in f_in:
+                    for execution_response_string in f_in:
                         total_responses_count += 1
 
-                        response = CodeExecutionResponse.model_validate_json(generic_response_string)
-                        # if response.response_errors is not None:
-                        #     failed_responses_count += 1
-                        #     if len(error_sample) < 10:
-                        #         error_sample.append(str(response.response_errors))
-                        #     continue
+                        response = CodeExecutionResponse.model_validate_json(execution_response_string)
 
-                        # try:
-                        #     response.response_message = response.response_message
-                        # except (json.JSONDecodeError, ValidationError):
-                        #     logger.warning("Skipping response due to error parsing response message into response format")
-                        #     failed_responses_count += 1
-                        #     continue
-
-                        # parse_func can return a single row or a list of rows
-                        if self.code_formatter.output:
+                        if self.code_formatter.code_output:
                             try:
                                 dataset_rows = self.code_formatter.code_output(
                                     response.code_api_request.execution_request.original_row,
-                                    response.code_api_request.execution_request.code_output,
-                                    response.responses,
+                                    response.exec_output,
                                 )
                             except Exception as e:
                                 logger.error(f"Exception raised in your `parse_func`. {error_help}")
@@ -518,8 +499,7 @@ class BaseCodeExecutionBackend:
                             if not isinstance(dataset_rows, list):
                                 dataset_rows = [dataset_rows]
                         else:
-                            # Convert response to dict before adding to dataset
-                            raise ValueError("output is not implemented")
+                            raise ValueError("code_output is not implemented")
 
                         for row in dataset_rows:
                             if isinstance(row, BaseModel):
@@ -608,10 +588,10 @@ class BaseCodeExecutionBackend:
                         parsing_error_responses += 1
                         continue
                     row_id = response.code_api_request.execution_request.original_row_idx
-                    if response.response_errors:
-                        logger.debug(f"Request {row_id} previously failed due to errors: {response.response_errors}, removing from output and will retry")
+                    if response.exec_output.error:
+                        logger.debug(f"Request {row_id} previously failed due to errors: {response.exec_output.error}, removing from output and will retry")
                         failed_request_ids.add(row_id)
-                    elif response.response_message is None:
+                    elif response.exec_output.message is None:
                         logger.debug(f"Request {row_id} previously failed due to no response. Removing from output and will retry.")
                         failed_request_ids.add(row_id)
                     else:
@@ -663,7 +643,7 @@ class BaseCodeExecutionBackend:
             logger.warn(f"Pausing for {int(remaining_seconds_to_pause)} seconds")
             await asyncio.sleep(remaining_seconds_to_pause)
 
-    async def append_generic_response(self, data: dict, filename: str) -> None:
+    async def append_execution_response(self, data: dict, filename: str) -> None:
         """Append a response to a jsonl file with async file operations.
 
         Args:

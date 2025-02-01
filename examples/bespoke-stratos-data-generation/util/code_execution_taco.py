@@ -112,5 +112,4 @@ def process_dataset_parallel(df: Dataset, num_cpus: int = None, batch_size: int 
         print(f"Correct in this batch: {batch_correct}/{len(batch_results)} ({batch_correct / len(batch_results) * 100:.2f}%)")
         print(f"Total correct so far: {sum(1 for r in all_results if r.get('correctness', False))}/{len(all_results)}\n")
 
-
     return Dataset.from_list(all_results)

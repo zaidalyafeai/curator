@@ -1,19 +1,19 @@
 """Docker Code Execution Backend."""
 
-import os
-import tempfile
+import io
 import logging
+import os
+import tarfile
+import tempfile
 
 import aiodocker
 from aiodocker.exceptions import DockerError
 
-import tarfile
-import io
-
 from bespokelabs.curator.experimental.code_execution_backend.base_backend import BaseCodeExecutionBackend
-from bespokelabs.curator.experimental.types import CodeAPIRequest, CodeExecutionResponse, CodeExecutionRequestParams
+from bespokelabs.curator.experimental.types import CodeAPIRequest, CodeExecutionOutput, CodeExecutionRequestParams, CodeExecutionResponse
 
 logger = logging.getLogger(__name__)
+
 
 class DockerCodeExecutionBackend(BaseCodeExecutionBackend):
     """Docker-based code execution backend."""
@@ -38,9 +38,7 @@ class DockerCodeExecutionBackend(BaseCodeExecutionBackend):
     async def execute_request(self, request: CodeAPIRequest) -> CodeExecutionResponse:
         """Execute a single request in a Docker container."""
         return await self.execute_standard_input_request(
-            request.execution_request.code,
-            request.execution_request.code_input,
-            request.execution_request.execution_params
+            request.execution_request.code, request.execution_request.code_input, request.execution_request.execution_params
         )
 
     @classmethod
@@ -57,8 +55,9 @@ class DockerCodeExecutionBackend(BaseCodeExecutionBackend):
             temp_file.write(content)
             return temp_file.name
 
-    @classmethod
+    @staticmethod
     async def get_file_content(container, file_path="/tmp/stdout.txt"):
+        """Get the content of a file from a Docker container."""
         # Get the tar archive stream and metadata
         stream, stat = await container.get_archive(file_path)
 
@@ -111,45 +110,39 @@ class DockerCodeExecutionBackend(BaseCodeExecutionBackend):
                     "Volumes": {"/code": {}},
                     "OpenStdin": True,
                     "Tty": True,
-                    "StopTimeout": 1
+                    "StopTimeout": 1,
                 }
 
                 container = await self.client.containers.create(config=config)
                 await container.put_archive("/code", self._make_tarfile(temp_program_path))
-                
+
                 await container.put_archive("/code/input.txt", code_input.encode())
 
                 try:
                     await container.start()
                     exec_config = {
-                        "Cmd": ["sh", "-c", f'timeout {execution_params.timeout} python /code/program.py < /code/input.txt 2>/tmp/stderr.txt 1>/tmp/stdout.txt'],
+                        "Cmd": [
+                            "sh",
+                            "-c",
+                            f"timeout {execution_params.timeout} python /code/program.py < /code/input.txt 2>/tmp/stderr.txt 1>/tmp/stdout.txt",
+                        ],
                         "AttachStdout": True,
                         "AttachStderr": True,
                     }
-                    
+
                     exec_obj = await container.exec.create(exec_config)
                     output = await exec_obj.start()
 
                     stdout_file = await self.get_file_content(container, "/tmp/stdout.txt")
                     stderr_file = await self.get_file_content(container, "/tmp/stderr.txt")
 
-                    output = CodeExecutionResponse(
-                        response_message="success",
-                        response_stdout=stdout_file,
-                        response_stderr=stderr_file
-                    )
+                    output = CodeExecutionOutput(message="success", stdout=stdout_file, stderr=stderr_file)
 
                 except DockerError as e:
                     if "timeout" in str(e).lower():
-                        output = CodeExecutionResponse(
-                            response_message="error",
-                            response_error=f"Execution timed out after {execution_params.timeout_seconds} seconds"
-                        )
+                        output = CodeExecutionOutput(message="error", error=f"Execution timed out after {execution_params.timeout_seconds} seconds")
                     else:
-                        output = CodeExecutionResponse(
-                            response_message="error",
-                            response_error=str(e)
-                        )
+                        output = CodeExecutionOutput(message="error", error=str(e))
 
                 finally:
                     try:
@@ -159,10 +152,7 @@ class DockerCodeExecutionBackend(BaseCodeExecutionBackend):
                         pass
 
             except DockerError as e:
-                output = CodeExecutionResponse(
-                    response_message="error",
-                    response_error=f"Docker error: {str(e)}"
-                )
+                output = CodeExecutionOutput(message="error", error=f"Docker error: {str(e)}")
 
         finally:
             if temp_program_path and os.path.exists(temp_program_path):

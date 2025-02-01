@@ -1,6 +1,6 @@
 import datetime
 from dataclasses import field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel
 
@@ -11,6 +11,7 @@ class CodeExecutionResult(BaseModel):
     stdout: str
     stderr: str
     exit_code: int
+
 
 class CodeExecutionRequestParams(BaseModel):
     """Parameters for the code execution backend."""
@@ -24,10 +25,10 @@ class CodeExecutionRequest(BaseModel):
 
     code: str
     code_input: str
-    code_output: str
     execution_params: Optional[CodeExecutionRequestParams] = None
     original_row: Optional[Dict[str, Any]] = None
     original_row_idx: Optional[int] = None
+
 
 class CodeAPIRequest(BaseModel):
     """Request to the code execution backend."""
@@ -40,14 +41,20 @@ class CodeAPIRequest(BaseModel):
     result: list = field(default_factory=list)
 
 
+class CodeExecutionOutput(BaseModel):
+    """Response from the code execution backend."""
+
+    message: Optional[Dict[str, Any]] | str = None
+    error: Optional[str] = None
+    stdout: Optional[str] = None
+    stderr: Optional[str] = None
+
+
 class CodeExecutionResponse(BaseModel):
     """Response from the code execution backend."""
 
+    exec_output: CodeExecutionOutput
     code_api_request: Optional[CodeAPIRequest] = None
-    response_message: Optional[Dict[str, Any]] | str = None
-    response_error: Optional[str] = None
-    response_stdout: Optional[str] = None
-    response_stderr: Optional[str] = None
     created_at: datetime.datetime = field(default_factory=datetime.datetime.now)
     finished_at: datetime.datetime = field(default_factory=datetime.datetime.now)
 
@@ -58,3 +65,4 @@ class CodeExecutionBackendConfig(BaseModel):
     max_requests_per_minute: int = 10000
     max_retries: int = 3
     seconds_to_pause_on_rate_limit: int = 10
+    base_url: Optional[str] = None
