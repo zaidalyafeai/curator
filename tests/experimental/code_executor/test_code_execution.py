@@ -1,34 +1,54 @@
 # test with multiprocessing backend
 import pytest
 
-from bespokelabs.curator.experimental.code_execution_backend.ray_backend import RayCodeExecutionBackend
-from bespokelabs.curator.experimental.types import CodeExecutionRequest, CodeExecutionRequestParams
+from bespokelabs import curator
 
 
 @pytest.mark.asyncio
-async def test_simple_code_execution():
+async def test_simple_code_execution_multiprocessing():
     """Test simple code execution with basic input/output."""
-    # Initialize backend
-    backend = RayCodeExecutionBackend(config=None)
 
-    try:
-        # Simple Python code that reads input and prints output
-        code = """
+    # Initialize backend
+    class TestCodeExecutor(curator.experimental.CodeExecutor):
+        def code(self, row):
+            return """
 input_value = input()
 print(f"You entered: {input_value}")
 """
 
-        # Create execution request
-        request = CodeExecutionRequest(code=code, code_input="Hello World", code_output="", execution_params=CodeExecutionRequestParams(timeout=5))
+        def code_input(self, row):
+            return row["input"]
 
-        # Execute code
-        response = await backend.execute_standard_input_request(code=request.code, code_input=request.code_input, execution_params=request.execution_params)
+        def code_output(self, row, exec_output):
+            row["output"] = exec_output.stdout
+            return row
 
-        # Verify execution was successful
-        assert response.response_message == "success"
-        assert "You entered: Hello World" in response.response_stdout
-        assert not response.response_error
+    executor = TestCodeExecutor(backend="multiprocessing")
+    sample_data = [{"input": "Hello World multiprocessing"}]
+    result = executor(sample_data)
+    assert result[0]["output"] == "You entered: Hello World multiprocessing\n"
 
-    finally:
-        # Cleanup
-        backend.shutdown()
+
+@pytest.mark.asyncio
+async def test_simple_code_execution_ray():
+    """Test simple code execution with basic input/output."""
+
+    # Initialize backend
+    class TestCodeExecutor(curator.experimental.CodeExecutor):
+        def code(self, row):
+            return """
+input_value = input()
+print(f"You entered: {input_value}")
+"""
+
+        def code_input(self, row):
+            return row["input"]
+
+        def code_output(self, row, exec_output):
+            row["output"] = exec_output.stdout
+            return row
+
+    executor = TestCodeExecutor(backend="ray")
+    sample_data = [{"input": "Hello World ray"}]
+    result = executor(sample_data)
+    assert result[0]["output"] == "You entered: Hello World ray\n"
