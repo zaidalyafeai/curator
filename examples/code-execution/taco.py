@@ -49,7 +49,7 @@ class APPSCodeExecutor(curator.CodeExecutor):
 if __name__ == "__main__":
     executor = APPSCodeExecutor(backend="ray")
     dataset = load_dataset("bespokelabs/sky-t1-taco-test-rejection-sampled-shreyas")
-    execution_output = executor(dataset["train"].select(range(100)))
+    execution_output = executor(dataset["train"])
 
     print("================")
     print(execution_output)
