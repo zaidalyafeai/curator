@@ -1,4 +1,5 @@
 import logging
+import os
 import typing as t
 
 from pydantic import BaseModel
@@ -57,7 +58,7 @@ class _RequestProcessorFactory:
             return "openai"
 
         # GPT models and O1 models and DeepSeek without response format should use OpenAI
-        if not response_format and any(x in model_name for x in ["gpt-", "o1-preview", "o1-mini", "deepseek"]):
+        if not response_format and any(x in model_name for x in ["gpt-", "o1-preview", "o1-mini"]):
             logger.info(f"Requesting text output from {model_name}, using OpenAI backend")
             return "openai"
 
@@ -95,13 +96,25 @@ class _RequestProcessorFactory:
         params["return_completions_object"] = return_completions_object
         config = cls._create_config(params, batch, backend)
 
-        if backend == "openai" and not batch:
+        if backend == "klusterai" and not batch:
+            config.base_url = "https://api.kluster.ai/v1"
+            config.api_key = config.api_key or os.getenv("KLUSTERAI_API_KEY")
+            if not config.api_key:
+                raise ValueError("KLUSTERAI_API_KEY is not set")
             from bespokelabs.curator.request_processor.online.openai_online_request_processor import OpenAIOnlineRequestProcessor
 
-            # Route DeepSeek to OpenAI online backend since LiteLLM does not return
-            # reasoning_content
-            if "deepseek" in model_name:
-                config.base_url = "https://api.deepseek.com"
+            _request_processor = OpenAIOnlineRequestProcessor(config, compatible_provider="klusterai")
+        elif backend == "klusterai" and batch:
+            config.base_url = "https://api.kluster.ai/v1"
+            config.api_key = config.api_key or os.getenv("KLUSTERAI_API_KEY")
+            if not config.api_key:
+                raise ValueError("KLUSTERAI_API_KEY is not set")
+            from bespokelabs.curator.request_processor.batch.openai_batch_request_processor import OpenAIBatchRequestProcessor
+
+            _request_processor = OpenAIBatchRequestProcessor(config, compatible_provider="klusterai")
+        elif backend == "openai" and not batch:
+            from bespokelabs.curator.request_processor.online.openai_online_request_processor import OpenAIOnlineRequestProcessor
+
             _request_processor = OpenAIOnlineRequestProcessor(config)
         elif backend == "openai" and batch:
             from bespokelabs.curator.request_processor.batch.openai_batch_request_processor import OpenAIBatchRequestProcessor
@@ -111,6 +124,10 @@ class _RequestProcessorFactory:
             from bespokelabs.curator.request_processor.batch.anthropic_batch_request_processor import AnthropicBatchRequestProcessor
 
             _request_processor = AnthropicBatchRequestProcessor(config)
+        elif backend == "gemini" and batch:
+            from bespokelabs.curator.request_processor.batch.gemini_batch_request_processor import GeminiBatchRequestProcessor
+
+            _request_processor = GeminiBatchRequestProcessor(config)
         elif backend == "anthropic" and not batch:
             raise ValueError("Online mode is not currently supported with Anthropic backend.")
         elif backend == "litellm" and batch:

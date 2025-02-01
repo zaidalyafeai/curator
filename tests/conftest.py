@@ -11,7 +11,9 @@ _KEY_MAP = {
     "openai": "OPENAI_API_KEY",
     "litellm": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
+    "deepinfra": "DEEPINFRA_API_KEY",
     "vllm": "VLLM_API_KEY",
+    "gemini": "GEMINI_API_KEY",
 }
 
 
