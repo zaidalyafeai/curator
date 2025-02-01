@@ -1,6 +1,6 @@
 from typing import Optional
 
-from bespokelabs.curator.experimental.types import CodeExecutionBackendConfig
+from bespokelabs.curator.code_executor.types import CodeExecutionBackendConfig
 
 
 class _CodeExecutionBackendFactory:
@@ -10,15 +10,15 @@ class _CodeExecutionBackendFactory:
             backend_params = {}
 
         if backend == "multiprocessing":
-            from bespokelabs.curator.experimental.code_execution_backend.multiprocessing_backend import MultiprocessingCodeExecutionBackend
+            from bespokelabs.curator.code_executor.code_execution_backend.multiprocessing_backend import MultiprocessingCodeExecutionBackend
 
             _code_executor = MultiprocessingCodeExecutionBackend(CodeExecutionBackendConfig(**backend_params))
         elif backend == "docker":
-            from bespokelabs.curator.experimental.code_execution_backend.docker_backend import DockerCodeExecutionBackend
+            from bespokelabs.curator.code_executor.code_execution_backend.docker_backend import DockerCodeExecutionBackend
 
             _code_executor = DockerCodeExecutionBackend(CodeExecutionBackendConfig(**backend_params))
         elif backend == "ray":
-            from bespokelabs.curator.experimental.code_execution_backend.ray_backend import RayCodeExecutionBackend
+            from bespokelabs.curator.code_executor.code_execution_backend.ray_backend import RayCodeExecutionBackend
 
             _code_executor = RayCodeExecutionBackend(CodeExecutionBackendConfig(**backend_params))
         else:

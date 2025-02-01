@@ -1,6 +1,6 @@
 """BespokeLabs Curator."""
 
-from . import experimental
+from .code_executor.code_executor import CodeExecutor
 from .llm.llm import LLM
 
-__all__ = ["LLM", "experimental"]
+__all__ = ["LLM", "CodeExecutor"]

@@ -14,9 +14,9 @@ import aiofiles
 import pyarrow
 from pydantic import BaseModel, ValidationError
 
-from bespokelabs.curator.experimental.code_executor.code_formatter import CodeFormatter
-from bespokelabs.curator.experimental.tracker import CodeExecutionStatusTracker
-from bespokelabs.curator.experimental.types import CodeAPIRequest, CodeExecutionOutput, CodeExecutionRequest, CodeExecutionResponse
+from bespokelabs.curator.code_executor.code_formatter import CodeFormatter
+from bespokelabs.curator.code_executor.tracker import CodeExecutionStatusTracker
+from bespokelabs.curator.code_executor.types import CodeAPIRequest, CodeExecutionOutput, CodeExecutionRequest, CodeExecutionResponse
 from bespokelabs.curator.file_utilities import count_lines
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
 
@@ -189,14 +189,14 @@ class BaseCodeExecutionBackend:
                 if pending_retries:
                     done, pending_retries = await asyncio.wait(pending_retries, timeout=0.1)
 
-        # status_tracker.stop_tracker()
+        status_tracker.stop_tracker()
 
         # Log final status
         logger.info(f"Processing complete. Results saved to {response_file}")
-        # logger.info(f"Status tracker: {status_tracker}")
+        logger.info(f"Status tracker: {status_tracker}")
 
-        # if status_tracker.num_tasks_failed > 0:
-        # logger.warning(f"{status_tracker.num_tasks_failed} / {status_tracker.num_tasks_started} requests failed. Errors logged to {response_file}.")
+        if status_tracker.num_tasks_failed > 0:
+            logger.warning(f"{status_tracker.num_tasks_failed} / {status_tracker.num_tasks_started} requests failed. Errors logged to {response_file}.")
 
     async def handle_single_request_with_retries(
         self,

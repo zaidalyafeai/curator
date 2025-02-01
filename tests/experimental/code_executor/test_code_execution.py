@@ -9,7 +9,7 @@ async def test_simple_code_execution_multiprocessing():
     """Test simple code execution with basic input/output."""
 
     # Initialize backend
-    class TestCodeExecutor(curator.experimental.CodeExecutor):
+    class TestCodeExecutor(curator.CodeExecutor):
         def code(self, row):
             return """
 input_value = input()
@@ -34,7 +34,7 @@ async def test_simple_code_execution_ray():
     """Test simple code execution with basic input/output."""
 
     # Initialize backend
-    class TestCodeExecutor(curator.experimental.CodeExecutor):
+    class TestCodeExecutor(curator.CodeExecutor):
         def code(self, row):
             return """
 input_value = input()

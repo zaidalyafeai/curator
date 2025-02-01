@@ -7,8 +7,8 @@ import subprocess
 import tempfile
 from concurrent.futures import ProcessPoolExecutor
 
-from bespokelabs.curator.experimental.code_execution_backend.base_backend import BaseCodeExecutionBackend
-from bespokelabs.curator.experimental.types import CodeAPIRequest, CodeExecutionOutput, CodeExecutionRequestParams
+from bespokelabs.curator.code_executor.code_execution_backend.base_backend import BaseCodeExecutionBackend
+from bespokelabs.curator.code_executor.types import CodeAPIRequest, CodeExecutionOutput, CodeExecutionRequestParams
 
 logger = logging.getLogger(__name__)
 

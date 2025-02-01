@@ -13,10 +13,10 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, TypeVar
 from pydantic import BaseModel
 from xxhash import xxh64
 
-from bespokelabs.curator.experimental.code_execution_backend._factory import _CodeExecutionBackendFactory
-from bespokelabs.curator.experimental.code_executor.code_formatter import CodeFormatter
-from bespokelabs.curator.experimental.db import CodeMetadataDB
-from bespokelabs.curator.experimental.types import CodeExecutionRequestParams
+from bespokelabs.curator.code_executor.code_execution_backend._factory import _CodeExecutionBackendFactory
+from bespokelabs.curator.code_executor.code_formatter import CodeFormatter
+from bespokelabs.curator.code_executor.db import CodeMetadataDB
+from bespokelabs.curator.code_executor.types import CodeExecutionRequestParams
 from bespokelabs.curator.llm.llm import _convert_to_dataset, _get_function_hash, _get_function_source
 
 if TYPE_CHECKING:

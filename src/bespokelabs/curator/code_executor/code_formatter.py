@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Callable
 
-from bespokelabs.curator.experimental.types import CodeExecutionRequest, CodeExecutionRequestParams
+from bespokelabs.curator.code_executor.types import CodeExecutionRequest, CodeExecutionRequestParams
 
 
 @dataclass

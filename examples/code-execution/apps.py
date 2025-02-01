@@ -6,7 +6,7 @@ from datasets import load_dataset
 from bespokelabs import curator
 
 
-class APPSCodeExecutor(curator.experimental.CodeExecutor):
+class APPSCodeExecutor(curator.CodeExecutor):
     """APPS Code Executor."""
 
     def code(self, row):

@@ -8,8 +8,8 @@ import tempfile
 
 import ray
 
-from bespokelabs.curator.experimental.code_execution_backend.base_backend import BaseCodeExecutionBackend
-from bespokelabs.curator.experimental.types import CodeAPIRequest, CodeExecutionOutput, CodeExecutionRequestParams
+from bespokelabs.curator.code_executor.code_execution_backend.base_backend import BaseCodeExecutionBackend
+from bespokelabs.curator.code_executor.types import CodeAPIRequest, CodeExecutionOutput, CodeExecutionRequestParams
 
 
 @ray.remote
