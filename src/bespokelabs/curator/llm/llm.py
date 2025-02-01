@@ -240,6 +240,12 @@ class LLM:
 
 
 def _get_function_hash(func) -> str:
+    # setting recursion limit to avoid random recursion limit error
+    # todo: understand why this is happening and fix it
+    import sys
+
+    sys.setrecursionlimit(10000)
+
     """Get a hash of a function's source code."""
     if func is None:
         return xxh64("").hexdigest()
