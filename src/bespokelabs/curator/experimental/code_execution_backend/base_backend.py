@@ -105,9 +105,9 @@ class BaseCodeExecutionBackend:
         completed_request_ids = self.validate_existing_response_file(response_file)
 
         # Count total requests
-        # status_tracker.num_tasks_already_completed = len(completed_request_ids)
-        # status_tracker.total_requests = self.total_requests
-        # status_tracker.start_tracker(self._tracker_console)
+        status_tracker.num_tasks_already_completed = len(completed_request_ids)
+        status_tracker.total_requests = self.total_requests
+        status_tracker.start_tracker(self._tracker_console)
 
         # Use higher connector limit for better throughput
         async with aiofiles.open(execution_request_filepath) as file:
@@ -131,9 +131,10 @@ class BaseCodeExecutionBackend:
                 # while not status_tracker.has_capacity():
                 # await asyncio.sleep(0.1)
 
-                # status_tracker.consume_capacity()
+                status_tracker.consume_capacity()
 
                 # Wait for rate limits cool down if needed
+                # todo: implement this
                 # await self.cool_down_if_rate_limit_error(status_tracker)
 
                 task = asyncio.create_task(
@@ -141,7 +142,7 @@ class BaseCodeExecutionBackend:
                         request=request,
                         retry_queue=queue_of_requests_to_retry,
                         response_file=response_file,
-                        # status_tracker=status_tracker,
+                        status_tracker=status_tracker,
                     )
                 )
 
@@ -202,7 +203,7 @@ class BaseCodeExecutionBackend:
         request: CodeAPIRequest,
         retry_queue: asyncio.Queue,
         response_file: str,
-        # status_tracker: CodeExecutionStatusTracker,
+        status_tracker: CodeExecutionStatusTracker,
     ) -> None:
         """Common wrapper for handling a single request with error handling and retries.
 
@@ -226,12 +227,13 @@ class BaseCodeExecutionBackend:
 
             await self.append_execution_response(execution_response, response_file)
 
-            # status_tracker.num_tasks_in_progress -= 1
-            # status_tracker.num_tasks_succeeded += 1
-            # status_tracker.update_stats()
+            status_tracker.num_tasks_in_progress -= 1
+            status_tracker.num_tasks_succeeded += 1
+            status_tracker.update_stats()
 
         except Exception as e:
-            # status_tracker.num_other_errors += 1
+            status_tracker.num_other_errors += 1
+
             request.result.append(e)
 
             if request.attempts_left > 0:
