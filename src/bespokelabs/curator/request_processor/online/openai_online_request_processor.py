@@ -9,6 +9,7 @@ import litellm
 import requests
 import tiktoken
 
+from bespokelabs.curator.cost import cost_processor_factory
 from bespokelabs.curator.request_processor.config import OnlineRequestProcessorConfig
 from bespokelabs.curator.request_processor.online.base_online_request_processor import APIRequest, BaseOnlineRequestProcessor
 from bespokelabs.curator.request_processor.openai_request_mixin import OpenAIRequestMixin
@@ -37,9 +38,10 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
 
     _DEFAULT_COMPLETION_SUFFIX = "/chat/completions"
 
-    def __init__(self, config: OnlineRequestProcessorConfig):
+    def __init__(self, config: OnlineRequestProcessorConfig, compatible_provider: str = None):
         """Initialize the OpenAIOnlineRequestProcessor."""
         super().__init__(config)
+        self._cost_processor = cost_processor_factory(compatible_provider or self.backend)
 
         if self.config.base_url is None:
             if "OPENAI_BASE_URL" in os.environ:
@@ -55,9 +57,9 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
             # https://api-docs.deepseek.com/quick_start/rate_limit.
             # And sending an empty request for rate limits results in a 400 error like this:
             # {'error': {'message': 'Empty input messages', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_request_error'}}
-            self.api_key = os.getenv("DEEPSEEK_API_KEY")
+            self.api_key = self.config.api_key or os.getenv("DEEPSEEK_API_KEY")
         else:
-            self.api_key = os.getenv("OPENAI_API_KEY")
+            self.api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
             self.header_based_max_requests_per_minute, self.header_based_max_tokens_per_minute = self.get_header_based_rate_limits()
         self.token_encoding = self.get_token_encoding()
 

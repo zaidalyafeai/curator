@@ -1,6 +1,9 @@
+import logging
 from typing import Any
 
 from bespokelabs.curator.types.generic_request import GenericRequest
+
+logger = logger = logging.getLogger(__name__)
 
 
 class OpenAIRequestMixin:

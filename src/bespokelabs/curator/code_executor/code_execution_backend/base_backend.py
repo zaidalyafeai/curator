@@ -1,27 +1,24 @@
-"""Base module for request processing functionality."""
+"""Base class for the code execution backend."""
 
 import asyncio
-import functools
 import glob
 import json
 import logging
 import os
 import resource
-from abc import ABC, abstractmethod
-from math import ceil
+import time
+from abc import abstractmethod
 from typing import TYPE_CHECKING, List, Optional
 
 import aiofiles
 import pyarrow
 from pydantic import BaseModel, ValidationError
 
-from bespokelabs.curator.cost import cost_processor_factory
+from bespokelabs.curator.code_executor.code_formatter import CodeFormatter
+from bespokelabs.curator.code_executor.tracker import CodeExecutionStatusTracker
+from bespokelabs.curator.code_executor.types import CodeAPIRequest, CodeExecutionOutput, CodeExecutionRequest, CodeExecutionResponse
 from bespokelabs.curator.file_utilities import count_lines
-from bespokelabs.curator.hf_card_template import HUGGINGFACE_CARD_TEMPLATE
-from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
-from bespokelabs.curator.request_processor.config import BatchRequestProcessorConfig, RequestProcessorConfig
 from bespokelabs.curator.request_processor.event_loop import run_in_event_loop
-from bespokelabs.curator.types.generic_response import GenericResponse
 
 if TYPE_CHECKING:
     from datasets import Dataset
@@ -31,7 +28,7 @@ logger = logging.getLogger(__name__)
 CACHE_MSG = "If you want to regenerate the dataset, disable or delete the cache."
 
 
-class BaseRequestProcessor(ABC):
+class BaseCodeExecutionBackend:
     """Base class for all request processors.
 
     Provides core functionality for processing requests through LLM APIs, including:
@@ -41,7 +38,7 @@ class BaseRequestProcessor(ABC):
     - Error handling and validation
     """
 
-    def __init__(self, config: RequestProcessorConfig):
+    def __init__(self, config: dict):
         """Initialize the request processor.
 
         Args:
@@ -53,7 +50,11 @@ class BaseRequestProcessor(ABC):
         logger.debug(f"Adjusting file descriptor limit from {soft} to {desired_limit} (hard limit: {hard})")
         resource.setrlimit(resource.RLIMIT_NOFILE, (desired_limit, hard))
         self.config = config
-        self._cost_processor = cost_processor_factory(self.backend)
+
+        self.manual_max_requests_per_minute = config.max_requests_per_minute
+        self.default_max_requests_per_minute = 10
+        # The rich.Console used for the status tracker, only set for testing
+        self._tracker_console = None
 
     @property
     @abstractmethod
@@ -62,62 +63,242 @@ class BaseRequestProcessor(ABC):
         return "base"
 
     @abstractmethod
-    def requests_to_responses(self, generic_request_files: list[str]) -> None:
+    async def execute_request(self, request: CodeAPIRequest) -> CodeExecutionResponse:
+        """Execute a single request."""
+        pass
+
+    @abstractmethod
+    def requests_to_responses(self, execution_request_files: list[str]) -> None:
         """Process request files and generate responses.
 
         Args:
-            generic_request_files: List of paths to request files to process
+            execution_request_files: List of paths to request files to process
         """
-        pass
+        for request_file in execution_request_files:
+            response_file = request_file.replace("requests_", "responses_")
+            run_in_event_loop(
+                self.process_requests_from_file(
+                    execution_request_filepath=request_file,
+                    response_file=response_file,
+                )
+            )
 
-    def check_structured_output_support(self) -> bool:
-        """Check if the model supports structured output.
+    async def process_requests_from_file(
+        self,
+        execution_request_filepath: str,
+        response_file: str,
+    ) -> None:
+        """Processes API requests in parallel, throttling to stay under rate limits.
 
-        Returns:
-            bool: True if structured output is supported, False otherwise
+        Args:
+            execution_request_filepath: Path to file containing requests
+            response_file: Path where the response data will be saved
         """
-        return True
+        # Initialize trackers
+        queue_of_requests_to_retry: asyncio.Queue[CodeExecutionRequest] = asyncio.Queue()
+        status_tracker = CodeExecutionStatusTracker()
+
+        # Get rate limits
+        status_tracker.max_requests_per_minute = self.manual_max_requests_per_minute
+
+        # Resume if a response file exists
+        completed_request_ids = self.validate_existing_response_file(response_file)
+
+        # Count total requests
+        status_tracker.num_tasks_already_completed = len(completed_request_ids)
+        status_tracker.total_requests = self.total_requests
+        status_tracker.start_tracker(self._tracker_console)
+
+        # Use higher connector limit for better throughput
+        async with aiofiles.open(execution_request_filepath) as file:
+            pending_requests = []
+
+            async for line in file:
+                execution_request = CodeExecutionRequest.model_validate_json(line)
+
+                if execution_request.original_row_idx in completed_request_ids:
+                    continue
+
+                request = CodeAPIRequest(
+                    task_id=execution_request.original_row_idx,
+                    execution_request=execution_request,
+                    attempts_left=self.config.max_retries,
+                    code_formatter=self.code_formatter,
+                )
+
+                # print(f"Processing request {request.task_id}")
+
+                # while not status_tracker.has_capacity():
+                # await asyncio.sleep(0.1)
+
+                status_tracker.consume_capacity()
+
+                # Wait for rate limits cool down if needed
+                # todo: implement this
+                # await self.cool_down_if_rate_limit_error(status_tracker)
+
+                task = asyncio.create_task(
+                    self.handle_single_request_with_retries(
+                        request=request,
+                        retry_queue=queue_of_requests_to_retry,
+                        response_file=response_file,
+                        status_tracker=status_tracker,
+                    )
+                )
+
+                pending_requests.append(task)
+
+                # status_tracker.num_tasks_started += 1
+                # status_tracker.num_tasks_in_progress += 1
+
+            # Wait for all tasks to complete
+            if pending_requests:
+                await asyncio.gather(*pending_requests)
+
+            # Process any remaining retries in the queue
+            pending_retries = set()
+            while not queue_of_requests_to_retry.empty() or pending_retries:
+                # Process new items from the queue if we have capacity
+                if not queue_of_requests_to_retry.empty():
+                    retry_request = await queue_of_requests_to_retry.get()
+                    attempt_number = self.config.max_retries - retry_request.attempts_left
+                    logger.debug(
+                        f"Retrying request {retry_request.task_id} "
+                        f"(attempt #{attempt_number} of {self.config.max_retries})"
+                        f"Previous errors: {retry_request.result}"
+                    )
+
+                    # Wait for capacity if needed
+                    # while not status_tracker.has_capacity():
+                    # await asyncio.sleep(0.1)
+
+                    # Consume capacity before making request
+                    # status_tracker.consume_capacity()
+
+                    task = asyncio.create_task(
+                        self.handle_single_request_with_retries(
+                            request=retry_request,
+                            retry_queue=queue_of_requests_to_retry,
+                            response_file=response_file,
+                            # status_tracker=status_tracker,
+                        )
+                    )
+                    pending_retries.add(task)
+
+                # Wait for some tasks to complete
+                if pending_retries:
+                    done, pending_retries = await asyncio.wait(pending_retries, timeout=0.1)
+
+        status_tracker.stop_tracker()
+
+        # Log final status
+        logger.info(f"Processing complete. Results saved to {response_file}")
+        logger.info(f"Status tracker: {status_tracker}")
+
+        if status_tracker.num_tasks_failed > 0:
+            logger.warning(f"{status_tracker.num_tasks_failed} / {status_tracker.num_tasks_started} requests failed. Errors logged to {response_file}.")
+
+    async def handle_single_request_with_retries(
+        self,
+        request: CodeAPIRequest,
+        retry_queue: asyncio.Queue,
+        response_file: str,
+        status_tracker: CodeExecutionStatusTracker,
+    ) -> None:
+        """Common wrapper for handling a single request with error handling and retries.
+
+        This method implements the common try/except logic and retry mechanism,
+        while delegating the actual API call to call_single_request.
+
+        Args:
+            request: The request to process
+            session: Async HTTP session
+            retry_queue: Queue for failed requests
+            response_file: Path where the response data will be saved
+            status_tracker: Tracks request status
+        """
+        try:
+            execution_output = await self.execute_request(request)
+
+            execution_response = CodeExecutionResponse(
+                code_api_request=request,
+                exec_output=execution_output,
+            ).model_dump()
+
+            await self.append_execution_response(execution_response, response_file)
+
+            status_tracker.num_tasks_in_progress -= 1
+            status_tracker.num_tasks_succeeded += 1
+            status_tracker.update_stats()
+
+        except Exception as e:
+            status_tracker.num_other_errors += 1
+
+            request.result.append(e)
+
+            if request.attempts_left > 0:
+                request.attempts_left -= 1
+                logger.warning(
+                    f"Encountered '{e.__class__.__name__}: {e}' during attempt "
+                    f"{self.config.max_retries - request.attempts_left} of {self.config.max_retries} "
+                    f"while processing request {request.task_id}"
+                )
+                retry_queue.put_nowait(request)
+            else:
+                logger.error(
+                    f"Request {request.task_id} failed permanently after exhausting all {self.config.max_retries} retry attempts. "
+                    f"Errors: {[str(e) for e in request.result]}"
+                )
+
+                execution_response = CodeExecutionResponse(
+                    code_api_request=request,
+                    exec_output=CodeExecutionOutput(
+                        message="Error",
+                        error="\n".join([str(e) for e in request.result]),
+                    ),
+                ).model_dump()
+
+                await self.append_execution_response(execution_response, response_file)
 
     def run(
         self,
         dataset: "Dataset",
         working_dir: str,
-        parse_func_hash: str,
-        prompt_formatter: PromptFormatter,
+        code_formatter: CodeFormatter,
+        all_func_hash_hash: str,
     ) -> "Dataset":
         """Uses the API to completing the specific map by calling the LLM.
 
         Args:
             dataset: Dataset that is being mapped over
             working_dir: Working directory to save files (requests.jsonl, responses.jsonl, dataset.arrow)
-            parse_func_hash: Hash of the parse function for caching
-            prompt_formatter: Formatter for generating prompts from dataset rows
+            code_formatter: Code formatter to use
+            all_func_hash_hash: Hash identifying the dataset version
 
         Returns:
-            Dataset: Completed dataset with LLM responses
+            Dataset: Completed dataset with responses
 
         Raises:
             ValueError: If model doesn't support structured output but it's requested
         """
-        self.prompt_formatter = prompt_formatter
+        self.code = code_formatter.code
+        self.code_input = code_formatter.code_input
+        self.code_output = code_formatter.code_output
         self.working_dir = working_dir
         self.total_requests = len(dataset) if dataset is not None else 1
-
         # load from already completed dataset
-        output_dataset = self.attempt_loading_cached_dataset(parse_func_hash)
+
+        output_dataset = self.attempt_loading_cached_dataset(all_func_hash_hash)
         if output_dataset is not None:
             return output_dataset
-        logger.info(f"Running {self.__class__.__name__} completions with model: {self.config.model}")
 
-        self.prompt_formatter = prompt_formatter
-        if self.prompt_formatter.response_format:
-            if not self.check_structured_output_support():
-                raise ValueError(f"Model {self.config.model} does not support structured output, response_format: {self.prompt_formatter.response_format}")
-        generic_request_files = self.create_request_files(dataset)
+        self.code_formatter = code_formatter
 
-        self.requests_to_responses(generic_request_files)
+        execution_request_files = self.create_request_files(dataset)
 
-        return self.create_dataset_files(parse_func_hash)
+        self.requests_to_responses(execution_request_files)
+
+        return self.create_dataset_files(all_func_hash_hash)
 
     def _verify_existing_request_files(self, dataset: Optional["Dataset"]) -> List[int]:
         """Verify integrity of the cache and identify files needing regeneration.
@@ -130,10 +311,7 @@ class BaseRequestProcessor(ABC):
         Returns:
             List of indices for request files that need to be regenerated
         """
-        if isinstance(self.config, BatchRequestProcessorConfig) and dataset is not None:
-            expected_num_files = ceil(len(dataset) / self.config.batch_size)
-        else:
-            expected_num_files = 1
+        expected_num_files = 1
 
         try:
             incomplete_files = []
@@ -208,40 +386,11 @@ class BaseRequestProcessor(ABC):
         request_files = [request_file]
 
         metadata_file = os.path.join(self.working_dir, "metadata_0.json")
-        metadata_files = [metadata_file]
 
         if dataset is None:
-            with open(request_file, "w") as f:
-                generic_request = self.prompt_formatter.create_generic_request(dict(), 0)  # noqa: C408
-                generic_request.generation_params = self.config.generation_params
-                f.write(json.dumps(generic_request.model_dump(), default=str) + "\n")
+            raise ValueError("Dataset is empty")
 
-            metadata_dict = {"num_jobs": 1}
-            with open(metadata_file, "w") as f:
-                f.write(json.dumps(metadata_dict, indent=4) + "\n")
-            return request_files
-
-        if isinstance(self.config, BatchRequestProcessorConfig):
-            num_batches = ceil(len(dataset) / self.config.batch_size)
-            request_files = [os.path.join(self.working_dir, f"requests_{i}.jsonl") for i in range(num_batches)]
-            metadata_files = [os.path.join(self.working_dir, f"metadata_{i}.json") for i in range(num_batches)]
-
-            async def create_all_request_files():
-                tasks = [
-                    self.acreate_request_file(
-                        dataset,
-                        request_files[i],
-                        metadata_files[i],
-                        start_idx=i * self.config.batch_size,
-                    )
-                    for i in range(num_batches)
-                    if i in incomplete_files
-                ]
-                await asyncio.gather(*tasks)
-
-            run_in_event_loop(create_all_request_files())
-        else:
-            run_in_event_loop(self.acreate_request_file(dataset, request_file, metadata_file))
+        run_in_event_loop(self.acreate_request_file(dataset, request_file, metadata_file))
 
         return request_files
 
@@ -260,18 +409,13 @@ class BaseRequestProcessor(ABC):
             metadata_file: Path to save metadata file
             start_idx: Starting index in dataset for this batch
         """
-        if isinstance(self.config, BatchRequestProcessorConfig):
-            end_idx = min(start_idx + self.config.batch_size, len(dataset))
-            dataset = dataset.select(range(start_idx, end_idx))
-        else:
-            end_idx = len(dataset)
+        end_idx = len(dataset)
 
         async with aiofiles.open(request_file, "w") as f:
             for idx, dataset_row in enumerate(dataset):
                 dataset_row_idx = idx + start_idx
                 # Get the generic request from the map function
-                request = self.prompt_formatter.create_generic_request(dataset_row, dataset_row_idx)
-                request.generation_params = self.config.generation_params
+                request = self.code_formatter.create_code_execution_request(dataset_row, dataset_row_idx)
                 await f.write(json.dumps(request.model_dump(), default=str) + "\n")
 
         num_requests = end_idx - start_idx
@@ -281,16 +425,16 @@ class BaseRequestProcessor(ABC):
 
         logger.info(f"Wrote {num_requests} requests to {request_file}.")
 
-    def attempt_loading_cached_dataset(self, parse_func_hash: str) -> Optional["Dataset"]:
+    def attempt_loading_cached_dataset(self, all_func_hash_hash: str) -> Optional["Dataset"]:
         """Attempt to load a cached dataset file.
 
         Args:
-            parse_func_hash: Hash identifying the specific dataset
+            all_func_hash_hash: Hash identifying the specific dataset
 
         Returns:
             Cached dataset if available and valid, None otherwise
         """
-        dataset_file = os.path.join(self.working_dir, f"{parse_func_hash}.arrow")
+        dataset_file = os.path.join(self.working_dir, f"{all_func_hash_hash}.arrow")
         if os.path.exists(dataset_file):
             logger.debug(f"Loading dataset from {dataset_file}")
             try:
@@ -306,12 +450,12 @@ class BaseRequestProcessor(ABC):
 
     def create_dataset_files(
         self,
-        parse_func_hash: str,
+        all_func_hash_hash: str,
     ) -> "Dataset":
         """Creates dataset from response files.
 
         Args:
-            parse_func_hash: Hash identifying the dataset version
+            all_func_hash_hash: Hash identifying the dataset version
 
         Returns:
             Dataset containing processed responses
@@ -333,35 +477,22 @@ class BaseRequestProcessor(ABC):
         total_responses_count = 0
         failed_responses_count = 0
         error_sample = []
-        dataset_file = os.path.join(self.working_dir, f"{parse_func_hash}.arrow")
+        dataset_file = os.path.join(self.working_dir, f"{all_func_hash_hash}.arrow")
         from datasets.arrow_writer import ArrowWriter
 
         with ArrowWriter(path=dataset_file) as writer:
             for responses_file in responses_files:
                 with open(responses_file, "r") as f_in:
-                    for generic_response_string in f_in:
+                    for execution_response_string in f_in:
                         total_responses_count += 1
-                        response = GenericResponse.model_validate_json(generic_response_string)
 
-                        if response.response_errors is not None:
-                            failed_responses_count += 1
-                            if len(error_sample) < 10:
-                                error_sample.append(str(response.response_errors))
-                            continue
+                        response = CodeExecutionResponse.model_validate_json(execution_response_string)
 
-                        try:
-                            response.response_message = self.prompt_formatter.response_to_response_format(response.response_message)
-                        except (json.JSONDecodeError, ValidationError):
-                            logger.warning("Skipping response due to error parsing response message into response format")
-                            failed_responses_count += 1
-                            continue
-
-                        # parse_func can return a single row or a list of rows
-                        if self.prompt_formatter.parse_func:
+                        if self.code_formatter.code_output:
                             try:
-                                dataset_rows = self.prompt_formatter.parse_func(
-                                    response.generic_request.original_row,
-                                    response.response_message,
+                                dataset_rows = self.code_formatter.code_output(
+                                    response.code_api_request.execution_request.original_row,
+                                    response.exec_output,
                                 )
                             except Exception as e:
                                 logger.error(f"Exception raised in your `parse_func`. {error_help}")
@@ -370,13 +501,7 @@ class BaseRequestProcessor(ABC):
                             if not isinstance(dataset_rows, list):
                                 dataset_rows = [dataset_rows]
                         else:
-                            # Convert response to dict before adding to dataset
-                            response_value = response.response_message
-                            if hasattr(response_value, "model_dump"):
-                                response_value = response_value.model_dump()
-                            elif hasattr(response_value, "__dict__"):
-                                response_value = response_value.__dict__
-                            dataset_rows = [{"response": response_value}]
+                            raise ValueError("code_output is not implemented")
 
                         for row in dataset_rows:
                             if isinstance(row, BaseModel):
@@ -391,7 +516,7 @@ class BaseRequestProcessor(ABC):
                                 os.remove(dataset_file)
                                 raise ValueError(f"Got empty row {row} from `parse_func`. {error_help}")
                             # Add the original row index to the row so that we can sort by it later.
-                            row["__original_row_idx"] = response.generic_request.original_row_idx
+                            row["__original_row_idx"] = response.code_api_request.execution_request.original_row_idx
                             writer.write(row)
 
             logger.info(f"Read {total_responses_count} responses.")
@@ -432,29 +557,11 @@ class BaseRequestProcessor(ABC):
     def _load_from_dataset_file(self, dataset_file: str) -> "Dataset":
         from datasets import Dataset
 
+        print(f"Loading dataset from {dataset_file}")
         d = Dataset.from_file(dataset_file)
         d = d.sort("__original_row_idx")
         d = d.remove_columns("__original_row_idx")
-
-        push_to_hub = functools.partial(BaseRequestProcessor.push_to_hub, dataset=d, _push_to_hub=d.push_to_hub)
-        d.push_to_hub = push_to_hub
-
         return d
-
-    @staticmethod
-    def push_to_hub(repo_id: str, dataset=None, _push_to_hub=None, **kwargs):
-        """Push the dataset to the hub and create a dataset card."""
-        from huggingface_hub import DatasetCard
-
-        _push_to_hub(repo_id, **kwargs)
-        card = DatasetCard(
-            HUGGINGFACE_CARD_TEMPLATE.format(
-                dataset_name=repo_id.split("/")[-1],
-                repo_id=repo_id,
-                sample=json.dumps(dataset[0], indent=4),
-            )
-        )
-        card.push_to_hub(repo_id, **kwargs)
 
     def validate_existing_response_file(self, response_file: str) -> set[int]:
         """Parse an existing response file to identify completed requests and removes failed requests.
@@ -477,16 +584,16 @@ class BaseRequestProcessor(ABC):
             with open(response_file, "r") as input_file, open(temp_filepath, "w") as output_file:
                 for line in input_file:
                     try:
-                        response = GenericResponse.model_validate_json(line)
+                        response = CodeExecutionResponse.model_validate_json(line)
                     except (json.JSONDecodeError, ValidationError):
                         logger.warning("Skipping response due to error parsing line")
                         parsing_error_responses += 1
                         continue
-                    row_id = response.generic_request.original_row_idx
-                    if response.response_errors:
-                        logger.debug(f"Request {row_id} previously failed due to errors: {response.response_errors}, removing from output and will retry")
+                    row_id = response.code_api_request.execution_request.original_row_idx
+                    if response.exec_output.error:
+                        logger.debug(f"Request {row_id} previously failed due to errors: {response.exec_output.error}, removing from output and will retry")
                         failed_request_ids.add(row_id)
-                    elif response.response_message is None:
+                    elif response.exec_output.message is None:
                         logger.debug(f"Request {row_id} previously failed due to no response. Removing from output and will retry.")
                         failed_request_ids.add(row_id)
                     else:
@@ -524,3 +631,28 @@ class BaseRequestProcessor(ABC):
                 return metadata
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in metadata file: {metadata_file}. Delete cache directory 'rm -rf {self.working_dir}' and try again.") from e
+
+    async def cool_down_if_rate_limit_error(self, status_tracker: CodeExecutionStatusTracker) -> None:
+        """Pause processing if a rate limit error is detected.
+
+        Args:
+            status_tracker: Tracker containing rate limit status
+        """
+        seconds_to_pause_on_rate_limit = self.config.seconds_to_pause_on_rate_limit
+        seconds_since_rate_limit_error = time.time() - status_tracker.time_of_last_rate_limit_error
+        remaining_seconds_to_pause = seconds_to_pause_on_rate_limit - seconds_since_rate_limit_error
+        if remaining_seconds_to_pause > 0:
+            logger.warn(f"Pausing for {int(remaining_seconds_to_pause)} seconds")
+            await asyncio.sleep(remaining_seconds_to_pause)
+
+    async def append_execution_response(self, data: dict, filename: str) -> None:
+        """Append a response to a jsonl file with async file operations.
+
+        Args:
+            data: Response data to append
+            filename: File to append to
+        """
+        json_string = json.dumps(data, default=str)
+        async with aiofiles.open(filename, "a") as f:
+            await f.write(json_string + "\n")
+        logger.debug(f"Successfully appended response to {filename}")

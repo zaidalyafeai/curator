@@ -3,7 +3,6 @@ import logging
 import os
 from functools import lru_cache
 
-import litellm
 import vertexai
 from google.cloud import aiplatform, storage
 from pydantic import BaseModel
@@ -232,6 +231,12 @@ class GeminiBatchRequestProcessor(BaseBatchRequestProcessor):
                 }
             )
 
+        if self.config.generation_params:
+            if "generationConfig" in request_object:
+                request_object["generationConfig"].update(self.config.generation_params)
+            else:
+                request_object.update({"generationConfig": self.config.generation_params})
+
         return {
             "request": request_object,
             constants.BATCH_REQUEST_ID_TAG: str(generic_request.original_row_idx),
@@ -283,13 +288,7 @@ class GeminiBatchRequestProcessor(BaseBatchRequestProcessor):
             )
             response_message, response_errors = self.prompt_formatter.parse_response_message(response_message_raw)
 
-            cost = litellm.completion_cost(
-                model=self.config.model,
-                prompt=str(generic_request.messages),
-                completion=response_message_raw,
-            )
-            # TODO: Check if valid for gemini
-            cost *= 0.5  # 50% off for batch
+            cost = self._cost_processor.cost(model=self.config.model, prompt=str(generic_request.messages), completion=response_message_raw)
 
         # TODO: check other result types.
         else:

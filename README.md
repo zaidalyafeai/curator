@@ -30,6 +30,24 @@
 [ English | <a href="README_zh.md">中文</a> ]
 </div>
 
+## 🎉 What's New 
+
+#### [2025.01.30] Batch Processing Support
+
+- [Batch Mode](https://www.bespokelabs.ai/blog/batch-processing-with-curator): Cut Token Costs in Half: 
+  We’re launching Curator batch mode with support for OpenAI, Anthropic, and other compatible APIs. Through our partnership with kluster.ai, new users using Curator can access open-source models like DeepSeek-R1 and receive a **$25 credit** (limits apply). Please [fill out this form](https://docs.google.com/forms/d/e/1FAIpQLSeBeBKA_19ljeUCkpwkUuUL5YXUUPKUExpjmBaSfmF2XAhwVA/viewform?usp=dialog) to claim your credit.
+```python
+from bespokelabs import curator
+
+llm = curator.LLM(
+    model_name="deepseek-ai/DeepSeek-R1",
+    backend="klusterai",
+    batch=True,
+    backend_params={"max_retries": 1, "completion_window": "1h"},
+)
+```
+
+
 
 ## Overview
 
@@ -222,9 +240,10 @@ If you find Curator useful, please consider citing us!
 
 ```
 @software{Curator: A Tool for Synthetic Data Creation,
-  author = {Marten, Ryan and Vu, Trung and Cheng-Jie Ji, Charlie and Sharma, Kartik and Dimakis, Alex and Sathiamoorthy, Mahesh},
+  author = {Marten, Ryan* and Vu, Trung* and Cheng-Jie Ji, Charlie and Sharma, Kartik and Pimpalgaonkar, Shreyas and Dimakis, Alex and Sathiamoorthy, Maheswaran},
   month = jan,
   title = {{Curator}},
-  year = {2025}
+  year = {2025},
+  howpublished = {\url{https://github.com/bespokelabsai/curator}}
 }
 ```

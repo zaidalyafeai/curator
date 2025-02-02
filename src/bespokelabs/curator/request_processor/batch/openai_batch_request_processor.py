@@ -3,12 +3,12 @@ import json
 import logging
 import warnings
 
-import litellm
 from openai import AsyncOpenAI, NotFoundError
 from openai.types.batch import Batch
 from openai.types.batch_request_counts import BatchRequestCounts
 from openai.types.file_object import FileObject
 
+from bespokelabs.curator.cost import cost_processor_factory
 from bespokelabs.curator.request_processor.batch.base_batch_request_processor import BaseBatchRequestProcessor
 from bespokelabs.curator.request_processor.config import BatchRequestProcessorConfig
 from bespokelabs.curator.request_processor.openai_request_mixin import OpenAIRequestMixin
@@ -32,20 +32,19 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
     file uploads, batch submissions, and result retrieval.
     """
 
-    def __init__(self, config: BatchRequestProcessorConfig) -> None:
+    def __init__(self, config: BatchRequestProcessorConfig, compatible_provider=None) -> None:
         """Initialize the OpenAIBatchRequestProcessor."""
         super().__init__(config)
+        self._cost_processor = cost_processor_factory(compatible_provider or self.backend)
 
         self._skip_file_status_check = False
         if self.config.base_url is None:
-            self.client = AsyncOpenAI(
-                max_retries=self.config.max_retries,
-            )
+            self.client = AsyncOpenAI(max_retries=self.config.max_retries, api_key=self.config.api_key)
         else:
             if any(k in self.config.base_url for k in _UNSUPPORTED_FILE_STATUS_API_PROVIDERS):
                 self._skip_file_status_check = True
 
-            self.client = AsyncOpenAI(max_retries=self.config.max_retries, base_url=self.config.base_url)
+            self.client = AsyncOpenAI(max_retries=self.config.max_retries, api_key=self.config.api_key, base_url=self.config.base_url)
         self.web_dashboard = "https://platform.openai.com/batches"
 
     @property
@@ -192,16 +191,9 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
                 total_tokens=usage.get("total_tokens", 0),
             )
             response_message, response_errors = self.prompt_formatter.parse_response_message(response_message_raw)
-            try:
-                cost = litellm.completion_cost(
-                    model=self.config.model,
-                    prompt=str(generic_request.messages),
-                    completion=response_message_raw,
-                )
-            except litellm.exceptions.BadRequestError:
-                cost = 0.0
-                logging.warn(f"Could not retrieve cost for the model: {self.config.model}")
-            cost *= 0.5  # 50% off for batch
+            cost = self._cost_processor.cost(
+                model=self.config.model, prompt=str(generic_request.messages), completion=response_message_raw, completion_window=self.config.completion_window
+            )
 
         return GenericResponse(
             response_message=response_message,
@@ -259,12 +251,12 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
         # When submitting a file, sometimes the file is not ready immediately for status checking
         # Which results in a file not found error, so we briefly pause before checking the status
         await asyncio.sleep(1)
-        try:
-            batch_file_upload = await self.client.files.wait_for_processing(batch_file_upload.id)
-        except Exception as e:
-            if self._skip_file_status_check:
-                logger.warn("skipping uploaded file status check, provider does not support file checks.")
-            else:
+        if self._skip_file_status_check:
+            logger.debug("skipping uploaded file status check, provider does not support file checks.")
+        else:
+            try:
+                batch_file_upload = await self.client.files.wait_for_processing(batch_file_upload.id)
+            except Exception as e:
                 logger.error(f"Error waiting for batch file to be processed: {e}")
                 raise e
 
@@ -289,7 +281,7 @@ class OpenAIBatchRequestProcessor(BaseBatchRequestProcessor, OpenAIRequestMixin)
             batch = await self.client.batches.create(
                 input_file_id=batch_file_id,
                 endpoint="/v1/chat/completions",
-                completion_window="24h",
+                completion_window=self.config.completion_window,
                 metadata=metadata,
             )
             logger.debug(f"Batch submitted with id {batch.id}")
