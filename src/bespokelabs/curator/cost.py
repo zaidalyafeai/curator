@@ -16,7 +16,7 @@ class _LitellmCostProcessor:
     def cost(self, *, completion_window="*", **kwargs):
         import litellm
 
-        if kwargs.get("completion_response") is not None:
+        if "completion_response" in kwargs:
             model = kwargs["completion_response"]["model"]
         else:
             model = kwargs.get("model", None)
@@ -65,7 +65,7 @@ class _KlusterAICostProcessor(_LitellmCostProcessor):
         return model + "." + completion_window
 
     def cost(self, *, completion_window="*", **kwargs):
-        if kwargs.get("completion_response") is not None:
+        if "completion_response" in kwargs:
             model = kwargs["completion_response"]["model"]
         else:
             model = kwargs.get("model", None)
