@@ -2,7 +2,7 @@ import logging
 import os
 import uuid
 from dataclasses import dataclass
-from typing import Optional
+from typing import ClassVar, Optional
 
 import posthog
 
@@ -33,7 +33,7 @@ class TelemetryEvent:
 
     event_type: str
     metadata: dict
-    distinct_id: str = _random_distinct_id()
+    distinct_id: ClassVar[str] = _random_distinct_id()
 
 
 @dataclass
