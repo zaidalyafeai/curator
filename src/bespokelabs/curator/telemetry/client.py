@@ -6,19 +6,15 @@ from typing import Optional
 
 import posthog
 
-from bespokelabs.curator.constants import _CURATOR_DEFAULT_CACHE_DIR
+from bespokelabs.curator.constants import _DEFAULT_CACHE_DIR
 
 logger = logging.getLogger(__name__)
 
 
 def _random_distinct_id():
     # check if cache
-    curator_cache_dir = os.environ.get(
-        "CURATOR_CACHE_DIR",
-        os.path.expanduser(_CURATOR_DEFAULT_CACHE_DIR),
-    )
-    os.makedirs(curator_cache_dir, exist_ok=True)
-    distinct_id_file = os.path.join(curator_cache_dir, ".distinct_id.txt")
+    os.makedirs(_DEFAULT_CACHE_DIR, exist_ok=True)
+    distinct_id_file = os.path.join(_DEFAULT_CACHE_DIR, ".curator_config")
 
     if os.path.exists(distinct_id_file):
         with open(distinct_id_file) as f:
