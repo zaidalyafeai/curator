@@ -81,7 +81,7 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
         """
         max_concurrent_requests = super().max_concurrent_requests
         if max_concurrent_requests is None and self._concurrency_only_rate_limited:
-            logging.info("Current provider implements concurrency only rate limit, " f"Using default concurrency of {self.default_max_concurrent_requests}")
+            logging.info(f"Current provider implements concurrency only rate limit, Using default concurrency of {self.default_max_concurrent_requests}")
             return self.default_max_concurrent_requests
         return max_concurrent_requests
 
@@ -335,9 +335,10 @@ class LiteLLMOnlineRequestProcessor(BaseOnlineRequestProcessor):
                     timeout=self.config.request_timeout,
                 )
                 response_message = response.model_dump() if hasattr(response, "model_dump") else response
-                response_message = response.model_dump() if hasattr(response, "model_dump") else response
             else:
                 completion_obj = await litellm.acompletion(**request.api_specific_request, timeout=self.config.request_timeout)
+                if completion_obj is None:
+                    raise Exception("Response is empty")
                 if self.config.return_completions_object:
                     response_message = dict(completion_obj)
                 else:
