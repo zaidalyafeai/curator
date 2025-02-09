@@ -24,8 +24,6 @@ class _LitellmCostProcessor:
         cost_to_complete = 0.0
         if model in litellm.model_cost:
             cost_to_complete = litellm.completion_cost(**kwargs)
-        else:
-            logging.debug(f"Could not retrieve cost for the model: {model}")
         if self.batch:
             cost_to_complete *= 0.5
         return cost_to_complete
