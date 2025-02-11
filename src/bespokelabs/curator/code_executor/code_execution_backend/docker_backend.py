@@ -31,7 +31,7 @@ class DockerCodeExecutionBackend(BaseCodeExecutionBackend):
             self.client = aiodocker.Docker()
             # Pull image asynchronously
             try:
-                await self.client.images.pull("python:3.9-slim")
+                await self.client.images.pull("python:3.11-slim")
             except DockerError as e:
                 raise RuntimeError(f"Failed to pull Docker image: {e}") from e
 

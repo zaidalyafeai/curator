@@ -2,11 +2,13 @@
 
 import asyncio
 import glob
+import io
 import json
 import logging
 import os
 import resource
 import time
+import zipfile
 from abc import abstractmethod
 from typing import TYPE_CHECKING, List, Optional
 
@@ -180,7 +182,7 @@ class BaseCodeExecutionBackend:
                             request=retry_request,
                             retry_queue=queue_of_requests_to_retry,
                             response_file=response_file,
-                            # status_tracker=status_tracker,
+                            status_tracker=status_tracker,
                         )
                     )
                     pending_retries.add(task)
@@ -415,7 +417,8 @@ class BaseCodeExecutionBackend:
             for idx, dataset_row in enumerate(dataset):
                 dataset_row_idx = idx + start_idx
                 # Get the generic request from the map function
-                request = self.code_formatter.create_code_execution_request(dataset_row, dataset_row_idx)
+                execution_directory = os.path.join(self.working_dir, "code_execution", str(dataset_row_idx))
+                request = self.code_formatter.create_code_execution_request(dataset_row, dataset_row_idx, execution_directory)
                 await f.write(json.dumps(request.model_dump(), default=str) + "\n")
 
         num_requests = end_idx - start_idx
@@ -656,3 +659,49 @@ class BaseCodeExecutionBackend:
         async with aiofiles.open(filename, "a") as f:
             await f.write(json_string + "\n")
         logger.debug(f"Successfully appended response to {filename}")
+
+    @classmethod
+    def _create_temp_file(cls, content: str, execution_directory: str) -> str:
+        """Create a temporary file with the given content.
+
+        Args:
+            content: Content to write to temp file
+            execution_directory: Directory to create the temp file in
+
+        Returns:
+            Path to the created temp file
+        """
+        # create execution directory if it doesn't exist
+        os.makedirs(execution_directory, exist_ok=True)
+
+        temp_file_path = os.path.join(execution_directory, "program.py")
+        with open(temp_file_path, "w", encoding="utf-8") as temp_file:
+            temp_file.write(content)
+        return temp_file_path
+
+    @classmethod
+    def _get_created_files(cls, program_dir: str) -> bytes:
+        """Get any files created during code execution, excluding program.py.
+
+        Args:
+            program_dir: Directory containing the executed program and created files
+
+        Returns:
+            Bytes containing a zip archive of any created files
+        """
+        # Create zip file in memory rather than on disk
+        zip_buffer = io.BytesIO()
+
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+            for root, _, files in os.walk(program_dir):
+                for file in files:
+                    # Skip the original program file
+                    if file != "program.py":
+                        file_path = os.path.join(root, file)
+                        # Use relative path as name in zip
+                        arcname = os.path.relpath(file_path, program_dir)
+                        zipf.write(file_path, arcname)
+
+        # Get the bytes from the in-memory zip
+        zip_buffer.seek(0)
+        return zip_buffer.read()

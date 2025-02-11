@@ -28,6 +28,7 @@ class CodeExecutionRequest(BaseModel):
     execution_params: Optional[CodeExecutionRequestParams] = None
     original_row: Optional[Dict[str, Any]] = None
     original_row_idx: Optional[int] = None
+    execution_directory: Optional[str] = None
 
 
 class CodeAPIRequest(BaseModel):
@@ -48,6 +49,7 @@ class CodeExecutionOutput(BaseModel):
     error: Optional[str] = None
     stdout: Optional[str] = None
     stderr: Optional[str] = None
+    files: Optional[bytes] = None
 
 
 class CodeExecutionResponse(BaseModel):

@@ -40,8 +40,13 @@ class APPSCodeExecutor(curator.CodeExecutor):
             output = inputs_outputs["outputs"][0]
         except Exception as e:
             print("Error parsing input output", e)
+            return row
 
-        row["correct"] = output == execution_output.stdout
+        # Compare the output with execution stdout, stripping whitespace to handle formatting differences
+        if isinstance(output, str) and isinstance(execution_output.stdout, str):
+            row["correct"] = output.strip() == execution_output.stdout.strip()
+        else:
+            row["correct"] = output == execution_output.stdout
 
         return row
 
