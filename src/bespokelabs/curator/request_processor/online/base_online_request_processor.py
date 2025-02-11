@@ -4,6 +4,7 @@ This module provides the core functionality for making API requests in real-time
 handling rate limiting, retries, and concurrent processing.
 """
 
+import os
 import asyncio
 import datetime
 import json
@@ -14,6 +15,7 @@ from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass, field
 
+from pydantic import ValidationError
 import aiofiles
 import aiohttp
 
@@ -515,7 +517,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     created_at=request.created_at,
                     finished_at=datetime.datetime.now(),
                 )
-                await self.append_generic_response(generic_response, response_file)
+                await self.append_generic_response(status_tracker, generic_response, response_file)
                 status_tracker.num_tasks_in_progress -= 1
                 status_tracker.num_tasks_failed += 1
             return
@@ -526,7 +528,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 self._semaphore.release()
 
         # Save response in the base class
-        await self.append_generic_response(generic_response, response_file)
+        await self.append_generic_response(status_tracker, generic_response, response_file)
 
         status_tracker.num_tasks_in_progress -= 1
         status_tracker.num_tasks_succeeded += 1
@@ -559,14 +561,53 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         """
         pass
 
-    async def append_generic_response(self, data: GenericResponse, filename: str) -> None:
+    async def append_generic_response(self, status_tracker: OnlineStatusTracker, data: GenericResponse, filename: str) -> None:
         """Append a response to a jsonl file with async file operations.
 
         Args:
             data: Response data to append
             filename: File to append to
         """
-        json_string = json.dumps(data.model_dump(), default=str)
+        error_help = (
+            "Please check your `parse_func` is returning a valid row (dict) "
+            "or list of rows (list of dicts) and re-run. "
+            "Dataset will be regenerated from cached LLM responses."
+        )
+        
+        try:
+            data.response_message = self.prompt_formatter.response_to_response_format(data.response_message)
+        except (json.JSONDecodeError, ValidationError):
+            logger.warning("Skipping response due to error parsing response message into response format")
+            return
+
+        # parse_func can return a single row or a list of rows
+        if self.prompt_formatter.parse_func:
+            try:
+                responses = self.prompt_formatter.parse_func(
+                    data.generic_request.original_row,
+                    data.response_message,
+                )
+            except Exception as e:
+                logger.error(f"Exception raised in your `parse_func`. {error_help}")
+                # TODO: check if raise
+                raise e
+            if not isinstance(responses, list):
+                responses = [responses]
+        else:
+            # Convert response to dict before adding to dataset
+            response_value = data.response_message
+            if hasattr(response_value, "model_dump"):
+                response_value = response_value.model_dump()
+            elif hasattr(response_value, "__dict__"):
+                response_value = response_value.__dict__
+            responses = [{"response": response_value}]
+
+        data.parsed_response_message = responses
+        data_dump = data.model_dump()
+        json_string = json.dumps(data_dump, default=str)
         async with aiofiles.open(filename, "a") as f:
             await f.write(json_string + "\n")
         logger.debug(f"Successfully appended response to {filename}")
+        filename = os.path.basename(filename).split('.')[0]
+        
+        self.client.stream_response(json_string, status_tracker.num_tasks_succeeded)
