@@ -7,8 +7,8 @@ import json
 import logging
 import os
 import resource
+import tarfile
 import time
-import zipfile
 from abc import abstractmethod
 from typing import TYPE_CHECKING, List, Optional
 
@@ -681,7 +681,7 @@ class BaseCodeExecutionBackend:
 
     @classmethod
     def _get_created_files(cls, program_dir: str) -> bytes:
-        """Get any files created during code execution, excluding program.py.
+        """Get any files created during code execution.
 
         Args:
             program_dir: Directory containing the executed program and created files
@@ -689,19 +689,17 @@ class BaseCodeExecutionBackend:
         Returns:
             Bytes containing a zip archive of any created files
         """
-        # Create zip file in memory rather than on disk
-        zip_buffer = io.BytesIO()
+        # Create a BytesIO object to store the zip data
+        tar_buffer = io.BytesIO()
 
-        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
-            for root, _, files in os.walk(program_dir):
-                for file in files:
-                    # Skip the original program file
-                    if file != "program.py":
-                        file_path = os.path.join(root, file)
-                        # Use relative path as name in zip
-                        arcname = os.path.relpath(file_path, program_dir)
-                        zipf.write(file_path, arcname)
+        # Create a zip archive containing all files in program_dir
+        with tarfile.open(fileobj=tar_buffer, mode="w:gz") as tar:
+            # Add all files in program_dir to the archive
+            for filename in os.listdir(program_dir):
+                file_path = os.path.join(program_dir, filename)
+                if os.path.isfile(file_path):
+                    tar.add(file_path, arcname=filename)
 
-        # Get the bytes from the in-memory zip
-        zip_buffer.seek(0)
-        return zip_buffer.read()
+        # Get the bytes from the buffer
+        tar_buffer.seek(0)
+        return tar_buffer.getvalue()

@@ -1,9 +1,11 @@
+import ast
 import json
 import os
+import tarfile
 import tempfile
-import zipfile
+from io import BytesIO
 
-from datasets import Dataset
+from datasets import Dataset, Image
 
 from bespokelabs import curator
 
@@ -41,22 +43,23 @@ plt.close()
         """Store execution results."""
         row["chart_generated"] = execution_output.files is not None
 
-        # first unzip it using zipfile
+        # Create a file-like object from bytes
         with tempfile.TemporaryDirectory() as temp_dir:
-            # first write it to a file
-            with open(os.path.join(temp_dir, "output.zip"), "wb") as f:
-                f.write(execution_output.files)
+            # Convert the escaped bytes string back to actual bytes
+            if isinstance(execution_output.files, bytes):
+                # Convert bytes to string, then evaluate as literal to get proper bytes
+                files_str = execution_output.files.decode("utf-8")
+                actual_bytes = ast.literal_eval(files_str)
+                tar_bytes = BytesIO(actual_bytes)
+            else:
+                tar_bytes = BytesIO(execution_output.files)
 
-            breakpoint()
-            # then unzip it
-            with zipfile.ZipFile(os.path.join(temp_dir, "output.zip"), "r") as zip_ref:
-                zip_ref.extractall(temp_dir)
-
-            # then get the file
+            with tarfile.open(fileobj=tar_bytes, mode="r:gz") as tar:
+                tar.extractall(path=temp_dir)
             with open(os.path.join(temp_dir, "chart.png"), "rb") as f:
                 row["chart_image"] = f.read()
 
-            return row
+        return row
 
 
 if __name__ == "__main__":
@@ -69,5 +72,8 @@ if __name__ == "__main__":
     # Execute chart generation
     results = executor(dataset)
 
-    # push to hub
-    dataset.push_to_hub("pimpalgaonkar/chart-generation", private=True)
+    # Cast the chart_image column to Image type
+    results = results.cast_column("chart_image", Image())
+
+    # Push to hub
+    results.push_to_hub("pimpalgaonkar/chart-generation", private=True)
