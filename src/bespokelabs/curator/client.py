@@ -48,7 +48,8 @@ class Client:
         if self.session:
             return self.session
         metadata.update({"status": _SessionStatus.STARTED})
-        response = requests.post(f"{BASE_CLIENT_URL}/create_session", json={"metadata": metadata})
+
+        response = requests.post(f"{BASE_CLIENT_URL}/session", json=metadata)
 
         if response.status_code == 200:
             self._session = response.json().get("session_id")
@@ -62,8 +63,9 @@ class Client:
 
     async def _update_state(self):
         async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{BASE_CLIENT_URL}/{self.session}/status/{self._state}",
+            response = await client.put(
+                f"{BASE_CLIENT_URL}/session/{self.session}",
+                json={"status":self._state}
             )
             if response.status_code != 200:
                 logger.debug(f"Failed to update session status: {response.status_code}, {response.text}")
