@@ -1,17 +1,19 @@
-import logging
-import uuid
-import os
 import json
+import logging
+import os
 import typing as t
+import uuid
 
 import requests
 
 from bespokelabs.curator.constants import BASE_CLIENT_URL, PUBLIC_CURATOR_VIEWER_URL
+
 logger = logging.getLogger(__name__)
 
 
 class Client:
     """A class to represent the client for the Curator Viewer."""
+
     def __init__(self) -> None:
         """Initialize the client."""
         self._session = None
@@ -33,7 +35,7 @@ class Client:
             return str(uuid.uuid4().hex)
 
         if self.session:
-            return
+            return self.session
 
         response = requests.post(f"{BASE_CLIENT_URL}/create_session", json={"metadata": metadata})
 
@@ -43,7 +45,8 @@ class Client:
             logger.info("Viewer available at: " + f"{PUBLIC_CURATOR_VIEWER_URL}/{self.session}")
             return self.session
         else:
-            raise Exception(f"Failed to create session: {response.status_code}, {response.text}")
+            logger.warning(f"Failed to create session: {response.status_code}, {response.text}")
+            return str(uuid.uuid4().hex)
 
     def stream_response(self, response_data: str, idx: int):
         """Streams the response data to the server."""

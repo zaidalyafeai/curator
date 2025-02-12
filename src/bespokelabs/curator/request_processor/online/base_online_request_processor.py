@@ -4,20 +4,20 @@ This module provides the core functionality for making API requests in real-time
 handling rate limiting, retries, and concurrent processing.
 """
 
-import os
 import asyncio
 import datetime
 import json
 import logging
+import os
 import time
 import typing as t
 from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass, field
 
-from pydantic import ValidationError
 import aiofiles
 import aiohttp
+from pydantic import ValidationError
 
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor import _DEFAULT_COST_MAP
@@ -573,7 +573,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             "or list of rows (list of dicts) and re-run. "
             "Dataset will be regenerated from cached LLM responses."
         )
-        
+
         try:
             data.response_message = self.prompt_formatter.response_to_response_format(data.response_message)
         except (json.JSONDecodeError, ValidationError):
@@ -608,6 +608,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         async with aiofiles.open(filename, "a") as f:
             await f.write(json_string + "\n")
         logger.debug(f"Successfully appended response to {filename}")
-        filename = os.path.basename(filename).split('.')[0]
-        
+        filename = os.path.basename(filename).split(".")[0]
+
         self.client.stream_response(json_string, status_tracker.num_tasks_succeeded)
