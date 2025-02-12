@@ -570,12 +570,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             data: Response data to append
             filename: File to append to
         """
-        error_help = (
-            "Please check your `parse_func` is returning a valid row (dict) "
-            "or list of rows (list of dicts) and re-run. "
-            "Dataset will be regenerated from cached LLM responses."
-        )
-
         try:
             data.response_message = self.prompt_formatter.response_to_response_format(data.response_message)
         except (json.JSONDecodeError, ValidationError):
@@ -590,9 +584,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     data.response_message,
                 )
             except Exception as e:
-                logger.error(f"Exception raised in your `parse_func`. {error_help}")
-                # TODO: check if raise
-                raise e
+                logger.warning(f"Skipping response due to error in `parse_func` :: {e}")
+                return
+
             if not isinstance(responses, list):
                 responses = [responses]
         else:
