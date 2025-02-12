@@ -64,7 +64,7 @@ plt.close()
 
 if __name__ == "__main__":
     # Initialize executor with multiprocessing backend
-    executor = ChartCodeExecutor(backend="multiprocessing")
+    executor = ChartCodeExecutor(backend="docker")
 
     # Create sample dataset
     dataset = Dataset.from_list([{"id": 1}])

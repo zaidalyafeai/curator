@@ -6,8 +6,8 @@ from datasets import load_dataset
 from bespokelabs import curator
 
 
-class APPSCodeExecutor(curator.CodeExecutor):
-    """APPS Code Executor."""
+class TACOCodeExecutor(curator.CodeExecutor):
+    """TACO Code Executor."""
 
     def code(self, row):
         """Extract code string from a dataset row."""
@@ -52,9 +52,9 @@ class APPSCodeExecutor(curator.CodeExecutor):
 
 
 if __name__ == "__main__":
-    executor = APPSCodeExecutor(backend="ray")
+    executor = TACOCodeExecutor(backend="docker")
     dataset = load_dataset("bespokelabs/sky-t1-taco-test-rejection-sampled-shreyas")
-    execution_output = executor(dataset["train"])
+    execution_output = executor(dataset["train"].select(range(1)))
 
     print("================")
     print(execution_output)

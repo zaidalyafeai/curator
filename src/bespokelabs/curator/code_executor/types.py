@@ -17,6 +17,7 @@ class CodeExecutionRequestParams(BaseModel):
     """Parameters for the code execution backend."""
 
     timeout: int = 10
+    timeout_seconds: int = 10
     memory_limit: int = 1024 * 1024 * 1024
 
 
