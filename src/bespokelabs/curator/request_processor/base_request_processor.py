@@ -82,6 +82,7 @@ class BaseRequestProcessor(ABC):
         pass
 
     def register_client(self, client):
+        """Register the client for the request processor."""
         self.client = client
 
     def check_structured_output_support(self) -> bool:

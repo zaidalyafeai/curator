@@ -3,7 +3,6 @@
 import inspect
 import logging
 import os
-import uuid
 from datetime import datetime
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Type, TypeVar

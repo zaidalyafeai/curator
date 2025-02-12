@@ -433,6 +433,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     done, pending_retries = await asyncio.wait(pending_retries, timeout=0.1)
 
         status_tracker.stop_tracker()
+        await self.client.session_completed()
 
         # Log final status
         logger.info(f"Processing complete. Results saved to {response_file}")
@@ -565,6 +566,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         """Append a response to a jsonl file with async file operations.
 
         Args:
+            status_tracker: Tracker containing request status
             data: Response data to append
             filename: File to append to
         """
@@ -610,4 +612,4 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         logger.debug(f"Successfully appended response to {filename}")
         filename = os.path.basename(filename).split(".")[0]
 
-        self.client.stream_response(json_string, status_tracker.num_tasks_succeeded)
+        await self.client.stream_response(json_string, status_tracker.num_tasks_succeeded)
