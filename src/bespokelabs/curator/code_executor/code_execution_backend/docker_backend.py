@@ -25,6 +25,7 @@ class DockerCodeExecutionBackend(BaseCodeExecutionBackend):
         """Initialize the backend."""
         super().__init__(config)
         self.config = config
+        self.PYTHON_IMAGE = config.docker_image if config.docker_image else self.PYTHON_IMAGE
         self.client = docker.from_env()
         logger.debug("Initialized Docker backend")
 
@@ -97,8 +98,19 @@ class DockerCodeExecutionBackend(BaseCodeExecutionBackend):
             setup_container.stop()
             setup_container.remove()
 
+    def _get_created_files(self, container: docker.models.containers.Container, directory: str) -> bytes:
+        """Get any files created during code execution."""
+        # Get all files in the directory as a tar archive
+        bits, _ = container.get_archive(directory)
+        bio = io.BytesIO()
+        for chunk in bits:
+            bio.write(chunk)
+        bio.seek(0)
+        return bio.getvalue()
+
     def _create_execution_container(self, volume_name: str) -> docker.models.containers.Container:
         """Create the main execution container."""
+        # TODO: Add a name to the container and volume so that they are unique for a each row
         return self.client.containers.create(
             self.PYTHON_IMAGE,
             command=[  # noqa: E501
@@ -116,12 +128,14 @@ class DockerCodeExecutionBackend(BaseCodeExecutionBackend):
                 message="success",
                 stdout=self._get_container_file(container, f"{self.WORKSPACE_DIR}/output.txt"),
                 stderr=self._get_container_file(container, f"{self.WORKSPACE_DIR}/error.txt"),
+                files=self._get_created_files(container, self.WORKSPACE_DIR),
             )
         return CodeExecutionOutput(
             message="error",
             error=f"Program exited with status code {status_code}",
             stdout=self._get_container_file(container, f"{self.WORKSPACE_DIR}/output.txt"),
             stderr=self._get_container_file(container, f"{self.WORKSPACE_DIR}/error.txt"),
+            files=self._get_created_files(container, self.WORKSPACE_DIR),
         )
 
     async def execute_standard_input_request(self, code: str, code_input: str, execution_params: CodeExecutionRequestParams) -> CodeExecutionResponse:

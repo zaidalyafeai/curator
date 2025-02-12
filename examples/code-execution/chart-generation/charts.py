@@ -1,4 +1,3 @@
-import ast
 import json
 import os
 import tarfile
@@ -45,12 +44,17 @@ plt.close()
 
         # Create a file-like object from bytes
         with tempfile.TemporaryDirectory() as temp_dir:
-            # Convert the escaped bytes string back to actual bytes
+            # Handle the bytes string
             if isinstance(execution_output.files, bytes):
-                # Convert bytes to string, then evaluate as literal to get proper bytes
-                files_str = execution_output.files.decode("utf-8")
-                actual_bytes = ast.literal_eval(files_str)
-                tar_bytes = BytesIO(actual_bytes)
+                try:
+                    # Try to decode and clean up the string
+                    files_str = execution_output.files.decode("utf-8")
+                    # Remove any b'' wrapping and escape characters
+                    files_str = files_str.strip("b'").strip("'").encode("latin1")
+                    tar_bytes = BytesIO(files_str)
+                except Exception:
+                    # Fallback to direct bytes if decoding fails
+                    tar_bytes = BytesIO(execution_output.files)
             else:
                 tar_bytes = BytesIO(execution_output.files)
 
@@ -63,8 +67,10 @@ plt.close()
 
 
 if __name__ == "__main__":
-    # Initialize executor with multiprocessing backend
-    executor = ChartCodeExecutor(backend="docker")
+    # Initialize executor with any backend
+    # executor = ChartCodeExecutor(backend="multiprocessing")
+    # executor = ChartCodeExecutor(backend='ray')
+    executor = ChartCodeExecutor(backend="docker", backend_params={"docker_image": "andgineer/matplotlib"})
 
     # Create sample dataset
     dataset = Dataset.from_list([{"id": 1}])

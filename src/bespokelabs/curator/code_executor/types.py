@@ -69,3 +69,4 @@ class CodeExecutionBackendConfig(BaseModel):
     max_retries: int = 3
     seconds_to_pause_on_rate_limit: int = 10
     base_url: Optional[str] = None
+    docker_image: Optional[str] = None
