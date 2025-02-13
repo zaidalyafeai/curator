@@ -197,8 +197,7 @@ class LLM:
 
         metadata_db_path = os.path.join(curator_cache_dir, "metadata.db")
         metadata_db = MetadataDB(metadata_db_path)
-        client = Client()
-        self._request_processor.register_client(client)
+        self._request_processor.viewer_client = Client()
 
         # Get the source code of the prompt function
         prompt_func_source = _get_function_source(self.prompt_formatter.prompt_func)
@@ -217,7 +216,7 @@ class LLM:
             "run_hash": fingerprint,
             "batch_mode": self.batch_mode,
         }
-        session_id = client.create_session(metadata_dict)
+        session_id = self._request_processor.viewer_client.create_session(metadata_dict)
         metadata_dict["session_id"] = session_id
         metadata_db.store_metadata(metadata_dict)
 
