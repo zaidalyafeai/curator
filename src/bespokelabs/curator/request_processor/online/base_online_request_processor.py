@@ -17,7 +17,6 @@ from dataclasses import dataclass, field
 
 import aiofiles
 import aiohttp
-from pydantic import ValidationError
 
 from bespokelabs.curator.llm.prompt_formatter import PromptFormatter
 from bespokelabs.curator.request_processor import _DEFAULT_COST_MAP
@@ -433,7 +432,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                     done, pending_retries = await asyncio.wait(pending_retries, timeout=0.1)
 
         status_tracker.stop_tracker()
-        await self.client.session_completed()
+        await self.viewer_client.session_completed()
 
         # Log final status
         logger.info(f"Processing complete. Results saved to {response_file}")
@@ -570,34 +569,9 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             data: Response data to append
             filename: File to append to
         """
-        try:
-            data.response_message = self.prompt_formatter.response_to_response_format(data.response_message)
-        except (json.JSONDecodeError, ValidationError):
-            logger.warning("Skipping response due to error parsing response message into response format")
+        responses = self._process_response(data)
+        if not responses:
             return
-
-        # parse_func can return a single row or a list of rows
-        if self.prompt_formatter.parse_func:
-            try:
-                responses = self.prompt_formatter.parse_func(
-                    data.generic_request.original_row,
-                    data.response_message,
-                )
-            except Exception as e:
-                logger.warning(f"Skipping response due to error in `parse_func` :: {e}")
-                return
-
-            if not isinstance(responses, list):
-                responses = [responses]
-        else:
-            # Convert response to dict before adding to dataset
-            response_value = data.response_message
-            if hasattr(response_value, "model_dump"):
-                response_value = response_value.model_dump()
-            elif hasattr(response_value, "__dict__"):
-                response_value = response_value.__dict__
-            responses = [{"response": response_value}]
-
         data.parsed_response_message = responses
         data_dump = data.model_dump()
         json_string = json.dumps(data_dump, default=str)
@@ -607,4 +581,4 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
         filename = os.path.basename(filename).split(".")[0]
         idx = status_tracker.num_parsed_responses
         status_tracker.num_parsed_responses = idx + len(responses)
-        await self.client.stream_response(json_string, idx)
+        await self.viewer_client.stream_response(json_string, idx)
