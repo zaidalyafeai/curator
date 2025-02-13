@@ -72,11 +72,13 @@ class Client:
     async def session_completed(self):
         """Updates the session status to completed."""
         self._state = _SessionStatus.COMPLETED
+        if not self._hosted and not self.session:
+            return
         await self._update_state()
 
     async def stream_response(self, response_data: str, idx: int):
         """Streams the response data to the server."""
-        if not self._hosted or not self.session:
+        if not self._hosted and not self.session:
             return
         if self._state == _SessionStatus.STARTED:
             self._state = _SessionStatus.INPROGRESS
