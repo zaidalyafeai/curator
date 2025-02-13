@@ -605,5 +605,6 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             await f.write(json_string + "\n")
         logger.debug(f"Successfully appended response to {filename}")
         filename = os.path.basename(filename).split(".")[0]
-
-        await self.client.stream_response(json_string, status_tracker.num_tasks_succeeded)
+        idx = status_tracker.num_parsed_responses
+        status_tracker.num_parsed_responses = idx + len(responses)
+        await self.client.stream_response(json_string, idx)
