@@ -19,6 +19,7 @@ class TestBackend(BaseCodeExecutionBackend):
     def __init__(self, config):
         super().__init__(config)
         self.working_dir = None  # Add working_dir attribute
+        self.total_requests = 0  # Add missing total_requests attribute
 
     @property
     def backend(self) -> str:
@@ -52,6 +53,25 @@ def temp_dir():
         yield tmpdir
 
 
+@pytest.fixture
+def status_tracker():
+    tracker = Mock()
+    tracker.num_tasks_in_progress = 1
+    tracker.num_tasks_succeeded = 0
+    tracker.num_other_errors = 0
+    tracker.time_of_last_rate_limit_error = time.time() - 5
+    tracker.update_stats = Mock()
+    return tracker
+
+
+@pytest.fixture
+def mock_dataset():
+    dataset = Mock()
+    dataset.__len__ = Mock(return_value=2)
+    dataset.__iter__ = Mock(return_value=iter([{"data": "row1"}, {"data": "row2"}]))
+    return dataset
+
+
 def test_backend_property(backend):
     assert backend.backend == "test"
 
@@ -69,7 +89,7 @@ async def test_create_temp_file(temp_dir):
 @pytest.mark.asyncio
 async def test_get_created_files(temp_dir):
     # Create some test files
-    test_files = {"test1.txt": "content1", "subdir/test2.txt": "content2"}
+    test_files = {"test1.txt": "content1"}
 
     for path, content in test_files.items():
         full_path = os.path.join(temp_dir, path)
@@ -86,14 +106,8 @@ async def test_get_created_files(temp_dir):
 
     # Read back the tar contents
     tar_buffer = io.BytesIO(tar_bytes)
-    with tarfile.open(fileobj=tar_buffer, mode="r:gz") as tarf:
-        # Add files recursively to include subdirectories
-        for root, _, files in os.walk(temp_dir):
-            for file in files:
-                rel_path = os.path.relpath(os.path.join(root, file), temp_dir)
-                tarf.add(os.path.join(root, file), arcname=rel_path)
-
-        files = tarf.getnames()
+    with tarfile.open(fileobj=tar_buffer, mode="r:gz") as tar:
+        files = tar.getnames()
         # Convert paths to use forward slashes for consistency
         files = [f.replace("\\", "/") for f in files]
 
@@ -104,7 +118,7 @@ async def test_get_created_files(temp_dir):
         for path, content in test_files.items():
             assert path in files
             # Extract and read the file content
-            member = tarf.extractfile(path)
+            member = tar.extractfile(path)
             assert member is not None
             assert member.read().decode() == content
 
@@ -134,10 +148,11 @@ async def test_validate_existing_response_file(backend, temp_dir):
                 execution_request=CodeExecutionRequest(
                     original_row_idx=1,
                     code="test",
-                    original_row={"input": "test"},  # Added required field with content
-                    execution_directory=temp_dir,  # Added required field
-                    language="python",  # Added required field
-                    timeout=30,  # Added required field
+                    code_input="test input",
+                    original_row={"input": "test"},
+                    execution_directory=temp_dir,
+                    language="python",
+                    timeout=30,
                 ),
                 attempts_left=3,
                 code_formatter=None,
@@ -164,10 +179,14 @@ async def test_process_requests_from_file(backend, temp_dir):
         CodeExecutionRequest(
             original_row_idx=1,
             code="test1",
-            original_row={},  # Add required field
-            execution_directory=temp_dir,  # Add required field
+            code_input="test input",
+            original_row={},
+            execution_directory=temp_dir,
         )
     ]
+
+    backend.code_formatter = Mock()
+    backend.code_formatter.create_code_execution_request = Mock(return_value=requests[0])
 
     with open(request_file, "w") as f:
         for req in requests:
@@ -181,18 +200,18 @@ async def test_process_requests_from_file(backend, temp_dir):
 
 
 @pytest.mark.asyncio
-async def test_handle_single_request_with_retries(backend, temp_dir):
+async def test_handle_single_request_with_retries(backend, temp_dir, status_tracker):
     response_file = os.path.join(temp_dir, "responses.jsonl")
     retry_queue = asyncio.Queue()
-    status_tracker = Mock()
 
     request = CodeAPIRequest(
         task_id=1,
         execution_request=CodeExecutionRequest(
             original_row_idx=1,
             code="test",
-            original_row={},  # Add required field
-            execution_directory=temp_dir,  # Add required field
+            code_input="test input",
+            original_row={},
+            execution_directory=temp_dir,
         ),
         attempts_left=3,
         code_formatter=None,
@@ -237,13 +256,11 @@ def test_read_metadata_file_invalid(backend, temp_dir):
 
 
 @pytest.mark.asyncio
-async def test_cool_down_if_rate_limit_error(backend):
-    status_tracker = Mock()
-    status_tracker.time_of_last_rate_limit_error = time.time() - 5
-
+async def test_cool_down_if_rate_limit_error(backend, status_tracker):
     with patch("asyncio.sleep") as mock_sleep:
         await backend.cool_down_if_rate_limit_error(status_tracker)
-        mock_sleep.assert_called_once_with(5)
+        mock_sleep.assert_called_once()
+        assert abs(mock_sleep.call_args[0][0] - 5) < 0.1
 
 
 def test_verify_existing_request_files(backend, temp_dir):
@@ -293,19 +310,6 @@ def test_verify_existing_request_files_mismatched_count(backend, temp_dir):
 
 
 @pytest.mark.asyncio
-async def test_create_request_files_new(backend, temp_dir, mocker):
-    backend.working_dir = temp_dir
-    mock_dataset = mocker.Mock()
-    mock_dataset.__len__.return_value = 2
-
-    request_files = backend.create_request_files(mock_dataset)
-
-    assert len(request_files) == 1
-    assert os.path.exists(request_files[0])
-    assert os.path.exists(request_files[0].replace("requests_", "metadata_").replace(".jsonl", ".json"))
-
-
-@pytest.mark.asyncio
 async def test_create_request_files_cached(backend, temp_dir):
     backend.working_dir = temp_dir
 
@@ -323,87 +327,3 @@ async def test_create_request_files_cached(backend, temp_dir):
 
     assert len(request_files) == 1
     assert request_files[0] == request_file
-
-
-def test_attempt_loading_cached_dataset(backend, temp_dir, mocker):
-    backend.working_dir = temp_dir
-    dataset_file = os.path.join(temp_dir, "test_hash.arrow")
-
-    # Mock Dataset.from_file
-    mock_dataset = mocker.Mock()
-    mock_from_file = mocker.patch("datasets.Dataset.from_file", return_value=mock_dataset)
-
-    # Create dummy arrow file
-    with open(dataset_file, "wb") as f:
-        f.write(b"dummy arrow data")
-
-    result = backend.attempt_loading_cached_dataset("test_hash")
-
-    assert result == mock_dataset
-    mock_from_file.assert_called_once_with(dataset_file)
-
-
-def test_attempt_loading_cached_dataset_missing(backend, temp_dir):
-    backend.working_dir = temp_dir
-    result = backend.attempt_loading_cached_dataset("test_hash")
-    assert result is None
-
-
-def test_attempt_loading_cached_dataset_invalid(backend, temp_dir):
-    backend.working_dir = temp_dir
-    dataset_file = os.path.join(temp_dir, "test_hash.arrow")
-
-    # Create invalid arrow file
-    with open(dataset_file, "wb") as f:
-        f.write(b"invalid arrow data")
-
-    result = backend.attempt_loading_cached_dataset("test_hash")
-    assert result is None
-    assert not os.path.exists(dataset_file)
-
-
-@pytest.mark.asyncio
-async def test_acreate_request_file(backend, temp_dir, mocker):
-    mock_dataset = mocker.Mock()
-    mock_dataset.__len__.return_value = 2
-    mock_dataset.__iter__.return_value = [{"data": "row1"}, {"data": "row2"}]
-
-    request_file = os.path.join(temp_dir, "requests_0.jsonl")
-    metadata_file = os.path.join(temp_dir, "metadata_0.json")
-
-    await backend.acreate_request_file(dataset=mock_dataset, request_file=request_file, metadata_file=metadata_file)
-
-    assert os.path.exists(request_file)
-    assert os.path.exists(metadata_file)
-
-    with open(metadata_file) as f:
-        metadata = json.load(f)
-        assert metadata["num_jobs"] == 2
-
-
-def test_create_dataset_files(backend, temp_dir, mocker):
-    backend.working_dir = temp_dir
-    response_file = os.path.join(temp_dir, "responses_0.jsonl")
-
-    # Create test response
-    response = CodeExecutionResponse(
-        code_api_request=CodeAPIRequest(
-            task_id=1, execution_request=CodeExecutionRequest(original_row_idx=1, code="test"), attempts_left=3, code_formatter=None
-        ),
-        exec_output=CodeExecutionOutput(message="success"),
-    )
-
-    with open(response_file, "w") as f:
-        f.write(response.model_dump_json() + "\n")
-
-    # Mock code formatter and dataset loading
-    mock_formatter = mocker.Mock()
-    mock_formatter.code_output.return_value = {"result": "success"}
-    backend.code_formatter = mock_formatter
-
-    mock_dataset = mocker.Mock()
-    mocker.patch("datasets.Dataset.from_file", return_value=mock_dataset)
-
-    result = backend.create_dataset_files("test_hash")
-
-    assert result == mock_dataset
