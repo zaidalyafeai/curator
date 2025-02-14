@@ -19,6 +19,8 @@ class RequestProcessorConfig(BaseModel):
         require_all_responses: Whether to require successful responses for all requests
         generation_params: Dictionary of model-specific generation parameters
         api_key: Optional API key for authentication
+        in_mtok_cost: Optional cost per million input tokens
+        out_mtok_cost: Optional cost per million output tokens
     """
 
     model: str
@@ -29,6 +31,8 @@ class RequestProcessorConfig(BaseModel):
     generation_params: dict = Field(default_factory=dict)
     return_completions_object: bool = False
     api_key: str | None = None
+    in_mtok_cost: int | None = None
+    out_mtok_cost: int | None = None
 
     class Config:
         """BaseModel Setup class."""

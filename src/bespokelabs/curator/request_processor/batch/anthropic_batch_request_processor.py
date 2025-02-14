@@ -1,4 +1,5 @@
 import logging
+import typing as t
 
 import instructor
 import litellm
@@ -75,7 +76,7 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
         """
         return 100
 
-    def parse_api_specific_request_counts(self, request_counts: MessageBatchRequestCounts) -> GenericBatchRequestCounts:
+    def parse_api_specific_request_counts(self, request_counts: MessageBatchRequestCounts, request_file: t.Optional[str] = None) -> GenericBatchRequestCounts:
         """Converts Anthropic-specific request counts to generic format.
 
         Reference implementation:
@@ -90,6 +91,7 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
 
         Args:
             request_counts: Anthropic's MessageBatchRequestCounts object.
+            request_file: Optional path to the request file.
 
         Returns:
             GenericBatchRequestCounts: Standardized request count format.
@@ -137,9 +139,9 @@ class AnthropicBatchRequestProcessor(BaseBatchRequestProcessor):
             ValueError: If the batch status is unknown.
         """
         if batch.processing_status in ["cancelling", "in_progress"]:
-            status = GenericBatchStatus.SUBMITTED
+            status = GenericBatchStatus.SUBMITTED.value
         elif batch.processing_status in ["ended"]:
-            status = GenericBatchStatus.FINISHED
+            status = GenericBatchStatus.FINISHED.value
         else:
             raise ValueError(f"Unknown batch status: {batch.processing_status}")
 

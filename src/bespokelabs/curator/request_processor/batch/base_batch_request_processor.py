@@ -255,11 +255,12 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         pass
 
     @abstractmethod
-    def parse_api_specific_request_counts(self, request_counts: object) -> GenericBatchRequestCounts:
+    def parse_api_specific_request_counts(self, request_counts: object, request_file: Optional[str] = None) -> GenericBatchRequestCounts:
         """Convert API-specific request counts to generic format.
 
         Args:
             request_counts: API-specific request count object.
+            request_file: Path to associated request file.
 
         Returns:
             GenericBatchRequestCounts: Standardized request count object.
@@ -558,7 +559,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
                     "succeeded/failed/total"
                 )
 
-                if batch.status == GenericBatchStatus.FINISHED:
+                if batch.status == GenericBatchStatus.FINISHED.value:
                     logger.debug(f"Batch {batch.id} finished with status: {batch.raw_status}")
                     self.tracker.mark_as_finished(batch)
                     await self.update_batch_objects_file()

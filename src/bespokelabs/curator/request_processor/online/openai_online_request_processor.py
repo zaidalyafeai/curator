@@ -46,7 +46,7 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
     def __init__(self, config: OnlineRequestProcessorConfig, compatible_provider: str = None):
         """Initialize the OpenAIOnlineRequestProcessor."""
         super().__init__(config)
-        self._cost_processor = cost_processor_factory(compatible_provider or self.backend)
+        self._cost_processor = cost_processor_factory(config=config, backend=compatible_provider or self.backend)
 
         if self.config.base_url is None:
             if "OPENAI_BASE_URL" in os.environ:
@@ -90,6 +90,21 @@ class OpenAIOnlineRequestProcessor(BaseOnlineRequestProcessor, OpenAIRequestMixi
             headers={"Authorization": f"Bearer {self.api_key}"},
             json={"model": self.config.model, "messages": []},
         )
+        from bespokelabs.curator.cost import RATE_LIMIT_HEADER
+
+        for provider in RATE_LIMIT_HEADER:
+            if provider in self.url:
+                rate_limit_header = RATE_LIMIT_HEADER[provider]
+                rpm_key = rate_limit_header["request-key"]
+                tpm_key = rate_limit_header["token-key"]
+                rpm = float(response.headers.get(rpm_key["key"], 0))
+                tpm = float(response.headers.get(tpm_key["key"], 0))
+                if rpm_key.get("type") == "rps":
+                    rpm = rpm * 60
+                if tpm_key.get("type") == "tps":
+                    tpm = tpm * 60
+                return int(rpm), int(tpm)
+
         rpm = int(response.headers.get("x-ratelimit-limit-requests", 0))
         tpm = int(response.headers.get("x-ratelimit-limit-tokens", 0))
 

@@ -1,5 +1,6 @@
 """Module for tracking the status of batches during curation."""
 
+import json
 import logging
 import time
 from typing import Optional
@@ -31,6 +32,7 @@ class BatchStatusTracker(BaseModel):
     model_config = {
         "arbitrary_types_allowed": True,  # Allow non-serializable types
         "exclude": {"console", "progress", "task_id"},  # Exclude from serialization
+        "json_encoders": {set: list},
     }
 
     n_total_requests: int = Field(default=0)
@@ -117,7 +119,7 @@ class BatchStatusTracker(BaseModel):
         telemetry_client.capture(
             TelemetryEvent(
                 event_type="BatchRequest",
-                metadata=self.model_dump(),
+                metadata=json.loads(self.json()),
             )
         )
 

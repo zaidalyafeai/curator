@@ -8,14 +8,33 @@ from bespokelabs.curator.request_processor import _DEFAULT_COST_MAP
 litellm.suppress_debug_info = True
 logger = logging.getLogger(__name__)
 
+RATE_LIMIT_HEADER = {
+    "api.together.xyz": {"request-key": {"key": "x-ratelimit-limit", "type": "rps"}, "token-key": {"key": "x-ratelimit-limit-tokens", "type": "tps"}}
+}
+
 
 class _LitellmCostProcessor:
-    def __init__(self, batch=False) -> None:
+    def __init__(self, config, batch=False) -> None:
         self.batch = batch
+        if config.in_mtok_cost is not None:
+            cost_per_input_token = config.in_mtok_cost / 1e6
+            if config.out_mtok_cost is not None:
+                cost_per_output_token = config.out_mtok_cost / 1e6
+            else:
+                cost_per_output_token = cost_per_input_token
+
+            litellm.register_model(
+                {
+                    config.model: {
+                        "max_tokens": 8192,
+                        "input_cost_per_token": cost_per_input_token,
+                        "output_cost_per_token": cost_per_output_token,
+                        "litellm_provider": "openai",
+                    }
+                }
+            )
 
     def cost(self, *, completion_window="*", **kwargs):
-        import litellm
-
         if "completion_response" in kwargs:
             model = kwargs["completion_response"]["model"]
         else:
@@ -62,9 +81,9 @@ def external_model_cost(model, completion_window="*", provider="default"):
 class _KlusterAICostProcessor(_LitellmCostProcessor):
     _registered_models = set()
 
-    def __init__(self, batch=False) -> None:
+    def __init__(self, config, batch=False) -> None:
         self.batch = batch
-        super().__init__(batch=batch)
+        super().__init__(config=config, batch=batch)
 
     @staticmethod
     def _wrap(model, completion_window):
@@ -90,9 +109,9 @@ class _KlusterAICostProcessor(_LitellmCostProcessor):
 class _InferenceNetCostProcessor(_LitellmCostProcessor):
     _registered_models = set()
 
-    def __init__(self, batch=False) -> None:
+    def __init__(self, config, batch=False) -> None:
         self.batch = batch
-        super().__init__(batch=batch)
+        super().__init__(config=config, batch=batch)
 
     @staticmethod
     def _wrap(model, completion_window):
@@ -119,6 +138,6 @@ COST_PROCESSOR["klusterai"] = _KlusterAICostProcessor
 COST_PROCESSOR["inference.net"] = _InferenceNetCostProcessor
 
 
-def cost_processor_factory(backend, batch=False):
+def cost_processor_factory(backend, config=None, batch=False):
     """Factory function to return the cost processor for the given backend."""
-    return COST_PROCESSOR[backend](batch=batch)
+    return COST_PROCESSOR[backend](config=config, batch=batch)
