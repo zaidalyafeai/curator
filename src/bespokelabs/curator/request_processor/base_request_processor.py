@@ -412,6 +412,9 @@ class BaseRequestProcessor(ABC):
                                 error_sample.append(str(response.response_errors))
                             continue
 
+                        if response.parsed_response_message is None:
+                            response.parsed_response_message = self._process_response(response)
+
                         for row in response.parsed_response_message:
                             if isinstance(row, BaseModel):
                                 row = row.model_dump()
