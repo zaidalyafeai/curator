@@ -184,7 +184,7 @@ class BaseOfflineRequestProcessor(BaseRequestProcessor, ABC):
         with open(save_filepath, "a") as f:
             for response in responses:
                 processed_response = self._process_response(response)
-                response.parsed_response = processed_response
+                response.parsed_response_message = processed_response
                 json_string = json.dumps(response.model_dump(mode="json"), default=str)
                 f.write(json_string + "\n")
 
