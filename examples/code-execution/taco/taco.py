@@ -40,6 +40,7 @@ class TACOCodeExecutor(curator.CodeExecutor):
             output = inputs_outputs["outputs"][0]
         except Exception as e:
             print("Error parsing input output", e)
+            row["correct"] = False
             return row
 
         # Compare the output with execution stdout, stripping whitespace to handle formatting differences
@@ -52,7 +53,7 @@ class TACOCodeExecutor(curator.CodeExecutor):
 
 
 if __name__ == "__main__":
-    executor = TACOCodeExecutor(backend="e2b")
+    executor = TACOCodeExecutor(backend="ray")  # or multiprocessing, docker, e2b
     dataset = load_dataset("bespokelabs/sky-t1-taco-test-rejection-sampled-shreyas")
     execution_output = executor(dataset["train"].select(range(10)))
 
