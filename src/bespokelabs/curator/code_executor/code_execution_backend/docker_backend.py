@@ -153,7 +153,7 @@ class DockerCodeExecutionBackend(BaseCodeExecutionBackend):
 
             container = self._create_execution_container(volume.name)
             container.start()
-            result = container.wait(timeout=execution_params.timeout_seconds)
+            result = container.wait(timeout=execution_params.timeout)
             output = self._handle_execution_result(container, result["StatusCode"])
 
         except Exception as e:
