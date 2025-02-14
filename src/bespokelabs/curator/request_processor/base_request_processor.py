@@ -411,12 +411,8 @@ class BaseRequestProcessor(ABC):
                             if len(error_sample) < 10:
                                 error_sample.append(str(response.response_errors))
                             continue
-                        if response.parsed_response_message is None:
-                            dataset_rows = self._process_response(response)
-                        else:
-                            dataset_rows = response.parsed_response_message
 
-                        for row in dataset_rows:
+                        for row in response.parsed_response_message:
                             if isinstance(row, BaseModel):
                                 row = row.model_dump()
 
