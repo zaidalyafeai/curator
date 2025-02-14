@@ -52,9 +52,9 @@ class TACOCodeExecutor(curator.CodeExecutor):
 
 
 if __name__ == "__main__":
-    executor = TACOCodeExecutor(backend="ray")
+    executor = TACOCodeExecutor(backend="e2b")
     dataset = load_dataset("bespokelabs/sky-t1-taco-test-rejection-sampled-shreyas")
-    execution_output = executor(dataset["train"].select(range(1)))
+    execution_output = executor(dataset["train"].select(range(10)))
 
     print("================")
     print(execution_output)

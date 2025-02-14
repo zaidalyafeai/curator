@@ -68,9 +68,12 @@ plt.close()
 
 if __name__ == "__main__":
     # Initialize executor with any backend
-    # executor = ChartCodeExecutor(backend="multiprocessing")
+    executor = ChartCodeExecutor(backend="multiprocessing")
     # executor = ChartCodeExecutor(backend='ray')
-    executor = ChartCodeExecutor(backend="docker", backend_params={"docker_image": "andgineer/matplotlib"})
+    # executor = ChartCodeExecutor(backend="docker", backend_params={"docker_image": "andgineer/matplotlib"})
+
+    # e2b currently doesn't support files
+    # executor = ChartCodeExecutor(backend="e2b")
 
     # Create sample dataset
     dataset = Dataset.from_list([{"id": 1}])
