@@ -57,7 +57,7 @@ class Client:
         if response.status_code == 200:
             self._session = response.json().get("session_id")
             logger.info(
-                f"🎉 Your data is ready! Click here to view it live: "
+                f"🎉 Click here to view your data live: "
                 f"[link={PUBLIC_CURATOR_VIEWER_URL}/{self.session}]✨ Open Curator Viewer ✨[/link]\n\n"
                 f"Alternatively, copy and paste this URL into your browser:\n"
                 f"{PUBLIC_CURATOR_VIEWER_URL}/{self.session}"
