@@ -16,4 +16,4 @@ logger = logging.getLogger("bespokelabs.curator")
 
 logger.setLevel(logging.WARNING)
 
-logger.addHandler(RichHandler(console=_CONSOLE))
+logger.addHandler(RichHandler(console=_CONSOLE, markup=True))
