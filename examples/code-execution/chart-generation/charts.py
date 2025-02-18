@@ -83,6 +83,3 @@ if __name__ == "__main__":
 
     # Cast the chart_image column to Image type
     results = results.cast_column("chart_image", Image())
-
-    # Push to hub
-    results.push_to_hub("pimpalgaonkar/chart-generation", private=True)

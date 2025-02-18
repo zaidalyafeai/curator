@@ -1123,15 +1123,15 @@ typing-extensions = ">=4.1.0"
 
 [[package]]
 name = "e2b-code-interpreter"
-version = "1.0.5"
+version = "1.0.3"
 description = "E2B Code Interpreter - Stateful code execution"
 optional = true
 python-versions = "<4.0,>=3.8"
 groups = ["main"]
 markers = "(python_version <= \"3.11\" or python_version >= \"3.12\") and extra == \"code-execution\""
 files = [
-    {file = "e2b_code_interpreter-1.0.5-py3-none-any.whl", hash = "sha256:4c7814e9eabba58097bf5e4019d327b3a82fab0813eafca4311b29ca6ea0639d"},
-    {file = "e2b_code_interpreter-1.0.5.tar.gz", hash = "sha256:e7f70b039e6a70f8e592f90f806d696dc1056919414daabeb89e86c9b650a987"},
+    {file = "e2b_code_interpreter-1.0.3-py3-none-any.whl", hash = "sha256:c638bd4ec1c99d9c4eaac541bc8b15134cf786f6c7c400d979cef96d62e485d8"},
+    {file = "e2b_code_interpreter-1.0.3.tar.gz", hash = "sha256:36475acc001b1317ed129d65970fce6a7cc2d50e3fd3e8a13ad5d7d3e0fac237"},
 ]
 
 [package.dependencies]
@@ -6734,4 +6734,4 @@ vllm = ["vllm"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "b5381ab8b3d24ca25bb0c0e11b68e1a44d538ae614562b65fb4cb24c504c9e83"
+content-hash = "95c291d6db81953e5094535e67df578076915ad803f200604ffc14464da450d3"
