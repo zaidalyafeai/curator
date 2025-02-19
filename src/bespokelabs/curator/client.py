@@ -41,6 +41,11 @@ class Client:
         """Check if the client is hosted."""
         return self._hosted
 
+    @property
+    def curator_viewer_url(self):
+        """Get the curator viewer URL."""
+        return f"{PUBLIC_CURATOR_VIEWER_URL}/{self.session}" if self.session else None
+
     def create_session(self, metadata: t.Dict):
         """Sends a POST request to the server to create a session."""
         if "HOSTED_CURATOR_VIEWER" not in os.environ:
@@ -57,10 +62,8 @@ class Client:
         if response.status_code == 200:
             self._session = response.json().get("session_id")
             logger.info(
-                f"🎉 Click here to view your data live: "
-                f"[link={PUBLIC_CURATOR_VIEWER_URL}/{self.session}]✨ Open Curator Viewer ✨[/link]\n\n"
-                f"Alternatively, copy and paste this URL into your browser:\n"
-                f"{PUBLIC_CURATOR_VIEWER_URL}/{self.session}"
+                f":sparkles: [blue][link={self.curator_viewer_url}]Open Curator Viewer[/link][/blue] "
+                f"to view data live :sparkles: ({self.curator_viewer_url})"
             )
             self._state = _SessionStatus.STARTED
             return self.session

@@ -16,6 +16,7 @@ from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn, Ti
 from rich.table import Table
 
 from bespokelabs.curator import _CONSOLE
+from bespokelabs.curator.client import Client
 from bespokelabs.curator.telemetry.client import TelemetryEvent, telemetry_client
 from bespokelabs.curator.types.generic_response import TokenUsage
 
@@ -90,6 +91,9 @@ class OnlineStatusTracker:
 
     model: str = ""
     token_limit_strategy: TokenLimitStrategy = TokenLimitStrategy.default
+
+    # Add client field and exclude from serialization
+    viewer_client: Optional[Client] = field(default=None, repr=False, compare=False)
 
     def __post_init__(self):
         """Post init."""
@@ -235,6 +239,22 @@ class OnlineStatusTracker:
             f"[white]Output:[/white] {self.output_cost_str}"
         )
 
+        # Add curator viewer link if client is available and hosted
+        if self.viewer_client and self.viewer_client.hosted and self.viewer_client.curator_viewer_url:
+            viewer_text = (
+                f"[bold white]Curator Viewer:[/bold white] "
+                f"[blue][link={self.viewer_client.curator_viewer_url}]View Live Progress[/link][/blue]\n"
+                f"[dim]{self.viewer_client.curator_viewer_url}[/dim]\n"
+            )
+        else:
+            # Add info about enabling hosted curator viewer
+            viewer_text = (
+                "[bold white]Curator Viewer:[/bold white] [yellow]Disabled[/yellow]\n"
+                "Set [yellow]HOSTED_CURATOR_VIEWER=[cyan]1[/cyan][/yellow] to view your data live at "
+                "[blue]https://curator.bespokelabs.ai/datasets/[/blue]\n"
+            )
+        stats_text = viewer_text + stats_text
+
         # Update stats display
         self._stats.update(
             self._stats_task_id,
@@ -255,9 +275,27 @@ class OnlineStatusTracker:
             self._console.print(self._progress)
             self._console.print(self._stats)
 
-        table = Table(title="Final Curator Statistics", box=box.ROUNDED)
+        table = Table(
+            title="Final Curator Statistics",
+            box=box.ROUNDED,
+        )
         table.add_column("Section/Metric", style="cyan")
         table.add_column("Value", style="yellow")
+
+        if self.viewer_client and self.viewer_client.hosted and self.viewer_client.curator_viewer_url:
+            table.add_row("Curator Viewer", "", style="bold magenta")
+            table.add_row("Click to View Your Curated Data", f"[blue][link={self.viewer_client.curator_viewer_url}]View Live Progress[/link][/blue]")
+            table.add_row("Full URL", f"[dim]{self.viewer_client.curator_viewer_url}[/dim]")
+            table.add_row("", "")  # Add empty row for spacing
+
+        else:
+            table.add_row("Curator Viewer", "", style="bold magenta")
+            table.add_row("Status", "[yellow]Disabled[/yellow]")
+            table.add_row(
+                "How to Enable",
+                "Set [yellow]HOSTED_CURATOR_VIEWER=[cyan]1[/cyan][/yellow] to view your data live at [blue]https://curator.bespokelabs.ai/datasets/[/blue]",
+            )
+            table.add_row("", "")  # Add empty row for spacing
 
         # Model Information
         table.add_row("Model", "", style="bold magenta")
@@ -304,10 +342,12 @@ class OnlineStatusTracker:
 
         self._console.print(table)
 
+        metadata = asdict(self)
+        metadata.pop("viewer_client", None)
         telemetry_client.capture(
             TelemetryEvent(
                 event_type="OnlineRequest",
-                metadata=asdict(self),
+                metadata=metadata,
             )
         )
 
