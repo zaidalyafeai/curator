@@ -284,7 +284,10 @@ class OnlineStatusTracker:
 
         if self.viewer_client and self.viewer_client.hosted and self.viewer_client.curator_viewer_url:
             table.add_row("Curator Viewer", "", style="bold magenta")
-            table.add_row("Click to View Your Curated Data", f"[blue][link={self.viewer_client.curator_viewer_url}]View Live Progress[/link][/blue]")
+            table.add_row(
+                "Click to View Your Curated Data",
+                f"[blue][link={self.viewer_client.curator_viewer_url}]:sparkles: Open Curator Viewer[/link] :sparkles:[/blue]",
+            )
             table.add_row("Full URL", f"[dim]{self.viewer_client.curator_viewer_url}[/dim]")
             table.add_row("", "")  # Add empty row for spacing
 

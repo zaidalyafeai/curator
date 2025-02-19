@@ -208,7 +208,7 @@ class BatchStatusTracker(BaseModel):
         if self.viewer_client and self.viewer_client.hosted and self.viewer_client.curator_viewer_url:
             viewer_text = (
                 f"[bold white]Curator Viewer:[/bold white] "
-                f"[blue][link={self.viewer_client.curator_viewer_url}]View Live Progress[/link][/blue]\n"
+                f"[blue][link={self.viewer_client.curator_viewer_url}]:sparkles: Open Curator Viewer[/link] :sparkles:[/blue]\n"
                 f"[dim]{self.viewer_client.curator_viewer_url}[/dim]"
             )
         else:
