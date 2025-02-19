@@ -231,8 +231,6 @@ class BatchStatusTracker(BaseModel):
         table = Table(
             title="Final Curator Statistics",
             box=box.ROUNDED,
-            show_lines=True,  # Add horizontal lines to help readability
-            width=None,  # Allow table to adjust to terminal width
         )
         table.add_column("Section/Metric", style="cyan")
         table.add_column("Value", style="yellow")
