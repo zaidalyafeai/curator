@@ -227,20 +227,6 @@ class BatchStatusTracker(BaseModel):
         table.add_column("Section/Metric", style="cyan")
         table.add_column("Value", style="yellow")
 
-        if self.viewer_client and self.viewer_client.hosted and self.viewer_client.curator_viewer_url:
-            table.add_row("Curator Viewer", "", style="bold magenta")
-            table.add_row("Live Progress", f"[blue][link={self.viewer_client.curator_viewer_url}]View Live Progress[/link][/blue]")
-            table.add_row("URL", f"[dim]{self.viewer_client.curator_viewer_url}[/dim]")
-            table.add_row("", "")  # Add empty row for spacing
-        else:
-            table.add_row("Curator Viewer", "", style="bold magenta")
-            table.add_row("Status", "[yellow]Disabled[/yellow]")
-            table.add_row(
-                "How to Enable",
-                f"Set [yellow]HOSTED_CURATOR_VIEWER=[cyan]1[/cyan][/yellow] to view your data live at [blue]{PUBLIC_CURATOR_VIEWER_HOME_URL}[/blue]",
-            )
-            table.add_row("", "")  # Add empty row for spacing
-
         # Model Information
         table.add_row("Model", "", style="bold magenta")
         table.add_row("Model", f"[blue]{self.model}[/blue]")
