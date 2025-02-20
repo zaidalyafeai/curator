@@ -17,6 +17,7 @@ from rich.table import Table
 
 from bespokelabs.curator import _CONSOLE
 from bespokelabs.curator.client import Client
+from bespokelabs.curator.constants import PUBLIC_CURATOR_VIEWER_HOME_URL
 from bespokelabs.curator.telemetry.client import TelemetryEvent, telemetry_client
 from bespokelabs.curator.types.generic_response import TokenUsage
 
@@ -251,7 +252,7 @@ class OnlineStatusTracker:
             viewer_text = (
                 "[bold white]Curator Viewer:[/bold white] [yellow]Disabled[/yellow]\n"
                 "Set [yellow]HOSTED_CURATOR_VIEWER=[cyan]1[/cyan][/yellow] to view your data live at "
-                "[blue]https://curator.bespokelabs.ai/datasets/[/blue]\n"
+                f"[blue]{PUBLIC_CURATOR_VIEWER_HOME_URL}[/blue]\n"
             )
         stats_text = viewer_text + stats_text
 
@@ -296,7 +297,7 @@ class OnlineStatusTracker:
             table.add_row("Status", "[yellow]Disabled[/yellow]")
             table.add_row(
                 "How to Enable",
-                "Set [yellow]HOSTED_CURATOR_VIEWER=[cyan]1[/cyan][/yellow] to view your data live at [blue]https://curator.bespokelabs.ai/datasets/[/blue]",
+                f"Set [yellow]HOSTED_CURATOR_VIEWER=[cyan]1[/cyan][/yellow] to view your data live at [blue]{PUBLIC_CURATOR_VIEWER_HOME_URL}[/blue]",
             )
             table.add_row("", "")  # Add empty row for spacing
 
