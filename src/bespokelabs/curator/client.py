@@ -7,7 +7,7 @@ import uuid
 import httpx
 import requests
 
-from bespokelabs.curator.constants import BASE_CLIENT_URL, PUBLIC_CURATOR_VIEWER_HOME_URL, PUBLIC_CURATOR_VIEWER_URL
+from bespokelabs.curator.constants import BASE_CLIENT_URL, PUBLIC_CURATOR_VIEWER_DATASET_URL, PUBLIC_CURATOR_VIEWER_HOME_URL
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -44,7 +44,7 @@ class Client:
     @property
     def curator_viewer_url(self):
         """Get the curator viewer URL."""
-        return f"{PUBLIC_CURATOR_VIEWER_URL}/{self.session}" if self.session else None
+        return f"{PUBLIC_CURATOR_VIEWER_DATASET_URL}/{self.session}" if self.session else None
 
     def create_session(self, metadata: t.Dict):
         """Sends a POST request to the server to create a session."""
