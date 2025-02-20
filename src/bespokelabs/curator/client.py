@@ -7,7 +7,7 @@ import uuid
 import httpx
 import requests
 
-from bespokelabs.curator.constants import BASE_CLIENT_URL, PUBLIC_CURATOR_VIEWER_DATASET_URL, PUBLIC_CURATOR_VIEWER_HOME_URL
+from bespokelabs.curator.constants import BASE_CLIENT_URL, PUBLIC_CURATOR_VIEWER_DATASET_URL
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -48,8 +48,6 @@ class Client:
 
     def create_session(self, metadata: t.Dict):
         """Sends a POST request to the server to create a session."""
-        if "HOSTED_CURATOR_VIEWER" not in os.environ:
-            logger.info(f"Set HOSTED_CURATOR_VIEWER=1 to view your data live at {PUBLIC_CURATOR_VIEWER_HOME_URL}")
         if not self.hosted:
             return str(uuid.uuid4().hex)
 
@@ -61,10 +59,6 @@ class Client:
 
         if response.status_code == 200:
             self._session = response.json().get("session_id")
-            logger.info(
-                f":sparkles: [blue][link={self.curator_viewer_url}]Open Curator Viewer[/link][/blue] "
-                f"to view data live :sparkles: ({self.curator_viewer_url})"
-            )
             self._state = _SessionStatus.STARTED
             return self.session
         else:
