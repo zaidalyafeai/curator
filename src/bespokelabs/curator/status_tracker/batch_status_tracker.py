@@ -468,5 +468,8 @@ class BatchStatusTracker(BaseModel):
 
     def model_dump_json(self, **kwargs) -> str:
         """Override model_dump_json to exclude non-serializable fields."""
+        # Remove exclude from kwargs if it exists to avoid duplicate argument
+        kwargs.pop("exclude", None)
+
         exclude = {"console", "progress", "task_id", "viewer_client", "_console", "_progress", "_stats", "_live", "_task_id", "_stats_task_id"}
         return super().model_dump_json(exclude=exclude, **kwargs)
