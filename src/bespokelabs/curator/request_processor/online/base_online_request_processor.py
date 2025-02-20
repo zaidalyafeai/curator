@@ -319,6 +319,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             max_requests_per_minute=self.max_requests_per_minute,
             max_tokens_per_minute=self.max_tokens_per_minute,
             compatible_provider=self.compatible_provider,
+            viewer_client=self._viewer_client,
         )
 
         completed_request_ids = self.validate_existing_response_file(response_file)
