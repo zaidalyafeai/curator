@@ -32,20 +32,11 @@ class BatchStatusTracker(BaseModel):
 
     model_config = {
         "arbitrary_types_allowed": True,  # Allow non-serializable types
-        "exclude": {
-            "console",
-            "progress",
-            "task_id",
-            "viewer_client",
-            "_console",
-            "_progress",
-            "_stats",
-            "_live",
-            "_task_id",
-            "_stats_task_id",
-        },  # Exclude from serialization
         "json_encoders": {set: list},
     }
+
+    # Fields that should be excluded during serialization
+    _excluded_fields = {"console", "progress", "task_id", "viewer_client", "_console", "_progress", "_stats", "_live", "_task_id", "_stats_task_id"}
 
     n_total_requests: int = Field(default=0)
     unsubmitted_request_files: set[str] = Field(default_factory=set)
@@ -468,8 +459,5 @@ class BatchStatusTracker(BaseModel):
 
     def model_dump_json(self, **kwargs) -> str:
         """Override model_dump_json to exclude non-serializable fields."""
-        # Remove exclude from kwargs if it exists to avoid duplicate argument
-        kwargs.pop("exclude", None)
-
-        exclude = {"console", "progress", "task_id", "viewer_client", "_console", "_progress", "_stats", "_live", "_task_id", "_stats_task_id"}
-        return super().model_dump_json(exclude=exclude, **kwargs)
+        kwargs.pop("exclude", None)  # Remove any existing exclude to avoid duplicate argument
+        return super().model_dump_json(exclude=self._excluded_fields, **kwargs)
