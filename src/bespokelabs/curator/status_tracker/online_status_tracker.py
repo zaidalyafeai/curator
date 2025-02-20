@@ -245,7 +245,7 @@ class OnlineStatusTracker:
             viewer_text = (
                 f"[bold white]Curator Viewer:[/bold white] "
                 f"[blue][link={self.viewer_client.curator_viewer_url}]:sparkles: Open Curator Viewer[/link] :sparkles:[/blue]\n"
-                f"[dim]{self.viewer_client.curator_viewer_url}[/dim]"
+                f"[dim]{self.viewer_client.curator_viewer_url}[/dim]\n"
             )
         else:
             # Add info about enabling hosted curator viewer
