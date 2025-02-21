@@ -29,7 +29,7 @@ class DockerCodeExecutionBackend(BaseCodeExecutionBackend):
         self.client = docker.from_env()
         logger.debug("Initialized Docker backend")
 
-    async def _ensure_image(self):
+    def _ensure_image(self):
         """Ensure required Docker image is pulled."""
         try:
             self.client.images.get(self.PYTHON_IMAGE)
@@ -84,7 +84,7 @@ class DockerCodeExecutionBackend(BaseCodeExecutionBackend):
     def _setup_volume_with_files(self, volume, code_file: str, input_file: str):
         """Set up a volume with code and input files."""
         setup_container = self.client.containers.create(
-            self.PYTHON_IMAGE, command=["sleep", "1"], volumes={volume.name: {"bind": self.WORKSPACE_DIR, "mode": "rw"}}
+            self.PYTHON_IMAGE, command=["sleep", "5"], volumes={volume.name: {"bind": self.WORKSPACE_DIR, "mode": "rw"}}
         )
 
         try:
@@ -140,7 +140,7 @@ class DockerCodeExecutionBackend(BaseCodeExecutionBackend):
 
     async def execute_standard_input_request(self, code: str, code_input: str, execution_params: CodeExecutionRequestParams) -> CodeExecutionResponse:
         """Execute code in Docker container."""
-        await self._ensure_image()
+        self._ensure_image()
 
         code_file = self._create_temp_file(code)
         input_file = self._create_temp_file(code_input)
