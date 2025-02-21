@@ -28,7 +28,7 @@ Attributes:
 class GenericResponse(BaseModel):
     """A generic response model for LLM API requests."""
 
-    response_message: Optional[Dict[str, Any]] | str = None
+    response_message: Optional[Dict[str, Any]] | str | BaseModel = None
     parsed_response_message: Optional[list] = None
     response_errors: Optional[List[str]] = None
     raw_response: Optional[Dict[str, Any]]
@@ -39,3 +39,7 @@ class GenericResponse(BaseModel):
     token_usage: Optional[TokenUsage] = None
     response_cost: Optional[float] = None
     finish_reason: Optional[str] = None
+
+    model_config = {
+        "json_encoders": {datetime.datetime: lambda dt: dt.isoformat()},
+    }

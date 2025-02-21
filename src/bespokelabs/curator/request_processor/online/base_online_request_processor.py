@@ -12,7 +12,7 @@ import os
 import time
 import typing as t
 from abc import ABC, abstractmethod
-from collections import deque
+from collections import Counter, deque
 from dataclasses import dataclass, field
 
 import aiofiles
@@ -319,6 +319,7 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
             max_requests_per_minute=self.max_requests_per_minute,
             max_tokens_per_minute=self.max_tokens_per_minute,
             compatible_provider=self.compatible_provider,
+            viewer_client=self._viewer_client,
         )
 
         completed_request_ids = self.validate_existing_response_file(response_file)
@@ -332,6 +333,8 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
 
         # Use higher connector limit for better throughput
         tcp_limit = self.max_concurrent_requests if status_tracker.max_requests_per_minute is None else status_tracker.max_requests_per_minute
+        # Update session status to inprogress
+        await self._viewer_client.session_inprogress()
         connector = aiohttp.TCPConnector(limit=10 * tcp_limit)
         async with aiohttp.ClientSession(connector=connector) as session:
             async with aiofiles.open(generic_request_filepath) as file:
@@ -508,13 +511,16 @@ class BaseOnlineRequestProcessor(BaseRequestProcessor, ABC):
                 )
                 retry_queue.put_nowait(request)
             else:
+                error_counts = Counter(str(err) for err in request.result)
+                formatted_errors = [f"{error}(x{count})" for error, count in error_counts.items()]
                 logger.error(
                     f"Request {request.task_id} failed permanently after exhausting all {self.config.max_retries} retry attempts. "
-                    f"Errors: {[str(e) for e in request.result]}"
+                    f"Errors: {formatted_errors}"
                 )
+
                 generic_response = GenericResponse(
                     response_message=None,
-                    response_errors=[str(e) for e in request.result],
+                    response_errors=formatted_errors,
                     raw_request=request.api_specific_request,
                     raw_response=None,
                     generic_request=request.generic_request,

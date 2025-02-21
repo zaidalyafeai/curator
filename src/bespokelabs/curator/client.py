@@ -7,7 +7,7 @@ import uuid
 import httpx
 import requests
 
-from bespokelabs.curator.constants import BASE_CLIENT_URL, PUBLIC_CURATOR_VIEWER_URL
+from bespokelabs.curator.constants import BASE_CLIENT_URL, PUBLIC_CURATOR_VIEWER_DATASET_URL
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -41,10 +41,13 @@ class Client:
         """Check if the client is hosted."""
         return self._hosted
 
+    @property
+    def curator_viewer_url(self):
+        """Get the curator viewer URL."""
+        return f"{PUBLIC_CURATOR_VIEWER_DATASET_URL}/{self.session}" if self.session else None
+
     def create_session(self, metadata: t.Dict):
         """Sends a POST request to the server to create a session."""
-        if "HOSTED_CURATOR_VIEWER" not in os.environ:
-            logger.info("Set HOSTED_CURATOR_VIEWER=1 to view your data live at https://curator.bespokelabs.ai/datasets/.")
         if not self.hosted:
             return str(uuid.uuid4().hex)
 
@@ -56,7 +59,6 @@ class Client:
 
         if response.status_code == 200:
             self._session = response.json().get("session_id")
-            logger.info("View your data live at: " + f"{PUBLIC_CURATOR_VIEWER_URL}/{self.session}")
             self._state = _SessionStatus.STARTED
             return self.session
         else:
@@ -69,6 +71,13 @@ class Client:
             if response.status_code != 200:
                 logger.debug(f"Failed to update session status: {response.status_code}, {response.text}")
 
+    async def session_inprogress(self):
+        """Updates the session status to inprogress."""
+        self._state = _SessionStatus.INPROGRESS
+        if not self._hosted and not self.session:
+            return
+        await self._update_state()
+
     async def session_completed(self):
         """Updates the session status to completed."""
         self._state = _SessionStatus.COMPLETED
@@ -80,9 +89,6 @@ class Client:
         """Streams the response data to the server."""
         if not self._hosted and not self.session:
             return
-        if self._state == _SessionStatus.STARTED:
-            self._state = _SessionStatus.INPROGRESS
-            await self._update_state()
 
         response_data = json.dumps({"response_data": response_data})
         async with httpx.AsyncClient() as client:
