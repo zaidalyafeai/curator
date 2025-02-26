@@ -2,7 +2,6 @@
 
 import asyncio
 import io
-import logging
 import multiprocessing
 import os
 import tarfile
