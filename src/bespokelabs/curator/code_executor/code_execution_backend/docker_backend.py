@@ -98,15 +98,15 @@ class DockerCodeExecutionBackend(BaseCodeExecutionBackend):
             setup_container.stop()
             setup_container.remove()
 
-    def _get_created_files(self, container: docker.models.containers.Container, directory: str) -> bytes:
+    def _get_created_files(self, container: docker.models.containers.Container, directory: str) -> str:
         """Get any files created during code execution."""
         # Get all files in the directory as a tar archive
-        bits, _ = container.get_archive(directory)
+        bits, _ = container.get_archive(directory, encode_stream=True)
         bio = io.BytesIO()
         for chunk in bits:
             bio.write(chunk)
         bio.seek(0)
-        return bio.getvalue()
+        return str(bio.getvalue())
 
     def _create_execution_container(self, volume_name: str) -> docker.models.containers.Container:
         """Create the main execution container."""
@@ -114,31 +114,42 @@ class DockerCodeExecutionBackend(BaseCodeExecutionBackend):
         return self.client.containers.create(
             self.PYTHON_IMAGE,
             command=[  # noqa: E501
-                f"python {self.WORKSPACE_DIR}/program.py < {self.WORKSPACE_DIR}/input.txt > {self.WORKSPACE_DIR}/output.txt 2> {self.WORKSPACE_DIR}/error.txt"
+                f"bash -c python {self.WORKSPACE_DIR}/program.py < {self.WORKSPACE_DIR}/input.txt > {self.WORKSPACE_DIR}/output.txt 2> {self.WORKSPACE_DIR}/error.txt; echo $? > {self.WORKSPACE_DIR}/exit_code.txt"  # noqa: E501
             ],
             volumes={volume_name: {"bind": self.WORKSPACE_DIR, "mode": "rw"}},
             working_dir=self.WORKSPACE_DIR,
             entrypoint=["/bin/sh", "-c"],
+            user="root",
         )
 
     def _handle_execution_result(self, container, status_code: int) -> CodeExecutionOutput:
         """Handle the execution result and create appropriate output."""
+        stdout = self._get_container_file(container, f"{self.WORKSPACE_DIR}/output.txt")
+        stderr = self._get_container_file(container, f"{self.WORKSPACE_DIR}/error.txt")
+        files = self._get_created_files(container, self.WORKSPACE_DIR)
+
         if status_code == 0:
             return CodeExecutionOutput(
                 message="success",
-                stdout=self._get_container_file(container, f"{self.WORKSPACE_DIR}/output.txt"),
-                stderr=self._get_container_file(container, f"{self.WORKSPACE_DIR}/error.txt"),
-                files=self._get_created_files(container, self.WORKSPACE_DIR),
+                stdout=stdout,
+                stderr=stderr,
+                files=files,
             )
+
+        # Create a more descriptive error message
+        error_message = f"Program exited with status code {status_code}"
+        if stderr:
+            error_message = f"{error_message}\n\nError details:\n{stderr}"
+
         return CodeExecutionOutput(
             message="error",
-            error=f"Program exited with status code {status_code}",
-            stdout=self._get_container_file(container, f"{self.WORKSPACE_DIR}/output.txt"),
-            stderr=self._get_container_file(container, f"{self.WORKSPACE_DIR}/error.txt"),
-            files=self._get_created_files(container, self.WORKSPACE_DIR),
+            error=error_message,
+            stdout=stdout,
+            stderr=stderr,
+            files=files,
         )
 
-    async def execute_standard_input_request(self, code: str, code_input: str, execution_params: CodeExecutionRequestParams) -> CodeExecutionResponse:
+    async def execute_standard_input_request(self, code: str, code_input: str, execution_params: CodeExecutionRequestParams) -> CodeExecutionOutput:
         """Execute code in Docker container."""
         self._ensure_image()
 
@@ -156,27 +167,35 @@ class DockerCodeExecutionBackend(BaseCodeExecutionBackend):
             result = container.wait(timeout=execution_params.timeout)
             output = self._handle_execution_result(container, result["StatusCode"])
 
+        except docker.errors.ContainerError as e:
+            output = CodeExecutionOutput(message="error", error=f"Docker container error: {str(e)}\n\nExit code: {e.exit_status}\n\nStderr: {e.stderr}")
+        except docker.errors.ImageNotFound as e:
+            output = CodeExecutionOutput(message="error", error=f"Docker image not found: {str(e)}")
+        except docker.errors.APIError as e:
+            output = CodeExecutionOutput(message="error", error=f"Docker API error: {str(e)}")
         except Exception as e:
-            output = CodeExecutionOutput(message="error", error=str(e))
-
+            output = CodeExecutionOutput(message="error", error=f"Error during code execution: {str(e)}\n\nType: {type(e).__name__}")
         finally:
-            # Cleanup
-            if container:
-                try:
-                    container.stop()
-                    container.remove()
-                except Exception as e:
-                    logger.error(f"Error during container cleanup: {e}")
+            # Clean up but capture any errors during cleanup
+            try:
+                if container:
+                    # Before removing, try to get logs
+                    logs = container.logs(stdout=True, stderr=True).decode("utf-8", errors="replace")
+                    if logs and "error" in output.message:
+                        output.error += f"\n\nContainer logs:\n{logs}"
+                    container.remove(force=True)
+                if volume:
+                    try:
+                        volume.remove(force=True)
+                    except Exception as e:
+                        logger.warning(f"Error removing volume: {str(e)}")
+                for f in [code_file, input_file]:
+                    if os.path.exists(f):
+                        os.unlink(f)
 
-            if volume:
-                try:
-                    volume.remove()
-                except Exception as e:
-                    logger.error(f"Error during volume cleanup: {e}")
-
-            for f in [code_file, input_file]:
-                if os.path.exists(f):
-                    os.unlink(f)
+            except Exception as cleanup_error:
+                if "error" in output.message:
+                    output.error += f"\n\nCleanup error: {str(cleanup_error)}"
 
         return output
 

@@ -102,4 +102,5 @@ omit = [
     "src/bespokelabs/curator/install_ui.py",
     "src/bespokelabs/curator/status_tracker/offline_status_tracker.py",
     "src/bespokelabs/curator/code_executor/*",
+    "src/bespokelabs/examples/code-execution/*",
 ]
