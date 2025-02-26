@@ -1,6 +1,6 @@
 # Code Verification Example
 
-This example demonstrates how to use Curator's code execution functionality with Ray backend for executing code on large datasets. It shows how to verify code solutions against expected outputs, which is useful for evaluating code generation models or testing programming assignments.
+This example demonstrates how to use Curator's code execution functionality with Ray backend for executing code on large datasets. It shows how to verify code solutions against expected outputs, which is useful for evaluating code generation models or testing programming assignments. This approach is used in projects like [OpenThoughts](https://www.open-thoughts.ai/) and [Bespoke-Stratos](https://www.bespokelabs.ai/blog/bespoke-stratos-the-unreasonable-effectiveness-of-reasoning-distillation) for code evaluation.
 
 ## Overview
 
@@ -14,7 +14,6 @@ The example shows how to:
 ## Setup
 
 Install dependencies:
-
 ```bash
 pip install -r requirements.txt
 ```

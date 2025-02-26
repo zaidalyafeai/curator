@@ -139,38 +139,6 @@ class ManimCodeGenerator(curator.LLM):
         }
 
 
-def generate_manim_codes(dataset_path, output_dir="manim_code"):
-    """Generate manim code for all concepts in a dataset at once
-
-    Args:
-        dataset_path: Path to the concepts dataset
-        output_dir: Directory to save generated code
-
-    Returns:
-        Path to the directory with generated code
-    """
-    # Create output directory
-    os.makedirs(output_dir, exist_ok=True)
-    code_dir = os.path.join(output_dir, "python_files")
-    os.makedirs(code_dir, exist_ok=True)
-
-    # Load the dataset
-    dataset = load_from_disk(dataset_path)
-    logger.info(f"Loaded dataset with {len(dataset)} concepts")
-
-    # Initialize the code generator
-    code_generator = ManimCodeGenerator(model_name="anthropic/claude-3-7-sonnet-20250219", generation_params={"max_tokens": 32768})
-
-    # Generate code for all concepts in a single pass
-    logger.info(f"Generating manim code for all {len(dataset)} concepts at once")
-    results_dataset = code_generator(dataset)
-
-    # Save the dataset with code
-    results_dataset.push_to_hub("pimpalgaonkar/manim_codes_10k_full", private=True)
-
-    # Save individual Python files
-
-
 def main(dataset_name, output_dataset_name):
     """Verify concepts by generating code for a few samples
 
@@ -182,7 +150,7 @@ def main(dataset_name, output_dataset_name):
         List of sample results
     """
     # Load the dataset
-    dataset = load_dataset(dataset_name)
+    dataset = load_dataset(dataset_name, split="train")
 
     os.environ["HOSTED_CURATOR_VIEWER"] = "1"
     # Initialize the code generator
@@ -197,7 +165,7 @@ def main(dataset_name, output_dataset_name):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_name", type=str, default="pimpalgaonkar/math_scripts")
+    parser.add_argument("--dataset_name", type=str, default="pimpalgaonkar/math_scripts_dataset")
     parser.add_argument("--output_dataset_name", type=str, default="pimpalgaonkar/manim_codes_10k_full")
     args = parser.parse_args()
 

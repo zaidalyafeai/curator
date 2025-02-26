@@ -151,8 +151,8 @@ def execute_manim_code(dataset_name="pimpalgaonkar/manim_codes_10k", output_data
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Execute Manim code from a dataset and save the resulting videos.")
-    parser.add_argument("--dataset_name", type=str, default="pimpalgaonkar/manim_codes_10k", help="Path or name of the dataset containing manim code")
-    parser.add_argument("--output_dataset_name", type=str, default="pimpalgaonkar/manim_animations_10k", help="Name for the output dataset on the Hub")
+    parser.add_argument("--dataset_name", type=str, default="pimpalgaonkar/math_codes_dataset", help="Path or name of the dataset containing manim code")
+    parser.add_argument("--output_dataset_name", type=str, default="pimpalgaonkar/math_animations_dataset", help="Name for the output dataset on the Hub")
     return parser.parse_args()
 
 

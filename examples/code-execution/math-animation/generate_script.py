@@ -3,7 +3,7 @@ import logging
 import os
 from typing import Dict, List
 
-from datasets import Dataset
+from datasets import Dataset, load_dataset
 from pydantic import BaseModel, Field
 
 from bespokelabs import curator
