@@ -90,7 +90,6 @@ if __name__ == "__main__":
                     video_file = os.path.join(temp_dir, "workspace/media/videos/temp_animation/720p30/video.mp4")
                     if os.path.exists(video_file):
                         # Copy the video file to the output dataset
-                        print("Video found")
                         input["video"] = open(video_file, "rb").read()
                     else:
                         # raise Exception("Video file not found")
@@ -102,8 +101,6 @@ if __name__ == "__main__":
                 traceback.print_exc()
                 print("Error extracting files")
         # If no files were found, return the input with an error message
-        for k, v in output.model_dump().items():
-            input[f"result_{k}"] = v
 
         return input
 

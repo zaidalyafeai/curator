@@ -154,7 +154,15 @@ def main(dataset_name, output_dataset_name):
 
     os.environ["HOSTED_CURATOR_VIEWER"] = "1"
     # Initialize the code generator
-    code_generator = ManimCodeGenerator(model_name="claude-3-7-sonnet-20250219", generation_params={"max_tokens": 37286}, batch=True)
+    code_generator = ManimCodeGenerator(
+        model_name="claude-3-7-sonnet-20250219",
+        generation_params={"max_tokens": 32768, "thinking": {"type": "enabled", "budget_tokens": 16384}},
+        batch=True,
+        backend_params={
+            "batch_size": 25,
+            "require_all_responses": False,
+        },
+    )
 
     # Generate code for samples
     results = code_generator(dataset)
