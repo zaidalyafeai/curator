@@ -15,8 +15,7 @@ from docker.errors import DockerException
 
 from bespokelabs.curator.code_executor.code_execution_backend.base_backend import BaseCodeExecutionBackend
 from bespokelabs.curator.code_executor.types import CodeAPIRequest, CodeExecutionOutput, CodeExecutionRequestParams, CodeExecutionResponse
-
-logger = logging.getLogger(__name__)
+from bespokelabs.curator.log import logger
 
 
 class DockerCodeExecutionBackend(BaseCodeExecutionBackend):

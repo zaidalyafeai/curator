@@ -1,4 +1,3 @@
-import logging
 import os
 import uuid
 from dataclasses import dataclass
@@ -7,8 +6,6 @@ from typing import ClassVar, Optional
 import posthog
 
 from bespokelabs.curator.constants import _DEFAULT_CACHE_DIR
-
-logger = logging.getLogger(__name__)
 
 
 def _random_distinct_id():
@@ -63,6 +60,7 @@ class PosthogClient:
         """Set up the PostHog client with configuration settings."""
         posthog.project_api_key = self.config.api_key
         posthog.debug = self.config.debug
+        posthog.disable_geoip = False
 
         if self.config.host:
             posthog.host = self.config.host

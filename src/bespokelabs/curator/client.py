@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import typing as t
 import uuid
@@ -8,9 +7,7 @@ import httpx
 import requests
 
 from bespokelabs.curator.constants import BASE_CLIENT_URL, PUBLIC_CURATOR_VIEWER_DATASET_URL
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+from bespokelabs.curator.log import logger
 
 
 class _SessionStatus:
@@ -25,11 +22,12 @@ class _SessionStatus:
 class Client:
     """A class to represent the client for the Curator Viewer."""
 
-    def __init__(self) -> None:
+    def __init__(self, hosted: bool = False) -> None:
         """Initialize the client."""
         self._session = None
         self._state = None
         self._hosted = os.environ.get("HOSTED_CURATOR_VIEWER") in ["True", "true", "1", "t"]
+        self._hosted = self._hosted or hosted
 
     @property
     def session(self):
@@ -46,7 +44,7 @@ class Client:
         """Get the curator viewer URL."""
         return f"{PUBLIC_CURATOR_VIEWER_DATASET_URL}/{self.session}" if self.session else None
 
-    def create_session(self, metadata: t.Dict):
+    def create_session(self, metadata: t.Dict) -> str | None:
         """Sends a POST request to the server to create a session."""
         if not self.hosted:
             return str(uuid.uuid4().hex)
@@ -81,6 +79,13 @@ class Client:
     async def session_completed(self):
         """Updates the session status to completed."""
         self._state = _SessionStatus.COMPLETED
+        if not self._hosted and not self.session:
+            return
+        await self._update_state()
+
+    async def session_failed(self):
+        """Updates the session status to failed."""
+        self._state = _SessionStatus.FAILED
         if not self._hosted and not self.session:
             return
         await self._update_state()
