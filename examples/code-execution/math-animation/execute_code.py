@@ -54,17 +54,6 @@ if __name__ == "__main__":
 """
         return rendering_code
 
-    def code_input(self, input: Dict) -> str:
-        """No code input required.
-
-        Args:
-            input: The input dictionary
-
-        Returns:
-            An empty string
-        """
-        return ""
-
     def code_output(self, input: Dict, output) -> Dict:
         """Postprocess the code execution output.
 

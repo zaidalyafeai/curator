@@ -72,7 +72,13 @@ plt.close()
             str: JSON-serialized chart data
         """
         # create sample data for the chart
-        chart_data = {"x": [1, 2, 3, 4, 5], "y": [2, 4, 6, 8, 10], "title": "Sample Line Chart", "xlabel": "X Axis", "ylabel": "Y Axis"}
+        chart_data = {
+            "x": [1, 2, 3, 4, 5],
+            "y": [2, 4, 6, 8, 10],
+            "title": "Sample Line Chart",
+            "xlabel": "X Axis",
+            "ylabel": "Y Axis",
+        }
         return json.dumps(chart_data)
 
     def code_output(self, row, execution_output):

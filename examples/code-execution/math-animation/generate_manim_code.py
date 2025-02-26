@@ -117,9 +117,15 @@ class ManimCodeGenerator(curator.LLM):
         """
 
     def parse(self, input: Dict, response: Dict) -> Dict:
-        # Extract information from the concept for the result
-        #
+        """Parse the response from the model.
 
+        Args:
+            input: The input dictionary
+            response: The response from the model
+
+        Returns:
+            The parsed response
+        """
         title = input.get("title", "Mathematical Concept")
         # Create a sanitized filename from the title
         sanitized_title = title.lower().replace(" ", "_")
