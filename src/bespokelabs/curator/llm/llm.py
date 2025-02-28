@@ -93,7 +93,9 @@ class LLM:
             Other backend params:
                 - Online:
                     - max_requests_per_minute: Maximum number of requests per minute for rate limiting
-                    - max_tokens_per_minute: Maximum number of tokens per minute for rate limiting
+                    - max_tokens_per_minute: Maximum number of tokens per minute for rate limiting (combined input and output)
+                    - max_input_tokens_per_minute: Maximum number of input tokens per minute for rate limiting
+                    - max_output_tokens_per_minute: Maximum number of output tokens per minute for rate limiting
                     - seconds_to_pause_on_rate_limit: Number of seconds to pause when rate limited
 
                 - Batch:

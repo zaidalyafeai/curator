@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 from abc import abstractmethod
+from collections import Counter
 from typing import Optional
 
 import aiofiles
@@ -471,13 +472,23 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         # appending allows for the resubmitted resumed batch
 
         stream_response_tasks = []
+        invalid_finish_responses = []
+        failed_processed_responses = []
         async with aiofiles.open(response_file, "a") as f:
             for raw_response in responses:
                 request_idx = int(raw_response["custom_id"])
                 generic_request = generic_request_map[request_idx]
                 generic_response = self.parse_api_specific_response(raw_response, generic_request, batch)
+
+                if generic_response.finish_reason in self.config.invalid_finish_reasons:
+                    invalid_finish_responses.append({"request_id": request_idx, "finish_reason": generic_response.finish_reason})
+                    continue
+
                 processed_responses = self._process_response(generic_response)
                 generic_response.parsed_response_message = processed_responses
+                if processed_responses is None:
+                    failed_processed_responses.append(request_idx)
+                    continue
 
                 # Write response to file
                 response_dump = generic_response.model_dump(mode="json")
@@ -498,6 +509,13 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
                 stream_response_tasks.append(self.viewer_client.stream_response(json.dumps(response_dump), idx))
 
         await asyncio.gather(*stream_response_tasks)
+        if failed_processed_responses:
+            logger.warning(f"Batch {batch.id} has {len(failed_processed_responses)} failed responses due to parse function errors.")
+
+        if invalid_finish_responses:
+            logger.warning(f"Batch {batch.id} has {len(invalid_finish_responses)} invalid finish responses. Please check the logs above for details.")
+            invalid_finish_reasons = dict(Counter([response["finish_reason"] for response in invalid_finish_responses]))
+            logger.warning(f"Invalid finish responses: {invalid_finish_reasons}")
 
         # Update tracker with token usage and cost stats
         self.tracker.update_token_and_cost(total_token_usage, total_cost)
