@@ -19,7 +19,7 @@
 </div>
 
 <div align="center">
-[ English | <a href="README_zh.md">中文</a> ]
+[ English | <a href="docs/README_zh.md">中文</a> ]
 </div>
 
 ## 🎉 What's New 
@@ -308,7 +308,7 @@ npm -v # should print `10.9.0`
 
 ## Contributing
 Thank you to all the contributors for making this project possible!
-Please follow [these instructions](CONTRIBUTING.md) on how to contribute.
+Please follow [these instructions](docs/CONTRIBUTING.md) on how to contribute.
 
 ## Citation
 If you find Curator useful, please consider citing us!
