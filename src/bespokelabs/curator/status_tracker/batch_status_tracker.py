@@ -69,6 +69,15 @@ class BatchStatusTracker(BaseModel):
         """Start the progress tracker with rich console output."""
         self._console = _CONSOLE if console is None else console
 
+        # Safety check: ensure any existing live display is stopped
+        if hasattr(self._console, "_live") and self._console._live is not None:
+            try:
+                self._console._live.stop()
+                self._console._live = None
+            except Exception:
+                # If stopping fails, just set to None
+                self._console._live = None
+
         # Create progress bar display
         self._progress = Progress(
             BarColumn(bar_width=None),
