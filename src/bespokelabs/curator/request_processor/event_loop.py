@@ -1,8 +1,6 @@
 import asyncio
 
 import nest_asyncio
-from rich.console import Console
-from rich.live import Live
 
 
 def run_in_event_loop(coroutine):
