@@ -106,6 +106,15 @@ class OnlineStatusTracker:
         """Start the tracker."""
         self._console = _CONSOLE if console is None else console
 
+        # Safety check: ensure any existing live display is stopped
+        if hasattr(self._console, "_live") and self._console._live is not None:
+            try:
+                self._console._live.stop()
+                self._console._live = None
+            except Exception:
+                # If stopping fails, just set to None
+                self._console._live = None
+
         # Create progress bar display
         self._progress = Progress(
             BarColumn(bar_width=None),
@@ -304,13 +313,25 @@ class OnlineStatusTracker:
         table.add_row("Total Input Tokens", f"{self.total_prompt_tokens:,}")
         table.add_row("Total Output Tokens", f"{self.total_completion_tokens:,}")
         if self.num_tasks_succeeded > 0:
-            table.add_row("Average Tokens per Request", f"{int(self.total_tokens / self.num_tasks_succeeded)}")
-            table.add_row("Average Input Tokens", f"{int(self.total_prompt_tokens / self.num_tasks_succeeded)}")
-            table.add_row("Average Output Tokens", f"{int(self.total_completion_tokens / self.num_tasks_succeeded)}")
+            table.add_row(
+                "Average Tokens per Request",
+                f"{int(self.total_tokens / self.num_tasks_succeeded)}",
+            )
+            table.add_row(
+                "Average Input Tokens",
+                f"{int(self.total_prompt_tokens / self.num_tasks_succeeded)}",
+            )
+            table.add_row(
+                "Average Output Tokens",
+                f"{int(self.total_completion_tokens / self.num_tasks_succeeded)}",
+            )
         # Cost Statistics
         table.add_row("Costs", "", style="bold magenta")
         table.add_row("Total Cost", f"[red]${self.total_cost:.3f}[/red]")
-        table.add_row("Average Cost per Request", f"[red]${self.total_cost / max(1, self.num_tasks_succeeded):.3f}[/red]")
+        table.add_row(
+            "Average Cost per Request",
+            f"[red]${self.total_cost / max(1, self.num_tasks_succeeded):.3f}[/red]",
+        )
 
         table.add_row("Input Cost per 1M Tokens", self.input_cost_str)
         table.add_row("Output Cost per 1M Tokens", self.output_cost_str)
@@ -324,7 +345,10 @@ class OnlineStatusTracker:
         output_tpm = self.total_completion_tokens / max(0.001, elapsed_minutes)
 
         table.add_row("Total Time", f"{elapsed_time:.2f}s")
-        table.add_row("Average Time per Request", f"{elapsed_time / max(1, self.num_tasks_succeeded):.2f}s")
+        table.add_row(
+            "Average Time per Request",
+            f"{elapsed_time / max(1, self.num_tasks_succeeded):.2f}s",
+        )
         table.add_row("Requests per Minute", f"{rpm:.1f}")
         table.add_row("Max Concurrent Requests", str(self.max_concurrent_requests_seen))
         table.add_row("Input Tokens per Minute", f"{input_tpm:.1f}")
@@ -385,7 +409,8 @@ class OnlineStatusTracker:
                 )
             if self.max_tokens_per_minute.output is not None:
                 self.available_token_capacity.output = min(
-                    self.available_token_capacity.output + self.max_tokens_per_minute.output * seconds_since_update / 60.0, self.max_tokens_per_minute.output
+                    self.available_token_capacity.output + self.max_tokens_per_minute.output * seconds_since_update / 60.0,
+                    self.max_tokens_per_minute.output,
                 )
 
         self.last_update_time = current_time
