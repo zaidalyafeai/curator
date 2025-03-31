@@ -1,8 +1,8 @@
-import os
 
 from bespokelabs import curator
 
 # To visualize the dataset on Curator viewer, you can set CURATOR_VIEWER=1 environment variable, or set it here:
+# import os
 # os.environ["CURATOR_VIEWER"]="1"
 
 
