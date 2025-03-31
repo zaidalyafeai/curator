@@ -1,6 +1,5 @@
-
-#Get a key from https://console.mistral.ai/api-keys. Please note Mistral's experimental keys do not work with batch mode. Choose pay per use.
-#Set environment variable to MISTRAL_API_KEY='<ENTER_API_KEY>'
+# Get a key from https://console.mistral.ai/api-keys. Please note Mistral's experimental keys do not work with batch mode. Choose pay per use.
+# Set environment variable to MISTRAL_API_KEY='<ENTER_API_KEY>'
 
 from bespokelabs import curator
 
