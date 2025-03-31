@@ -278,6 +278,7 @@ See documentation:
 * [Anthropic batch mode](https://docs.bespokelabs.ai/bespoke-curator/how-to-guides/using-anthropic-for-batch-inference)
 * [Gemini batch mode](https://docs.bespokelabs.ai/bespoke-curator/how-to-guides/using-gemini-for-batch-inference)
 * [kluster.ai batch mode](https://docs.bespokelabs.ai/bespoke-curator/how-to-guides/using-kluster.ai-for-batch-inference)
+* [Mistral batch mode](https://docs.bespokelabs.ai/bespoke-curator/how-to-guides/using-mistral-for-batch-inference)
 
 ## Bespoke Curator Viewer
 The hosted curator viewer is a rich interface to visualize data -- and makes visually inspecting the data much easier.
