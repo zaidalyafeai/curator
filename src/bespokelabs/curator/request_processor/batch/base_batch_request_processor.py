@@ -52,7 +52,7 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
             config: Configuration object containing batch processing parameters.
         """
         super().__init__(config)
-        self._tracker_console = None  # Add this line to store console for testing
+        self._tracker_console = None
 
     @property
     def backend(self) -> str:
@@ -296,12 +296,16 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
         if os.path.exists(self.batch_objects_file):
             with open(self.batch_objects_file, "r") as f:
                 self.tracker = BatchStatusTracker.model_validate_json(f.read())
-                self.tracker.viewer_client = self._viewer_client
+                self.tracker.viewer_client = self._viewer_client  # Note that viewer_client is not serialized
             logger.info(f"Loaded existing tracker from {self.batch_objects_file}")
         else:
             self.tracker = BatchStatusTracker(
                 unsubmitted_request_files=set(request_files),
                 viewer_client=self._viewer_client,
+                compatible_provider=self.compatible_provider,
+                model=self.prompt_formatter.model_name,
+                n_total_requests=self.total_requests,
+                completion_window=self.config.completion_window,
             )
 
         self.tracker.model = self.prompt_formatter.model_name
@@ -491,7 +495,12 @@ class BaseBatchRequestProcessor(BaseRequestProcessor):
                 generic_response = self.parse_api_specific_response(raw_response, generic_request, batch)
 
                 if generic_response.finish_reason in self.config.invalid_finish_reasons:
-                    invalid_finish_responses.append({"request_id": request_idx, "finish_reason": generic_response.finish_reason})
+                    invalid_finish_responses.append(
+                        {
+                            "request_id": request_idx,
+                            "finish_reason": generic_response.finish_reason,
+                        }
+                    )
                     continue
 
                 processed_responses = self._process_response(generic_response)
