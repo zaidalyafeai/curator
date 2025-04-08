@@ -4,6 +4,10 @@ from datasets import Dataset, load_dataset
 
 from bespokelabs import curator
 
+from dotenv import load_dotenv
+
+from utils import count_char_types
+load_dotenv("../../.env")
 
 class Prompter(curator.LLM):
     """A recipe generator that generates recipes for different cuisines."""
@@ -15,29 +19,25 @@ class Prompter(curator.LLM):
     def validate(self, response: str) -> bool:
         """Validate the model response is mostly in Arabic."""
         ## calcualte the percentage of Arabic and English characters in the response
-        english_chars = "abcdefghijklmnopqrstuvwxyz"    
-        arabic_chars = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي"
-        other_chars = ".,!?'\" "
-        chars = sum(1 for char in response if char.lower() in english_chars + arabic_chars + other_chars) 
-        return chars / len(response) > 0.9
+        counts = count_char_types(response)
+        return (counts['other_language_count'][0] / len(response)) < 0.05
 
     def parse(self, input: dict, response: str) -> dict:
         """Parse the model response along with the input to the model into the desired output format.."""
-        if not self.validate(response):
-            response = "[This is not a valid response]"
         return {
             "answer": response,
+            "valid" : self.validate(response),
         }
 
 
 def main():
     dataset = load_dataset("arbml/CIDAR", trust_remote_code=True)["train"].select(
-        range(10)
+        range(100)
     )
-
-    os.environ['DEEPSEEK_API_KEY'] = os.environ['DEEPSEEK_API_KEY']
+    model_name = "openrouter/quasar-alpha"
+    model_name = f"openrouter/{model_name}"
     llm = Prompter(
-        model_name="deepseek-chat",
+        model_name=model_name,
         backend_params={
             "max_requests_per_minute": 10000,
             "max_tokens_per_minute": 10000000,
