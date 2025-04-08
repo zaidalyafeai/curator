@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 import aiofiles
 import pyarrow
+from datasets import Dataset
 from pydantic import BaseModel, ValidationError
 
 from bespokelabs.curator.constants import _CACHE_MSG, _INTERNAL_PROMPT_KEY
@@ -455,6 +456,36 @@ class BaseRequestProcessor(ABC):
                 if self.config.require_all_responses:
                     os.remove(dataset_file)
                     raise ValueError(f"Some requests failed and require_all_responses is True. {error_sample_msg}")
+            # Create a file with all failed requests
+            logger.info("Creating a file with all failed requests")
+            failed_requests_file = os.path.join(self.working_dir, "failed_requests.jsonl")
+
+            # Read the arrow dataset file to get all successful request indices
+            successful_indices = set()
+            try:
+                dataset = Dataset.from_file(dataset_file)
+                # Extract all the original row indices that were successfully processed
+                successful_indices = set(dataset["__original_row_idx"])
+            except Exception as e:
+                logger.warning(f"Error reading dataset file to extract successful indices: {e}")
+
+            # Get all request files
+            request_files = glob.glob(os.path.join(self.working_dir, "requests_*.jsonl"))
+
+            # Write all requests that don't have corresponding entries in the dataset
+            with open(failed_requests_file, "w") as failed_file:
+                for request_file in request_files:
+                    with open(request_file, "r") as f:
+                        for line in f:
+                            try:
+                                request_data = json.loads(line.strip())
+                                original_idx = request_data.get("original_row_idx")
+                                if original_idx is not None and original_idx not in successful_indices:
+                                    failed_file.write(line)
+                            except json.JSONDecodeError:
+                                continue
+
+            logger.info(f"Created file with failed requests at {failed_requests_file}")
 
             # number of responses matches number of requests
             request_files = glob.glob(os.path.join(self.working_dir, "requests_*.jsonl"))
