@@ -1,6 +1,7 @@
+source ../../../.vllm/bin/activate
 HOST=localhost
 PORT=8787
-MODEL_PATH="/path/to/Qwen/Qwen2.5-3B-Instruct"
+MODEL_PATH="Qwen/Qwen2.5-7B-Instruct"
 CMD="
     vllm serve \
         ${MODEL_PATH} \
