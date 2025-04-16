@@ -3,3 +3,7 @@
 __pycache__
 .vscode
 .env
+src/bespokelabs/curator/viewer/*
+dcgm*
+*.png
+examples/custom/fineweb-2*

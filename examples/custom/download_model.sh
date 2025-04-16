@@ -1,0 +1,1 @@
+git clone https://Zaid:${HF_TOKEN}@huggingface.co/google/gemma-3-27b-it
