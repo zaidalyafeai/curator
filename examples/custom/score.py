@@ -51,8 +51,8 @@ After examining the extract:
 Ensure the output is valid JSON as it will be parsed using `json.loads()` in Python. 
 It should be in the following schema, don't add any extract text or json headers: 
 {
-    "score": <score>,
-    "reasoning": reasoning
+    "reasoning": <reasoning>,
+    "score": <total points>,
 }
 """
 
@@ -108,15 +108,20 @@ class Prompter(curator.LLM):
 
 def main():
 
-    fw  = load_dataset("json", data_files="fineweb-2-arb-Arab-10000.json")["train"]
-    fw = fw.select(range(10000))
+    
+    
     args = argparse.ArgumentParser()
     args.add_argument("--mode", type=str, default="vllm")
     args.add_argument("--model", type=str, default="google/gemma-3-27b-it")
     args.add_argument("--max-requests-per-minute", type=int, default=100)
     args.add_argument("--max-retries", type=int, default=50)
-
+    args.add_argument("--language", type=str, default="arb_Arab")
+    args.add_argument("--num-examples", type=int, default=10000)
     args = args.parse_args()
+
+    fw  = load_dataset("json", data_files=f"fineweb-2-{args.language}-{args.num_examples}.json")["train"]
+    fw = fw.select(range(args.num_examples))
+    
 
     HOST = "localhost"
     PORT = 8787

@@ -4,13 +4,13 @@ import argparse
 from tqdm import tqdm
 args = argparse.ArgumentParser()
 args.add_argument("--num-examples", type=int, default=1000)
-args.add_argument("--language", type=str, default="arb-Arab")
+args.add_argument("--language", type=str, default="arb_Arab")
 
 args = args.parse_args()
 
-if args.language == "arb-Arab":
+if args.language == "arb_Arab":
     dataset = load_dataset("HuggingFaceFW/fineweb-2", name=args.language, split="train", streaming=True)
-elif args.language == "eng-Latin":
+elif args.language == "eng_Latin":
     dataset = load_dataset("HuggingFaceFW/fineweb", name="CC-MAIN-2024-10", split="train", streaming=True)
 else:
     raise ValueError(f"Language {args.language} not supported")

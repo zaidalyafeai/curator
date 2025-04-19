@@ -7,3 +7,6 @@ src/bespokelabs/curator/viewer/*
 dcgm*
 *.png
 examples/custom/fineweb-2*
+examples/custom/*.err
+examples/custom/*.out
+examples/custom/.python-version

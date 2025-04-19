@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ model_name }} Details</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             padding: 20px;
@@ -31,6 +32,15 @@
             font-weight: bold;
             color: #6c757d;
         }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+        .dataset-badge {
+            margin-left: 10px;
+            font-size: 0.8em;
+        }
     </style>
 </head>
 <body>
@@ -39,12 +49,18 @@
             <a href="{{ url_for('index') }}" class="btn btn-secondary">← Back to All Models</a>
         </div>
         
-        <h1 class="mb-4">{{ model_name }}</h1>
+        <h1 class="mb-4">
+            {{ model_name }}
+            <span class="badge bg-secondary dataset-badge">{{ dataset_id }}</span>
+        </h1>
         <p>Total Requests: {{ model_data.num_requests }}</p>
+        <p>Language: {{ model_data.language }}</p>
         
         <div class="mb-4">
             <h2>Score Distribution</h2>
-            <img src="data:image/png;base64,{{ model_data.score_graph }}" alt="Score Distribution" class="img-fluid">
+            <div class="chart-container">
+                <canvas id="scoreChart"></canvas>
+            </div>
         </div>
         
         <h2>Request Details</h2>
@@ -52,15 +68,15 @@
         <!-- Sorting Controls -->
         <div class="mb-3">
             <div class="btn-group" role="group" aria-label="Sorting options">
-                <a href="{{ url_for('model_details', model_name=model_name, page=1, sort='score', order='desc') }}" 
+                <a href="{{ url_for('model_details', model_name=model_key, page=1, sort='score', order='desc') }}" 
                    class="btn btn-outline-primary {% if sort_by == 'score' and sort_order == 'desc' %}active{% endif %}">
                     Score (High to Low)
                 </a>
-                <a href="{{ url_for('model_details', model_name=model_name, page=1, sort='score', order='asc') }}" 
+                <a href="{{ url_for('model_details', model_name=model_key, page=1, sort='score', order='asc') }}" 
                    class="btn btn-outline-primary {% if sort_by == 'score' and sort_order == 'asc' %}active{% endif %}">
                     Score (Low to High)
                 </a>
-                <a href="{{ url_for('model_details', model_name=model_name, page=1) }}" 
+                <a href="{{ url_for('model_details', model_name=model_key, page=1) }}" 
                    class="btn btn-outline-primary {% if not sort_by %}active{% endif %}">
                     Default Order
                 </a>
@@ -72,7 +88,7 @@
             <ul class="pagination">
                 {% if page > 1 %}
                 <li class="page-item">
-                    <a class="page-link" href="{{ url_for('model_details', model_name=model_name, page=page-1, sort=sort_by, order=sort_order) }}" aria-label="Previous">
+                    <a class="page-link" href="{{ url_for('model_details', model_name=model_key, page=page-1, sort=sort_by, order=sort_order) }}" aria-label="Previous">
                         <span aria-hidden="true">&laquo;</span>
                     </a>
                 </li>
@@ -90,7 +106,7 @@
                 
                 {% if start_page > 1 %}
                 <li class="page-item">
-                    <a class="page-link" href="{{ url_for('model_details', model_name=model_name, page=1, sort=sort_by, order=sort_order) }}">1</a>
+                    <a class="page-link" href="{{ url_for('model_details', model_name=model_key, page=1, sort=sort_by, order=sort_order) }}">1</a>
                 </li>
                 {% if start_page > 2 %}
                 <li class="page-item disabled">
@@ -101,7 +117,7 @@
                 
                 {% for p in range(start_page, end_page + 1) %}
                 <li class="page-item {% if p == page %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('model_details', model_name=model_name, page=p, sort=sort_by, order=sort_order) }}">{{ p }}</a>
+                    <a class="page-link" href="{{ url_for('model_details', model_name=model_key, page=p, sort=sort_by, order=sort_order) }}">{{ p }}</a>
                 </li>
                 {% endfor %}
                 
@@ -112,13 +128,13 @@
                 </li>
                 {% endif %}
                 <li class="page-item">
-                    <a class="page-link" href="{{ url_for('model_details', model_name=model_name, page=total_pages, sort=sort_by, order=sort_order) }}">{{ total_pages }}</a>
+                    <a class="page-link" href="{{ url_for('model_details', model_name=model_key, page=total_pages, sort=sort_by, order=sort_order) }}">{{ total_pages }}</a>
                 </li>
                 {% endif %}
                 
                 {% if page < total_pages %}
                 <li class="page-item">
-                    <a class="page-link" href="{{ url_for('model_details', model_name=model_name, page=page+1, sort=sort_by, order=sort_order) }}" aria-label="Next">
+                    <a class="page-link" href="{{ url_for('model_details', model_name=model_key, page=page+1, sort=sort_by, order=sort_order) }}" aria-label="Next">
                         <span aria-hidden="true">&raquo;</span>
                     </a>
                 </li>
@@ -153,12 +169,56 @@
             </div>
             {% endfor %}
         </div>
-        
-        <!-- Removed pagination controls from here as they're now at the top -->
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Initialize the score distribution chart
+        const ctx = document.getElementById('scoreChart').getContext('2d');
+        const scoreData = {{ model_data.score_distribution|tojson|safe }};
+        
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: scoreData.labels,
+                datasets: [{
+                    label: 'Number of Requests',
+                    data: scoreData.data,
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Number of Requests'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Score'
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Requests: ${context.raw}`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
         // Update search functionality to work with pagination
         document.getElementById('searchInput').addEventListener('input', function() {
             const searchText = this.value.toLowerCase();
