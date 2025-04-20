@@ -49,7 +49,7 @@ After examining the extract:
 - Briefly reason your total score, up to 100 words "score: <reasoning>".
 - Conclude with the score using the format: "score: <total points>"
 Ensure the output is valid JSON as it will be parsed using `json.loads()` in Python. 
-It should be in the following schema, don't add any extract text or json headers: 
+It should be in the following schema, don't add any extra text or json headers: 
 {
     "reasoning": <reasoning>,
     "score": <total points>,
