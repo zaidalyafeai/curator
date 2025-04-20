@@ -64,10 +64,9 @@ def get_models_data(force_reload=False):
                                     # Ensure score is within expected range (0-5)
                                     if score < 0 or score > 5:
                                         # print(f"Warning: Score out of expected range: {score}")
-                                        score = 0
+                                        continue
                                 except (ValueError, TypeError):
-                                    # print(f"Error converting score to number: {score_raw}")
-                                    score = 0
+                                    continue
                                 
                                 reasoning = json_data["parsed_response_message"][0]["reasoning"]
                                 if '"score":' in reasoning and '"reasoning":' in reasoning:                                    
@@ -82,7 +81,8 @@ def get_models_data(force_reload=False):
                                         # print(reasoning)
                                         continue
                                 input_text = json_data["raw_request"]["messages"][0]["content"].split("The extract:")[2].strip()
-                                
+                                # if score == 5:
+                                #     print(json_data["parsed_response_message"][0])
                                 requests_data.append({
                                     "score": score,
                                     "reasoning": reasoning,
@@ -90,7 +90,7 @@ def get_models_data(force_reload=False):
                                 })
                             except Exception as e:
                                 # print(f"Error processing line: {e}")
-                                pass
+                                continue
 
                 majority_langauge = max(set(langauges), key=langauges.count)
                 if model_name and requests_data:
@@ -168,7 +168,7 @@ def model_details(model_name):
         requests_data = model_data['requests_data'].copy()
         # Ensure scores are properly converted to numbers before sorting
         if sort_by == 'score':
-            print("sorting by score")
+            # print("sorting by score")
             # Make sure scores are treated as numeric values
             for req in requests_data:
                 if isinstance(req['score'], str):
