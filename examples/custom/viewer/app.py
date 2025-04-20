@@ -9,113 +9,123 @@ from io import BytesIO
 import base64
 import time
 from tqdm import tqdm
+import concurrent.futures
+import multiprocessing
+from functools import lru_cache
 
 app = Flask(__name__)
 
 # Global variables to store cached data and timestamp
 models_data_cache = {}
 last_cache_update = 0
-CACHE_VALIDITY_PERIOD = 300  # Cache validity in seconds (5 minutes)
+CACHE_VALIDITY_PERIOD = 1800  # Cache validity in seconds (30 minutes)
 
+def process_single_file(file_path):
+    """Process a single model file and return its data."""
+    requests_data = []
+    model_name = ""
+    languages = []
+    dataset_id = os.path.basename(file_path)
+    
+    responses_file = os.path.join(file_path, "responses_0.jsonl")
+    if not os.path.exists(responses_file):
+        return None
+        
+    try:
+        with open(responses_file, "r") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                    
+                try:
+                    json_data = json.loads(line)
+                    model_name = json_data["raw_request"]["model"]
+                    language = json_data["generic_request"]["original_row"]["language"]
+                    languages.append(language)
+                    
+                    try:
+                        score_raw = json_data["parsed_response_message"][0]["score"]
+                        score = float(score_raw) if isinstance(score_raw, str) else float(score_raw)
+                        if score < 0 or score > 5:
+                            continue
+                    except (ValueError, TypeError):
+                        continue
+                    
+                    reasoning = json_data["parsed_response_message"][0]["reasoning"]
+                    if '"score":' in reasoning and '"reasoning":' in reasoning:
+                        try:
+                            if '",\n}' in reasoning:
+                                reasoning = reasoning.replace('",\n}', '"}')
+                            json_data = json.loads(reasoning)
+                            score = json_data["score"]
+                            reasoning = json_data["reasoning"]
+                        except:
+                            continue
+                            
+                    input_text = json_data["raw_request"]["messages"][0]["content"].split("The extract:")[2].strip()
+                    requests_data.append({
+                        "score": score,
+                        "reasoning": reasoning,
+                        "input_text": input_text
+                    })
+                except Exception:
+                    continue
+                    
+        if not model_name or not requests_data:
+            return None
+            
+        majority_language = max(set(languages), key=languages.count)
+        scores = [request["score"] for request in requests_data]
+        score_counts = collections.Counter(scores)
+        
+        score_distribution = {
+            "labels": list(range(6)),
+            "data": [score_counts.get(i, 0) for i in range(6)]
+        }
+        
+        model_key = f"{model_name}-{majority_language}-{dataset_id}"
+        return {
+            model_key: {
+                "num_requests": len(requests_data),
+                "requests_data": requests_data,
+                "score_distribution": score_distribution,
+                "language": majority_language,
+                "dataset_id": dataset_id,
+                "model_name": model_name
+            }
+        }
+    except Exception:
+        return None
+
+@lru_cache(maxsize=1)
 def get_models_data(force_reload=False):
     """Process all model data and return a dictionary of models with their details.
-    Uses caching to avoid reloading data on every request."""
+    Uses caching and parallel processing to improve performance."""
     global models_data_cache, last_cache_update
     
     current_time = time.time()
-    # Check if cache is valid and not empty
     if not force_reload and models_data_cache and (current_time - last_cache_update) < CACHE_VALIDITY_PERIOD:
         return models_data_cache
     
-    # Cache is invalid or empty, reload data
     models_data = {}
     base_path = "/ibex/ai/home/alyafez/.cache/curator/"
     
-    # Get list of files first to show progress
-    files = [f for f in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, f))]
+    # Get list of directories to process
+    files = [os.path.join(base_path, f) for f in os.listdir(base_path) 
+             if os.path.isdir(os.path.join(base_path, f))]
     
-    for file in tqdm(files, desc="Processing model data"):
-        file_path = os.path.join(base_path, file)
-        if os.path.isdir(file_path):
-            responses_file = os.path.join(file_path, "responses_0.jsonl")
-            if os.path.exists(responses_file):
-                requests_data = []
-                model_name = ""
-                langauges = []
-                dataset_id = file  # Use the directory name as dataset identifier
-                with open(responses_file, "r") as f:
-                    for line in f:
-                        if line.strip():
-                            try:
-                                json_data = json.loads(line)
-                                if ", }" in line:
-                                    json_data = json_data.replace(", }", "}")
-                                model_name = json_data["raw_request"]["model"]
-                                language = json_data["generic_request"]["original_row"]["language"]
-                                langauges.append(language)
-                                # Properly parse and convert the score to a numeric value
-                                try:
-                                    score_raw = json_data["parsed_response_message"][0]["score"]
-                                    # If score is a string, try to convert to float
-                                    if isinstance(score_raw, str):
-                                        score = float(score_raw)
-                                    else:
-                                        score = float(score_raw)
-                                    # Ensure score is within expected range (0-5)
-                                    if score < 0 or score > 5:
-                                        # print(f"Warning: Score out of expected range: {score}")
-                                        continue
-                                except (ValueError, TypeError):
-                                    continue
-                                
-                                reasoning = json_data["parsed_response_message"][0]["reasoning"]
-                                if '"score":' in reasoning and '"reasoning":' in reasoning:                                    
-                                    try:
-                                        if '",\n}' in reasoning:
-                                            reasoning = reasoning.replace('",\n}', '"}')
-                                        json_data = json.loads(reasoning)
-                                        score = json_data["score"]
-                                        reasoning = json_data["reasoning"]
-                                    except:
-                                        # print("error")
-                                        # print(reasoning)
-                                        continue
-                                input_text = json_data["raw_request"]["messages"][0]["content"].split("The extract:")[2].strip()
-                                # if score == 5:
-                                #     print(json_data["parsed_response_message"][0])
-                                requests_data.append({
-                                    "score": score,
-                                    "reasoning": reasoning,
-                                    "input_text": input_text
-                                })
-                            except Exception as e:
-                                # print(f"Error processing line: {e}")
-                                continue
-
-                majority_langauge = max(set(langauges), key=langauges.count)
-                if model_name and requests_data:
-                    # Calculate score distribution
-                    scores = [request["score"] for request in requests_data]
-                    score_counts = collections.Counter(scores)
-                    
-                    # Create score distribution data
-                    score_distribution = {
-                        "labels": list(range(6)),  # Scores from 0 to 5
-                        "data": [score_counts.get(i, 0) for i in range(6)]
-                    }
-
-                    # Create a unique key combining model name, language, and dataset ID
-                    model_key = f"{model_name}-{majority_langauge}-{dataset_id}"
-                    models_data[model_key] = {
-                        "num_requests": len(requests_data),
-                        "requests_data": requests_data,
-                        "score_distribution": score_distribution,
-                        "language": majority_langauge,
-                        "dataset_id": dataset_id,
-                        "model_name": model_name
-                    }
+    # Use ThreadPoolExecutor for parallel processing
+    with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+        future_to_file = {executor.submit(process_single_file, file_path): file_path 
+                         for file_path in files}
+        
+        for future in tqdm(concurrent.futures.as_completed(future_to_file), 
+                         total=len(files), 
+                         desc="Processing model data"):
+            result = future.result()
+            if result:
+                models_data.update(result)
     
-    # Update cache and timestamp
     models_data_cache = models_data
     last_cache_update = current_time
     
