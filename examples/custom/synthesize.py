@@ -27,11 +27,13 @@ The extract: <EXAMPLE>.
 After examining the extract:
 - Generated text: "generated_text: <generated_text>"
 - Reason why the generated text has educational value: "reasoning: <reasoning>"
+- Extract 3 keywords that best describe the topic  of the generated text: "keywords: <keywords>"
 Ensure the output is valid JSON as it will be parsed using `json.loads()` in Python. 
 It should be in the following schema, don't add any extra text or json headers: 
 {
-    "reasoning": <reasoning>,
     "generated_text": <generated_text>,
+    "reasoning": <reasoning>,
+    "keywords": <keywords>,
 }
 """
 
@@ -57,11 +59,13 @@ class Prompter(curator.LLM):
             return {
                 "generated_text": response["generated_text"],
                 "reasoning": response["reasoning"],
+                "keywords": response["keywords"],
             }
         except Exception as e:
             return {
                 "generated_text": "",
-                "reasoning": response
+                "reasoning": response,
+                "keywords": "",
             }
 
 
