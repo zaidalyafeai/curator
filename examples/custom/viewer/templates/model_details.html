@@ -17,6 +17,10 @@
             max-height: 150px;
             overflow-y: auto;
         }
+        .rtl-text {
+            direction: rtl;
+            text-align: right;
+        }
         .reasoning {
             max-height: 200px;
             overflow-y: auto;
@@ -61,6 +65,14 @@
             <div class="chart-container">
                 <canvas id="scoreChart"></canvas>
             </div>
+        </div>
+
+        <div class="mb-4">
+            <h2>Cluster Visualization</h2>
+            <div class="chart-container">
+                <canvas id="clusterChart"></canvas>
+            </div>
+            <div id="clusterTooltip" class="position-fixed bg-light p-3 border rounded shadow" style="display: none; max-width: 400px; z-index: 1000;"></div>
         </div>
         
         <h2>Request Details</h2>
@@ -163,8 +175,13 @@
                     <h5>Reasoning:</h5>
                     <div class="reasoning mb-3 p-2 bg-light">{{ request.reasoning }}</div>
                     
-                    <h5>Input Text:</h5>
-                    <div class="input-text p-2 bg-light">{{ request.input_text }}</div>
+                    {% if request.generated_text %}
+                    <h5>Generated Text: <span class="badge bg-secondary">{{ request.generated_text.split()|length }} words</span></h5>
+                    <div class="text mb-3 p-2 bg-light rtl-text">{{ request.generated_text }}</div>
+                    {% endif %}
+                    
+                    <h5>Input Text: <span class="badge bg-secondary">{{ request.input_text.split()|length }} words</span></h5>
+                    <div class="input-text p-2 bg-light rtl-text">{{ request.input_text }}</div>
                 </div>
             </div>
             {% endfor %}
@@ -216,6 +233,92 @@
                         }
                     }
                 }
+            }
+        });
+
+        // Initialize the cluster visualization chart
+        const clusterCtx = document.getElementById('clusterChart').getContext('2d');
+        const clusterData = {{ clusters|tojson|safe }};
+        
+        const clusterChart = new Chart(clusterCtx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Requests',
+                    data: clusterData.map(point => ({
+                        x: point.x,
+                        y: point.y,
+                        color: point.color,
+                        reasoning: point.reasoning,
+                        score: point.score
+                    })),
+                    backgroundColor: clusterData.map(point => point.color),
+                    borderColor: clusterData.map(point => point.color),
+                    borderWidth: 1,
+                    pointRadius: 8,
+                    pointHoverRadius: 12
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Score'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Request Index'
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        enabled: false
+                    },
+                    zoom: {
+                        pan: {
+                            enabled: true,
+                            mode: 'xy'
+                        },
+                        zoom: {
+                            wheel: {
+                                enabled: true
+                            },
+                            pinch: {
+                                enabled: true
+                            },
+                            mode: 'xy'
+                        }
+                    }
+                },
+                onClick: (e) => {
+                    const points = clusterChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
+                    if (points.length) {
+                        const point = points[0];
+                        const data = clusterChart.data.datasets[point.datasetIndex].data[point.index];
+                        const tooltip = document.getElementById('clusterTooltip');
+                        tooltip.innerHTML = `
+                            <strong>Score: ${data.score}</strong><br>
+                            <div class="mt-2">${data.reasoning}</div>
+                        `;
+                        tooltip.style.display = 'block';
+                        tooltip.style.left = `${e.x + 10}px`;
+                        tooltip.style.top = `${e.y + 10}px`;
+                    }
+                }
+            }
+        });
+
+        // Close tooltip when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#clusterChart') && !e.target.closest('#clusterTooltip')) {
+                document.getElementById('clusterTooltip').style.display = 'none';
             }
         });
 

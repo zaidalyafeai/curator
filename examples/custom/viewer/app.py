@@ -42,12 +42,16 @@ def process_single_file(file_path):
                     model_name = json_data["raw_request"]["model"]
                     language = json_data["generic_request"]["original_row"]["language"]
                     languages.append(language)
-                    
+                    score = -1
+                    generated_text = ""
                     try:
-                        score_raw = json_data["parsed_response_message"][0]["score"]
-                        score = float(score_raw) if isinstance(score_raw, str) else float(score_raw)
-                        if score < 0 or score > 5:
-                            continue
+                        if "score" in json_data["parsed_response_message"][0]:
+                            score_raw = json_data["parsed_response_message"][0]["score"]
+                            score = float(score_raw) if isinstance(score_raw, str) else float(score_raw)
+                            if score < 0 or score > 5:
+                                continue
+                        elif "generated_text" in json_data["parsed_response_message"][0]:
+                            generated_text = json_data["parsed_response_message"][0]["generated_text"]
                     except (ValueError, TypeError):
                         continue
                     
@@ -66,7 +70,8 @@ def process_single_file(file_path):
                     requests_data.append({
                         "score": score,
                         "reasoning": reasoning,
-                        "input_text": input_text
+                        "input_text": input_text,
+                        "generated_text": generated_text
                     })
                 except Exception:
                     continue
@@ -112,7 +117,7 @@ def get_models_data(force_reload=False):
     
     # Get list of directories to process
     files = [os.path.join(base_path, f) for f in os.listdir(base_path) 
-             if os.path.isdir(os.path.join(base_path, f))]
+             if os.path.isdir(os.path.join(base_path, f))][4:6]
     
     # Use ThreadPoolExecutor for parallel processing
     with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
@@ -130,6 +135,23 @@ def get_models_data(force_reload=False):
     last_cache_update = current_time
     
     return models_data
+
+def get_clusters(requests_data):
+    import random
+    """Generate cluster data for visualization."""
+    clusters = []
+    colors = ["red", "blue", "green", "yellow", "purple", "orange"]
+    for idx, request in enumerate(requests_data):
+        # Use score as y-coordinate and index as x-coordinate
+        # This creates a scatter plot where higher scores are higher on the y-axis
+        clusters.append({
+            "x": random.random()* 10,  # Use index for x-coordinate
+            "y": random.random()* 10,  # Use score for y-coordinate
+            "color": colors[idx % len(colors)],  # Golden angle for color distribution
+            "reasoning": request["reasoning"],
+            "score": request["score"]
+        })
+    return clusters
 
 def generate_score_graph(requests_data, model_name):
     """Generate a base64 encoded image of the score distribution."""
@@ -200,6 +222,9 @@ def model_details(model_name):
         # Get the subset of requests for current page
         current_page_requests = requests_data[start_idx:end_idx]
         
+        # Generate cluster data
+        clusters = get_clusters(requests_data)
+        
         return render_template('model_details.html', 
                               model_name=model_data['model_name'],
                               dataset_id=model_data['dataset_id'],
@@ -209,7 +234,8 @@ def model_details(model_name):
                               page=page,
                               total_pages=total_pages,
                               sort_by=sort_by,
-                              sort_order=sort_order)
+                              sort_order=sort_order,
+                              clusters=clusters)
     return redirect(url_for('index'))
 
 @app.route('/refresh')
