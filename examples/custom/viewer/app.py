@@ -20,7 +20,7 @@ models_data_cache = {}
 last_cache_update = 0
 CACHE_VALIDITY_PERIOD = 1800  # Cache validity in seconds (30 minutes)
 
-def process_single_file(file_path):
+def process_single_file(file_path, max_num_requests=1000):
     """Process a single model file and return its data."""
     requests_data = []
     model_name = ""
@@ -34,6 +34,8 @@ def process_single_file(file_path):
     try:
         with open(responses_file, "r") as f:
             for line in f:
+                if max_num_requests and len(requests_data) >= max_num_requests:
+                    break
                 if not line.strip():
                     continue
                     
@@ -113,11 +115,11 @@ def get_models_data(force_reload=False):
         return models_data_cache
     
     models_data = {}
-    base_path = "/ibex/ai/home/alyafez/.cache/curator/"
+    base_path = "/home/alyafez/.cache/curator/"
     
     # Get list of directories to process
     files = [os.path.join(base_path, f) for f in os.listdir(base_path) 
-             if os.path.isdir(os.path.join(base_path, f))][4:6]
+             if os.path.isdir(os.path.join(base_path, f))]
     
     # Use ThreadPoolExecutor for parallel processing
     with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
@@ -136,18 +138,31 @@ def get_models_data(force_reload=False):
     
     return models_data
 
-def get_clusters(requests_data):
+def get_clusters(requests_data, num_clusters=20):
+    from sentence_transformers import SentenceTransformer
+    from sklearn.manifold import TSNE
+    from sklearn.cluster import KMeans
     import random
-    """Generate cluster data for visualization."""
+
+    embedder = SentenceTransformer('all-MiniLM-L6-v2')
+    embeddings = embedder.encode([request["reasoning"] for request in requests_data], show_progress_bar=True)
+    model = TSNE(n_components=2, random_state=0)
+    tsne_data = model.fit_transform(embeddings)
+
+
+    clustering = KMeans(n_clusters = num_clusters).fit(tsne_data)
+    labels = clustering.labels_
     clusters = []
-    colors = ["red", "blue", "green", "yellow", "purple", "orange"]
+    # use coloring scheme from https://www.rapidtables.com/web/color/RGB_Color.html
+    colors = [f"#{random.randint(0, 0xFFFFFF):06x}" for _ in range(num_clusters)]
+
     for idx, request in enumerate(requests_data):
-        # Use score as y-coordinate and index as x-coordinate
-        # This creates a scatter plot where higher scores are higher on the y-axis
+        # Use t-SNE coordinates for x and y
+        # Use KMeans cluster label for color
         clusters.append({
-            "x": random.random()* 10,  # Use index for x-coordinate
-            "y": random.random()* 10,  # Use score for y-coordinate
-            "color": colors[idx % len(colors)],  # Golden angle for color distribution
+            "x": float(tsne_data[idx, 0]),  # Use t-SNE x-coordinate
+            "y": float(tsne_data[idx, 1]),  # Use t-SNE y-coordinate
+            "color": colors[labels[idx] % len(colors)],  # Use cluster label for color
             "reasoning": request["reasoning"],
             "score": request["score"]
         })
