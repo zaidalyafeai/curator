@@ -46,6 +46,7 @@ def process_single_file(file_path, max_num_requests=1000):
                     languages.append(language)
                     score = -1
                     generated_text = ""
+                    keywords = ""
                     try:
                         if "score" in json_data["parsed_response_message"][0]:
                             score_raw = json_data["parsed_response_message"][0]["score"]
@@ -54,6 +55,10 @@ def process_single_file(file_path, max_num_requests=1000):
                                 continue
                         elif "generated_text" in json_data["parsed_response_message"][0]:
                             generated_text = json_data["parsed_response_message"][0]["generated_text"]
+                        if "keywords" in json_data["parsed_response_message"][0]:
+                            keywords = json_data["parsed_response_message"][0]["keywords"]
+                        else:
+                            continue
                     except (ValueError, TypeError):
                         continue
                     
@@ -73,7 +78,8 @@ def process_single_file(file_path, max_num_requests=1000):
                         "score": score,
                         "reasoning": reasoning,
                         "input_text": input_text,
-                        "generated_text": generated_text
+                        "generated_text": generated_text,
+                        "keywords": keywords
                     })
                 except Exception:
                     continue
@@ -138,33 +144,39 @@ def get_models_data(force_reload=False):
     
     return models_data
 
-def get_clusters(requests_data, num_clusters=20):
+def get_clusters(requests_data, num_clusters=20, highlight_score=None):
     from sentence_transformers import SentenceTransformer
     from sklearn.manifold import TSNE
     from sklearn.cluster import KMeans
     import random
 
     embedder = SentenceTransformer('all-MiniLM-L6-v2')
-    embeddings = embedder.encode([request["reasoning"] for request in requests_data], show_progress_bar=True)
+    embeddings = embedder.encode([" ".join(request["keywords"]) for request in requests_data], show_progress_bar=True)
     model = TSNE(n_components=2, random_state=0)
     tsne_data = model.fit_transform(embeddings)
-
 
     clustering = KMeans(n_clusters = num_clusters).fit(tsne_data)
     labels = clustering.labels_
     clusters = []
-    # use coloring scheme from https://www.rapidtables.com/web/color/RGB_Color.html
-    colors = [f"#{random.randint(0, 0xFFFFFF):06x}" for _ in range(num_clusters)]
+    
+    # Default color scheme - all gray except highlighted score
+    if highlight_score is None:
+        color_hex = ["#000000", "#0000FF", "#00FF00", "#FF0000", "#FFFF00", "#FF00FF"] # different colors
+    else:
+        color_hex = ["#808080"] * 6  # All gray by default
+        color_hex[highlight_score] = "#0000FF"  # Highlight selected score in blue
+    
+    colors = [f"{color_hex[i]}80" for i in range(6)]
 
     for idx, request in enumerate(requests_data):
-        # Use t-SNE coordinates for x and y
-        # Use KMeans cluster label for color
         clusters.append({
-            "x": float(tsne_data[idx, 0]),  # Use t-SNE x-coordinate
-            "y": float(tsne_data[idx, 1]),  # Use t-SNE y-coordinate
-            "color": colors[labels[idx] % len(colors)],  # Use cluster label for color
+            "x": float(tsne_data[idx, 0]),
+            "y": float(tsne_data[idx, 1]),
+            # "color": colors[int(request["score"]) % len(colors)],
+            "color": colors[labels[idx] % len(colors)],
             "reasoning": request["reasoning"],
-            "score": request["score"]
+            "score": request["score"],
+            "keywords": request["keywords"]
         })
     return clusters
 
@@ -198,7 +210,6 @@ def index():
 
 @app.route('/model/<model_name>')
 def model_details(model_name):
-    """Detail page for a specific model."""
     models_data = get_models_data()
     if model_name in models_data:
         model_data = models_data[model_name]
@@ -211,46 +222,44 @@ def model_details(model_name):
         sort_by = request.args.get('sort', None)
         sort_order = request.args.get('order', 'desc')
         
+        # Get highlight score parameter
+        highlight_score = request.args.get('highlight_score', type=int, default=None)
+        
         # Create a deep copy of the requests data to avoid modifying the cached data
         requests_data = model_data['requests_data'].copy()
-        # Ensure scores are properly converted to numbers before sorting
+        
         if sort_by == 'score':
-            # print("sorting by score")
-            # Make sure scores are treated as numeric values
             for req in requests_data:
                 if isinstance(req['score'], str):
                     try:
                         req['score'] = float(req['score'])
                     except ValueError:
-                        # Handle non-numeric scores - set to 0 or another default
                         req['score'] = 0
             
-            # Sort with proper numeric comparison
             requests_data.sort(key=lambda x: float(x['score']), reverse=(sort_order == 'desc'))
         
-        # Calculate pagination indices
         total_requests = len(requests_data)
         total_pages = (total_requests + per_page - 1) // per_page
         start_idx = (page - 1) * per_page
         end_idx = min(start_idx + per_page, total_requests)
         
-        # Get the subset of requests for current page
         current_page_requests = requests_data[start_idx:end_idx]
         
-        # Generate cluster data
-        clusters = get_clusters(requests_data)
+        # Generate cluster data with highlight parameter
+        clusters = get_clusters(requests_data, highlight_score=highlight_score)
         
         return render_template('model_details.html', 
                               model_name=model_data['model_name'],
                               dataset_id=model_data['dataset_id'],
-                              model_key=model_name,  # Pass the full model key to the template
+                              model_key=model_name,
                               model_data=model_data,
                               current_page_requests=current_page_requests,
                               page=page,
                               total_pages=total_pages,
                               sort_by=sort_by,
                               sort_order=sort_order,
-                              clusters=clusters)
+                              clusters=clusters,
+                              highlight_score=highlight_score)
     return redirect(url_for('index'))
 
 @app.route('/refresh')
