@@ -46,11 +46,13 @@ style is easy to follow and offers profound and thorough insights into the subje
 devoid of any non-educational or complex content.
 The extract: <EXAMPLE>.
 After examining the extract:
-- Briefly reason your total score, up to 100 words "score: <reasoning>".
+- Generate a list of keywords that are relevant to the extract, up to 10 keywords. The keywords MUST be in English.
+- Briefly reason your total score, up to 100 words "score: <reasoning>". The reasoning MUST be in English.
 - Conclude with the score using the format: "score: <total points>"
 Ensure the output is valid JSON as it will be parsed using `json.loads()` in Python. 
 It should be in the following schema, don't add any extra text or json headers: 
 {
+    "keywords": <keywords>,
     "reasoning": <reasoning>,
     "score": <total points>,
 }
@@ -98,11 +100,13 @@ class Prompter(curator.LLM):
             return {
                 "score": response["score"],
                 "reasoning": response["reasoning"],
+                "keywords": response["keywords"]
             }
         except Exception as e:
             return {
                 "score": 0,
-                "reasoning": response
+                "reasoning": response,
+                "keywords": ""
             }
 
 
