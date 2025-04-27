@@ -66,7 +66,9 @@
             margin-bottom: 15px;
         }
         .reasoning-panel .score {
-            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .reasoning-panel .keywords {
             margin-bottom: 10px;
         }
         .reasoning-panel .reasoning-text {
@@ -312,7 +314,8 @@
                         color: point.color,
                         reasoning: point.reasoning,
                         keywords: point.keywords,
-                        score: point.score
+                        score: point.score,
+                        input_text: point.input_text
                     })),
                     backgroundColor: clusterData.map(point => point.color),
                     borderColor: clusterData.map(point => point.color),
@@ -414,9 +417,10 @@
                         const data = clusterChart.data.datasets[point.datasetIndex].data[point.index];
                         const reasoningPanel = document.getElementById('selectedReasoning');
                         reasoningPanel.innerHTML = `
-                            <div class="score">Score: ${data.score}</div>
-                            <div class="keywords">Keywords: ${data.keywords}</div>
-                            <div class="reasoning-text">${data.reasoning}</div>
+                            <div class="score"><b>Score:</b> ${data.score}</div>
+                            <div class="keywords"><b>Keywords:</b> ${data.keywords}</div>
+                            <div class="reasoning-text"><b>Reasoning:</b> ${data.reasoning}</div>
+                            <div class="input-text"><b>Input Text:</b> ${data.input_text}</div>
                         `;
                         reasoningPanel.classList.remove('no-selection');
                     }

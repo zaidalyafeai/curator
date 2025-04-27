@@ -20,20 +20,20 @@ models_data_cache = {}
 last_cache_update = 0
 CACHE_VALIDITY_PERIOD = 1800  # Cache validity in seconds (30 minutes)
 
-def process_single_file(file_path, max_num_requests=1000):
+def process_single_file(file_path, max_num_requests=10000):
     """Process a single model file and return its data."""
     requests_data = []
     model_name = ""
     languages = []
     dataset_id = os.path.basename(file_path)
-    
     responses_file = os.path.join(file_path, "responses_0.jsonl")
     if not os.path.exists(responses_file):
+        print(f"File {responses_file} does not exist")
         return None
         
     try:
         with open(responses_file, "r") as f:
-            for line in f:
+            for line in tqdm(f, total=max_num_requests):
                 if max_num_requests and len(requests_data) >= max_num_requests:
                     break
                 if not line.strip():
@@ -47,7 +47,10 @@ def process_single_file(file_path, max_num_requests=1000):
                     score = -1
                     generated_text = ""
                     keywords = ""
+                    # if "gemma" not in model_name:
+                    #     break
                     try:
+                        # print(json_data["parsed_response_message"][0].keys())
                         if "score" in json_data["parsed_response_message"][0]:
                             score_raw = json_data["parsed_response_message"][0]["score"]
                             score = float(score_raw) if isinstance(score_raw, str) else float(score_raw)
@@ -58,7 +61,7 @@ def process_single_file(file_path, max_num_requests=1000):
                         if "keywords" in json_data["parsed_response_message"][0]:
                             keywords = json_data["parsed_response_message"][0]["keywords"]
                         else:
-                            continue
+                            pass
                     except (ValueError, TypeError):
                         continue
                     
@@ -163,20 +166,21 @@ def get_clusters(requests_data, num_clusters=20, highlight_score=None):
     if highlight_score is None:
         color_hex = ["#000000", "#0000FF", "#00FF00", "#FF0000", "#FFFF00", "#FF00FF"] # different colors
     else:
-        color_hex = ["#808080"] * 6  # All gray by default
+        color_hex = ["#80808020"] * 6  # All gray by default
         color_hex[highlight_score] = "#0000FF"  # Highlight selected score in blue
     
-    colors = [f"{color_hex[i]}80" for i in range(6)]
+    colors = [f"{color_hex[i]}" for i in range(6)]
 
     for idx, request in enumerate(requests_data):
         clusters.append({
             "x": float(tsne_data[idx, 0]),
             "y": float(tsne_data[idx, 1]),
-            # "color": colors[int(request["score"]) % len(colors)],
-            "color": colors[labels[idx] % len(colors)],
+            "color": colors[int(request["score"]) % len(colors)],
+            # "color": colors[labels[idx] % len(colors)],
             "reasoning": request["reasoning"],
             "score": request["score"],
-            "keywords": request["keywords"]
+            "keywords": request["keywords"],
+            "input_text": request["input_text"]
         })
     return clusters
 

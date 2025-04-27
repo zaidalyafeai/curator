@@ -57,6 +57,8 @@ It should be in the following schema, don't add any extra text or json headers:
     "reasoning": <reasoning>,
     "score": <total points>,
 }
+Remember to assess from the AI Assistant perspective, utilizing web search knowledge as necessary. 
+To evaluate the response in alignment with this additive scoring model, we’ll systematically attribute points based on the outlined criteria.
 """
 
 
