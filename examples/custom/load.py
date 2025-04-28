@@ -2,8 +2,8 @@ from datasets import load_dataset, Dataset
 from viewer.app import process_single_file
 import os
 
-base_path = "/home/alyafez/.cache/curator/"
-file_name = "296807f0d64da337"
+base_path = "/ibex/ai/home/alyafez/.cache/curator/"
+file_name = os.listdir(base_path)[2]
 file_path = os.path.join(base_path, file_name)
 print(file_path)
 data = process_single_file(file_path, max_num_requests=None)

@@ -5,6 +5,7 @@ from transformers import (
     Trainer,
     AutoModelForSequenceClassification,
     AutoModel,
+    AutoConfig,
 )
 from datasets import load_dataset, ClassLabel, load_from_disk
 import numpy as np
@@ -12,7 +13,7 @@ import evaluate
 import argparse
 import os
 from sklearn.metrics import classification_report, confusion_matrix
-
+from models import ModelForSequenceClassification
 
 def compute_metrics(eval_pred):
     precision_metric = evaluate.load("precision")
@@ -46,10 +47,11 @@ def compute_metrics(eval_pred):
 
 
 def main(args):
+    ckpt_dir = os.path.join(args.checkpoint_dir, "final")
     dataset = load_from_disk(args.dataset_name)
     dataset = dataset.map(
         lambda x: {args.target_column: np.clip(int(x[args.target_column]), 0, 5)},
-        num_proc=8,
+        num_proc=16,
     )
 
     dataset = dataset.cast_column(
@@ -58,20 +60,37 @@ def main(args):
     dataset = dataset.train_test_split(
         train_size=0.9, seed=42, stratify_by_column=args.target_column
     )
-
-    model = AutoModel.from_pretrained(
-        args.base_model_name,
-        num_labels=1,
-        classifier_dropout=0.0,
-        hidden_dropout_prob=0.0,
-        output_hidden_states=False,
+    if args.eval_only:
+        model = AutoModelForSequenceClassification.from_pretrained(
+            ckpt_dir,
+            num_labels=1,
+            classifier_dropout=0.0,
+            hidden_dropout_prob=0.0,
         trust_remote_code=True,
-    )
-    tokenizer = AutoTokenizer.from_pretrained(
-        args.base_model_name,
-        model_max_length=min(model.config.max_position_embeddings, 512),
-        trust_remote_code=True,
-    )
+        )
+        tokenizer = AutoTokenizer.from_pretrained(
+            args.base_model_name,
+            model_max_length=min(model.config.max_position_embeddings, 512),
+            trust_remote_code=True,
+        )
+    else:
+        config = AutoConfig.from_pretrained(args.base_model_name, num_labels=1, classifier_dropout=0.0, hidden_dropout_prob=0.0)   
+        model = ModelForSequenceClassification(
+            config,
+        )
+        model.bert = AutoModel.from_pretrained(args.base_model_name, trust_remote_code=True)
+        # model = AutoModelForSequenceClassification.from_pretrained(
+        #     args.base_model_name,
+        #     num_labels=1,
+        #     classifier_dropout=0.0,
+        #     hidden_dropout_prob=0.0,
+        #     trust_remote_code=True,
+        # )
+        tokenizer = AutoTokenizer.from_pretrained(
+            args.base_model_name,
+            model_max_length=min(model.config.max_position_embeddings, 512),
+            trust_remote_code=True,
+        )
     if not tokenizer.pad_token:
         tokenizer.pad_token = tokenizer.eos_token
 
@@ -83,10 +102,19 @@ def main(args):
     dataset = dataset.map(preprocess, batched=True)
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
-    
-    for param in model.base_model.embeddings.parameters():
+    batch_size = 128
+    eval_batch_size = 64
+    num_train_epochs = 2
+    num_steps = len(dataset["train"]) // batch_size
+    eval_steps = num_steps // 2
+    save_steps = num_steps // 2
+    logging_steps = num_steps // 6
+    learning_rate = 3e-4
+    seed = 0
+
+    for param in model.bert.embeddings.parameters():
         param.requires_grad = False
-    for param in model.base_model.encoder.parameters():
+    for param in model.bert.encoder.parameters():
         param.requires_grad = False
 
     training_args = TrainingArguments(
@@ -94,14 +122,14 @@ def main(args):
         hub_model_id=args.output_model_name,
         eval_strategy="steps",
         save_strategy="steps",
-        eval_steps=500,
-        save_steps=500,
-        logging_steps=100,
-        learning_rate=3e-4,
-        num_train_epochs=20,
-        seed=0,
-        per_device_train_batch_size=8,
-        per_device_eval_batch_size=8,
+        eval_steps=eval_steps,
+        save_steps=save_steps,
+        logging_steps=logging_steps,
+        learning_rate=learning_rate,
+        num_train_epochs=num_train_epochs,
+        seed=seed,
+        per_device_train_batch_size=batch_size,
+        per_device_eval_batch_size=eval_batch_size,
         eval_on_start=True,
         load_best_model_at_end=True,
         metric_for_best_model="f1_macro",
@@ -119,30 +147,36 @@ def main(args):
         data_collator=data_collator,
         compute_metrics=compute_metrics,
     )
-
-    trainer.train()
-    trainer.save_model(os.path.join(args.checkpoint_dir, "final"))
+    if not args.eval_only:
+        trainer.train()
+        trainer.save_model(ckpt_dir)
+    else:
+        trainer.evaluate()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    base_model = "UBC-NLP/ARBERT"
+    model_name = base_model.split("/")[-1].lower()
     parser.add_argument(
-        "--base_model_name", type=str, default="Snowflake/snowflake-arctic-embed-l-v2.0"
+        "--base_model_name", type=str, default=base_model
     )
     parser.add_argument(
         "--dataset_name",
         type=str,
         default="annotated_dataset",
     )
-    parser.add_argument("--input_column", type=str, default="reasoning")
+    
+    parser.add_argument("--input_column", type=str, default="input_text")
     parser.add_argument("--target_column", type=str, default="score")
+    parser.add_argument("--eval_only", action="store_true")
     parser.add_argument(
         "--checkpoint_dir",
         type=str,
-        default="/home/alyafez/Documents/Development/curator/examples/custom/snowflake_classifier",
+        default=f"/ibex/ai/home/alyafez/curator/examples/custom/{model_name}_classifier",
     )
     parser.add_argument(
-        "--output_model_name", type=str, default="snowflake_classifier"
+        "--output_model_name", type=str, default=f"{model_name}_classifier"
     )
     args = parser.parse_args()
 

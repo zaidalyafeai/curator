@@ -19,6 +19,7 @@ CMD="
 	    --served-model-name ${MODEL_NAME}
     "
 echo "Starting VLLM server on ${HOST}:${PORT}..."
-bash -c "${CMD}" & python score.py --mode vllm-online --model ${MODEL_NAME} --language ${LANGUAGE} --num-examples 100000
+bash -c "${CMD}" & python score.py --mode vllm-online --model ${MODEL_NAME} --language ${LANGUAGE} --num-examples 10000
+# bash -c "${CMD}" & python synthesize.py --mode vllm-online --model ${MODEL_NAME} --language ${LANGUAGE} --num-examples 10000
 bash killall.sh
 exit 0
