@@ -6,6 +6,7 @@ from transformers import (
     AutoModelForSequenceClassification,
     AutoModel,
     AutoConfig,
+    ModernBertForSequenceClassification
 )
 from datasets import load_dataset, ClassLabel, load_from_disk
 import numpy as np
@@ -74,18 +75,24 @@ def main(args):
             trust_remote_code=True,
         )
     else:
-        config = AutoConfig.from_pretrained(args.base_model_name, num_labels=1, classifier_dropout=0.0, hidden_dropout_prob=0.0)   
-        model = ModelForSequenceClassification(
-            config,
-        )
-        model.bert = AutoModel.from_pretrained(args.base_model_name, trust_remote_code=True)
-        # model = AutoModelForSequenceClassification.from_pretrained(
-        #     args.base_model_name,
-        #     num_labels=1,
-        #     classifier_dropout=0.0,
-        #     hidden_dropout_prob=0.0,
-        #     trust_remote_code=True,
-        # )
+        if "modernbert" in args.base_model_name.lower():
+            config = AutoConfig.from_pretrained(args.base_model_name, num_labels=1, classifier_dropout=0.0, hidden_dropout_prob=0.0)   
+            model = ModernBertForSequenceClassification(
+                config,
+            )
+        else:
+            # config = AutoConfig.from_pretrained(args.base_model_name, num_labels=1, classifier_dropout=0.0, hidden_dropout_prob=0.0)   
+            # model = ModelForSequenceClassification(
+            #     config,
+            #     base_model_name=args.base_model_name,
+            # )
+            model = AutoModelForSequenceClassification.from_pretrained(
+                args.base_model_name,
+                num_labels=1,
+                classifier_dropout=0.0,
+                hidden_dropout_prob=0.0,
+                trust_remote_code=True,
+            )
         tokenizer = AutoTokenizer.from_pretrained(
             args.base_model_name,
             model_max_length=min(model.config.max_position_embeddings, 512),
@@ -112,10 +119,31 @@ def main(args):
     learning_rate = 3e-4
     seed = 0
 
-    for param in model.bert.embeddings.parameters():
-        param.requires_grad = False
-    for param in model.bert.encoder.parameters():
-        param.requires_grad = False
+    
+    if "modernbert" in args.base_model_name.lower():
+        for param in model.bert.layers.parameters():
+            param.requires_grad = False
+        
+        for param in model.bert.embeddings.parameters():
+            param.requires_grad = False
+    elif "embed-l-v2.0" in args.base_model_name.lower():
+        for param in model.roberta.parameters():
+            param.requires_grad = False
+        
+        for param in model.roberta.embeddings.parameters():
+            param.requires_grad = False
+    else:
+        for param in model.bert.embeddings.parameters():
+            param.requires_grad = False
+        for param in model.bert.encoder.parameters():
+            param.requires_grad = False
+
+    # show the number of trainable parameters
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Number of trainable parameters: {trainable_params}")
+    print(f"Number of total parameters: {sum(p.numel() for p in model.parameters())}")
+
+
 
     training_args = TrainingArguments(
         output_dir=args.checkpoint_dir,
@@ -156,28 +184,20 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    base_model = "UBC-NLP/ARBERT"
-    model_name = base_model.split("/")[-1].lower()
     parser.add_argument(
-        "--base_model_name", type=str, default=base_model
+        "--base_model_name", type=str, default="UBC-NLP/MARBERT"
     )
     parser.add_argument(
         "--dataset_name",
         type=str,
-        default="annotated_dataset",
+        default="annotated_dataset-100k",
     )
     
     parser.add_argument("--input_column", type=str, default="input_text")
     parser.add_argument("--target_column", type=str, default="score")
     parser.add_argument("--eval_only", action="store_true")
-    parser.add_argument(
-        "--checkpoint_dir",
-        type=str,
-        default=f"/ibex/ai/home/alyafez/curator/examples/custom/{model_name}_classifier",
-    )
-    parser.add_argument(
-        "--output_model_name", type=str, default=f"{model_name}_classifier"
-    )
     args = parser.parse_args()
-
+    model_name = args.base_model_name.split("/")[-1].lower()
+    args.checkpoint_dir = f"{model_name}_classifier-100k"
+    args.output_model_name = f"{model_name}_classifier-100k"
     main(args)

@@ -3,18 +3,15 @@ import torch.nn as nn
 from torch.nn import CrossEntropyLoss, MSELoss
 import torch
 class ModelForSequenceClassification(BertPreTrainedModel):
-    def __init__(self, config):
+    def __init__(self, config, base_model_name):
         print(config)
         super().__init__(config)
         self.num_labels = config.num_labels
         self.config = config
-
-        self.bert = BertModel(config)
+        self.bert = AutoModel.from_pretrained(base_model_name, trust_remote_code=True)
         classifier_dropout = (
             config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
-        )
-        print(config.hidden_size)
-        print(config.num_labels)
+        )        
         self.dropout = nn.Dropout(classifier_dropout)
         self.classifier = nn.Linear(config.hidden_size, config.num_labels)
 
