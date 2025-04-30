@@ -22,7 +22,8 @@ prompt = """Below is an extract from a web page. Evaluate whether the page has a
 value and could be useful in an educational setting for teaching from primary school to
 grade school levels using the additive 5-point scoring system described below. Points are
 accumulated based on the satisfaction of each criterion:
-- If the topic contains sensative or explicit content or sexual content, add 0 points.
+- Give a score of 0 if the extract contains sensative, explicit, or sexual content. Additionally,
+  score 0 if the extract has content related to drugs, suicide, violence, or any other harmful content.
 - Add 1 point if the extract provides some basic information relevant to educational top-
 ics, even if it includes some irrelevant or non-academic content like advertisements and
 promotional material.
@@ -47,7 +48,7 @@ style is easy to follow and offers profound and thorough insights into the subje
 devoid of any non-educational or complex content.
 The extract: <EXAMPLE>.
 After examining the extract:
-- Generate a list of keywords that are relevant to the extract, up to 10 keywords. The keywords MUST be in English.
+- Generate a list of keywords that are best describe the topic of the extract, up to 10 keywords. The keywords MUST be in English.
 - Briefly reason your total score, up to 100 words "score: <reasoning>". The reasoning MUST be in English.
 - Conclude with the score using the format: "score: <total points>"
 Ensure the output is valid JSON as it will be parsed using `json.loads()` in Python. 
