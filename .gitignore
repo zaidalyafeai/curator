@@ -11,5 +11,6 @@ examples/custom/*.err
 examples/custom/*.out
 examples/custom/.python-version
 examples/custom/annotated_dataset/*
-examples/custom/snowflake_classifier/*
-examples/custom/sync_files.sh
+examples/custom/*_classifier/
+examples/custom/annotated_dataset-100k
+examples/custom/arbert_classifier-100k
