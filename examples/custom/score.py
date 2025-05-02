@@ -115,22 +115,26 @@ class Prompter(curator.LLM):
 
 
 def main():
-
-    
-    
     args = argparse.ArgumentParser()
     args.add_argument("--mode", type=str, default="vllm")
     args.add_argument("--model", type=str, default="google/gemma-3-27b-it")
     args.add_argument("--max-requests-per-minute", type=int, default=100)
     args.add_argument("--max-retries", type=int, default=50)
     args.add_argument("--language", type=str, default="arb_Arab")
-    args.add_argument("--num-examples", type=int, default=10000)
+    args.add_argument("--num-examples", type=int, default=500_000)
     args = args.parse_args()
 
-    fw  = load_dataset("json", data_files=f"fineweb-2-{args.language}-{args.num_examples}.json")["train"]
-    fw = fw.select(range(args.num_examples))
+    full_data_name = f"fineweb-2-{args.language}-{args.num_examples}"
+    if os.path.exists(f"{full_data_name}.json"):
+        fw  = load_dataset("json", data_files=full_data_name)["train"]
+        fw = fw.select(range(args.num_examples))
+    elif os.path.isdir(full_data_name):
+        dataset = load_dataset("json", data_files=f"{full_data_name}/chunk_*.json")
+        fw = dataset["train"].select(range(args.num_examples))
+    else:
+        raise ValueError(f"Dataset {full_data_name} does not exist")
     
-
+    print(fw)
     HOST = "localhost"
     PORT = 8787
     if args.mode == "vllm-online":
@@ -156,7 +160,7 @@ def main():
                     model=args.model,
                     messages=[
                         {"role": "system", "content": "You are a helpful assistant."},
-                        {"role": "user", "content": "What is ai?"},
+                        {"role": "user", "content": "ping"},
                     ]
                 )
                 print("inference done")
