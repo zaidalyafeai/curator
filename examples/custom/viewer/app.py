@@ -100,6 +100,11 @@ def process_single_file(file_path, max_num_requests=10000):
         }
         
         model_key = f"{model_name}-{majority_language}-{dataset_id}"
+        # Get directory creation/modification time
+        try:
+            creation_ts = os.path.getctime(file_path)
+        except Exception:
+            creation_ts = 0
         return {
             model_key: {
                 "num_requests": len(requests_data),
@@ -107,7 +112,8 @@ def process_single_file(file_path, max_num_requests=10000):
                 "score_distribution": score_distribution,
                 "language": majority_language,
                 "dataset_id": dataset_id,
-                "model_name": model_name
+                "model_name": model_name,
+                "creation_ts": creation_ts,
             }
         }
     except Exception:
@@ -210,7 +216,11 @@ def generate_score_graph(requests_data, model_name):
 def index():
     """Home page showing all models and their request counts."""
     models_data = get_models_data()
-    return render_template('index.html', models_data=models_data)
+    # Sort by creation_ts descending
+    sorted_models = dict(
+        sorted(models_data.items(), key=lambda item: item[1].get("creation_ts", 0), reverse=True)
+    )
+    return render_template('index.html', models_data=sorted_models)
 
 @app.route('/model/<model_name>')
 def model_details(model_name):
@@ -271,6 +281,11 @@ def refresh_data():
     """Endpoint to force refresh the cached data."""
     get_models_data(force_reload=True)
     return redirect(url_for('index'))
+
+@app.template_filter('datetimeformat')
+def datetimeformat(value, format='%Y-%m-%d %H:%M'):
+    import datetime
+    return datetime.datetime.fromtimestamp(value).strftime(format)
 
 if __name__ == '__main__':
     app.run(debug=True, host='127.0.0.1', port=5000) 
