@@ -2,9 +2,12 @@ from datasets import load_dataset
 import json
 import argparse
 from tqdm import tqdm
+import os
+
 args = argparse.ArgumentParser()
-args.add_argument("--num-examples", type=int, default=1000)
+args.add_argument("--num-examples", type=int, default=500_000)
 args.add_argument("--language", type=str, default="arb_Arab")
+args.add_argument("--chunk-size", type=int, default=10000)  # Number of examples per chunk
 
 args = args.parse_args()
 
@@ -15,18 +18,26 @@ elif args.language == "eng_Latin":
 else:
     raise ValueError(f"Language {args.language} not supported")
 
+dataset = dataset.shuffle(seed=42)
 dataset = dataset.take(args.num_examples)
 
-examples = []
-for example in tqdm(dataset):
-    examples.append(example)
+# Create output directory if it doesn't exist
+output_dir = f"fineweb-2-{args.language}-{args.num_examples}"
+os.makedirs(output_dir, exist_ok=True)
 
-# save the examples to a json file
-with open(f"fineweb-2-{args.language}-{args.num_examples}.json", "w") as f:
-    json.dump(examples, f)
+# Save examples in chunks
+chunk_num = 0
+current_chunk = []
+for i, example in enumerate(tqdm(dataset, total=args.num_examples)):
+    current_chunk.append(example)
+    if len(current_chunk) >= args.chunk_size or i == args.num_examples - 1:
+        chunk_path = os.path.join(output_dir, f"chunk_{chunk_num}.json")
+        with open(chunk_path, "w") as f:
+            json.dump(current_chunk, f)
+        current_chunk = []
+        chunk_num += 1
 
-
-# load the examples from the json file using datasets
-dataset = load_dataset("json", data_files=f"fineweb-2-{args.language}-{args.num_examples}.json")
+# Load the dataset from chunks
+dataset = load_dataset("json", data_files=f"{output_dir}/chunk_*.json")
 print(dataset)
 
