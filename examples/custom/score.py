@@ -65,9 +65,14 @@ To evaluate the response in alignment with this additive scoring model, we’ll 
 
 import re
 def process_json(response):
+    if "<think>" in response:
+        thinking = response.split("<think>")[1].split("</think>")[0].strip()
+        response = response.split("</think>")[1].strip()
+    else:
+        thinking = ""
     response = response.replace("```json", "").strip()
     response = response.replace("```", "").strip()
-    return response
+    return response, thinking
 
 def extract_json(response):
         pattern = r"<output>(.*?)</output>"
@@ -98,19 +103,21 @@ class Prompter(curator.LLM):
 
     def parse(self, input: dict, response: str) -> dict:
         """Parse the model response along with the input to the model into the desired output format.."""
-        response = process_json(response)
+        response, thinking = process_json(response)
         try:
             response = json.loads(response)
             return {
                 "score": response["score"],
                 "reasoning": response["reasoning"],
-                "keywords": response["keywords"]
+                "keywords": response["keywords"],
+                "thinking": thinking
             }
         except Exception as e:
             return {
                 "score": 0,
                 "reasoning": response,
-                "keywords": ""
+                "keywords": "",
+                "thinking": thinking
             }
 
 
