@@ -24,6 +24,8 @@ grade school levels using the additive 5-point scoring system described below. P
 accumulated based on the satisfaction of each criterion:
 - Give a score of 0 if the extract contains sensative, explicit, or sexual content. Additionally,
   score 0 if the extract has content related to drugs, suicide, violence, or any other harmful content.
+  Also score 0 if the extract is a promotional material for a product or service. Further, score 0 if the extract 
+  is not coherent or is not written in a way that is easy to understand.
 - Add 1 point if the extract provides some basic information relevant to educational top-
 ics, even if it includes some irrelevant or non-academic content like advertisements and
 promotional material.
