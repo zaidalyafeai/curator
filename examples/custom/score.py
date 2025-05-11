@@ -24,6 +24,8 @@ grade school levels using the additive 5-point scoring system described below. P
 accumulated based on the satisfaction of each criterion:
 - Give a score of 0 if the extract contains sensative, explicit, or sexual content. Additionally,
   score 0 if the extract has content related to drugs, suicide, violence, or any other harmful content.
+  Also score 0 if the extract is a promotional material for a product or service. Further, score 0 if the extract 
+  is not coherent or is not written in a way that is easy to understand.
 - Add 1 point if the extract provides some basic information relevant to educational top-
 ics, even if it includes some irrelevant or non-academic content like advertisements and
 promotional material.
@@ -65,9 +67,14 @@ To evaluate the response in alignment with this additive scoring model, we’ll 
 
 import re
 def process_json(response):
+    if "<think>" in response:
+        thinking = response.split("<think>")[1].split("</think>")[0].strip()
+        response = response.split("</think>")[1].strip()
+    else:
+        thinking = ""
     response = response.replace("```json", "").strip()
     response = response.replace("```", "").strip()
-    return response
+    return response, thinking
 
 def extract_json(response):
         pattern = r"<output>(.*?)</output>"
@@ -98,39 +105,45 @@ class Prompter(curator.LLM):
 
     def parse(self, input: dict, response: str) -> dict:
         """Parse the model response along with the input to the model into the desired output format.."""
-        response = process_json(response)
+        response, thinking = process_json(response)
         try:
             response = json.loads(response)
             return {
                 "score": response["score"],
                 "reasoning": response["reasoning"],
-                "keywords": response["keywords"]
+                "keywords": response["keywords"],
+                "thinking": thinking
             }
         except Exception as e:
             return {
                 "score": 0,
                 "reasoning": response,
-                "keywords": ""
+                "keywords": "",
+                "thinking": thinking
             }
 
 
 def main():
-
-    
-    
     args = argparse.ArgumentParser()
     args.add_argument("--mode", type=str, default="vllm")
     args.add_argument("--model", type=str, default="google/gemma-3-27b-it")
     args.add_argument("--max-requests-per-minute", type=int, default=100)
     args.add_argument("--max-retries", type=int, default=50)
     args.add_argument("--language", type=str, default="arb_Arab")
-    args.add_argument("--num-examples", type=int, default=10000)
+    args.add_argument("--num-examples", type=int, default=500_000)
     args = args.parse_args()
 
-    fw  = load_dataset("json", data_files=f"fineweb-2-{args.language}-{args.num_examples}.json")["train"]
-    fw = fw.select(range(args.num_examples))
+    full_data_name = f"fineweb-2-{args.language}-{args.num_examples}"
+    if os.path.exists(f"{full_data_name}.json"):
+        fw  = load_dataset("json", data_files=full_data_name)["train"]
+        fw = fw.select(range(args.num_examples))
+    elif os.path.isdir(full_data_name):
+        dataset = load_dataset("json", data_files=f"{full_data_name}/chunk_*.json")
+        fw = dataset["train"].select(range(args.num_examples))
+    else:
+        raise ValueError(f"Dataset {full_data_name} does not exist")
     
-
+    print(fw)
     HOST = "localhost"
     PORT = 8787
     if args.mode == "vllm-online":
@@ -156,7 +169,7 @@ def main():
                     model=args.model,
                     messages=[
                         {"role": "system", "content": "You are a helpful assistant."},
-                        {"role": "user", "content": "What is ai?"},
+                        {"role": "user", "content": "ping"},
                     ]
                 )
                 print("inference done")
