@@ -313,6 +313,7 @@
                         y: point.y,
                         color: point.color,
                         reasoning: point.reasoning,
+                        thinking: point.thinking,
                         keywords: point.keywords,
                         score: point.score,
                         input_text: point.input_text
@@ -353,23 +354,37 @@
                             generateLabels: function(chart) {
                                 const datasets = chart.data.datasets;
                                 const data = datasets[0].data;
-                                const colorToScore = {};
+                                const colorToInfo = {};
                                 
-                                // Group data points by color and collect their scores
+                                // Group data points by color and collect their scores and cluster info
                                 data.forEach((point, index) => {
                                     const color = datasets[0].backgroundColor[index];
-                                    if (!colorToScore[color]) {
-                                        colorToScore[color] = [];
+                                    if (!colorToInfo[color]) {
+                                        colorToInfo[color] = {
+                                            scores: [],
+                                            clusterInfo: new Map()
+                                        };
                                     }
-                                    colorToScore[color].push(point.score);
+                                    colorToInfo[color].scores.push(point.score);
+                                    
+                                    // Track cluster info
+                                    if (point.cluster_top_keyword) {
+                                        const clusterKey = `${point.cluster_label}`;
+                                        if (!colorToInfo[color].clusterInfo.has(clusterKey)) {
+                                            colorToInfo[color].clusterInfo.set(clusterKey, point.cluster_top_keyword);
+                                        }
+                                    }
                                 });
                                 
-                                // Create legend items with average score for each color
-                                return Object.entries(colorToScore)
-                                    .map(([color, scores]) => {
-                                        const avgScore = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
+                                // Create legend items with average score and cluster info
+                                return Object.entries(colorToInfo)
+                                    .map(([color, info]) => {
+                                        const avgScore = (info.scores.reduce((a, b) => a + b, 0) / info.scores.length).toFixed(1);
+                                        const clusterInfo = Array.from(info.clusterInfo.entries())
+                                            .map(([label, keyword]) => `Cluster ${label}: ${keyword}`)
+                                            .join(', ');
                                         return {
-                                            text: `Score: ${avgScore}`,
+                                            text: `Score: ${avgScore} | ${clusterInfo}`,
                                             fillStyle: color,
                                             strokeStyle: color,
                                             lineWidth: 1,
@@ -410,7 +425,7 @@
                         }
                     }
                 },
-                onClick: (e) => {
+                onClick: function(e) {
                     const points = clusterChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
                     if (points.length) {
                         const point = points[0];
@@ -420,6 +435,7 @@
                             <div class="score"><b>Score:</b> ${data.score}</div>
                             <div class="keywords"><b>Keywords:</b> ${data.keywords}</div>
                             <div class="reasoning-text"><b>Reasoning:</b> ${data.reasoning}</div>
+                            <div class="thinking-text"><b>Thinking:</b> ${data.thinking}</div>
                             <div class="input-text"><b>Input Text:</b> ${data.input_text}</div>
                         `;
                         reasoningPanel.classList.remove('no-selection');
