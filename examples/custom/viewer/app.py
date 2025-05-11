@@ -12,6 +12,7 @@ from tqdm import tqdm
 import concurrent.futures
 import multiprocessing
 from functools import lru_cache
+from collections import Counter
 
 app = Flask(__name__)
 
@@ -64,8 +65,14 @@ def process_single_file(file_path, max_num_requests=10000):
                             pass
                     except (ValueError, TypeError):
                         continue
-                    
-                    reasoning = json_data["parsed_response_message"][0]["reasoning"]
+                    if "reasoning" in json_data["parsed_response_message"][0]:
+                        reasoning = json_data["parsed_response_message"][0]["reasoning"]
+                    else:
+                        reasoning = ""
+                    if "thinking" in json_data["parsed_response_message"][0]:
+                        thinking = json_data["parsed_response_message"][0]["thinking"]
+                    else:
+                        thinking = ""
                     if '"score":' in reasoning and '"reasoning":' in reasoning:
                         try:
                             if '",\n}' in reasoning:
@@ -82,6 +89,7 @@ def process_single_file(file_path, max_num_requests=10000):
                         "reasoning": reasoning,
                         "input_text": input_text,
                         "generated_text": generated_text,
+                        "thinking": thinking,
                         "keywords": keywords
                     })
                 except Exception:
@@ -114,6 +122,7 @@ def process_single_file(file_path, max_num_requests=10000):
                 "dataset_id": dataset_id,
                 "model_name": model_name,
                 "creation_ts": creation_ts,
+                "thinking": thinking
             }
         }
     except Exception:
@@ -134,7 +143,7 @@ def get_models_data(force_reload=False):
     
     # Get list of directories to process
     files = [os.path.join(base_path, f) for f in os.listdir(base_path) 
-             if os.path.isdir(os.path.join(base_path, f))]
+             if os.path.isdir(os.path.join(base_path, f)) if "3fc33ac3131a6579" in f or "ebdd6077a46e3e61" in f or "4f319198fd9bc057" in f]
     
     # Use ThreadPoolExecutor for parallel processing
     with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
@@ -177,16 +186,36 @@ def get_clusters(requests_data, num_clusters=20, highlight_score=None):
     
     colors = [f"{color_hex[i]}" for i in range(6)]
 
+    # Calculate most frequent keyword for each cluster
+    cluster_keywords = {}
+    for idx, label in enumerate(labels):
+        if label not in cluster_keywords:
+            cluster_keywords[label] = []
+        cluster_keywords[label].extend(requests_data[idx]["keywords"])
+
+    # Get most frequent keyword for each cluster
+    cluster_top_keywords = {}
+    for label, keywords in cluster_keywords.items():
+        if keywords:
+            counter = Counter(keywords)
+            most_common = counter.most_common(1)
+            if most_common:
+                cluster_top_keywords[label] = most_common[0][0]
+
     for idx, request in enumerate(requests_data):
+        cluster_label = labels[idx]
+        top_keyword = cluster_top_keywords.get(cluster_label, "")
         clusters.append({
             "x": float(tsne_data[idx, 0]),
             "y": float(tsne_data[idx, 1]),
             "color": colors[int(request["score"]) % len(colors)],
-            # "color": colors[labels[idx] % len(colors)],
             "reasoning": request["reasoning"],
+            "thinking": request.get("thinking", ""),
             "score": request["score"],
             "keywords": request["keywords"],
-            "input_text": request["input_text"]
+            "input_text": request["input_text"],
+            "cluster_label": int(cluster_label),
+            "cluster_top_keyword": top_keyword
         })
     return clusters
 
